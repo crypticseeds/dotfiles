@@ -133,16 +133,17 @@ on-mode-changed = []
     alt-a = 'exec-and-forget open -a /Applications/Antigravity.app'
     alt-b = 'exec-and-forget open -a /Applications/Brave\ Browser.app'
     alt-c = 'exec-and-forget open -a /Applications/Google\ Chrome.app'
-    alt-f = 'exec-and-forget open -a /System/Library/CoreServices/Finder.app'
     alt-d = 'exec-and-forget open -a /Applications/Cursor.app'
+    alt-f = 'exec-and-forget open -a /System/Library/CoreServices/Finder.app'
     alt-i = 'exec-and-forget open -a /System/Applications/Messages.app'
-
     alt-m = 'exec-and-forget open -a /System/Applications/Mail.app'
+    alt-n = 'exec-and-forget open -a /Applications/Notion.app'
     alt-o = 'exec-and-forget open -a /Applications/Obsidian.app'
     alt-p = 'exec-and-forget open -a /Applications/Proton\ Mail.app'
+    alt-s = 'exec-and-forget open -a /System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app'
+    alt-t = 'exec-and-forget open -a /Applications/Warp.app'
     alt-v = 'exec-and-forget open -a /Applications/VMware\ Fusion.app'
     alt-w = 'exec-and-forget open -a /Applications/WhatsApp.app'
-    alt-t = 'exec-and-forget open -a /Applications/Warp.app'
     alt-z = 'exec-and-forget open -a /Users/femiakinlotan/Applications/Zoho\ Mail\ -\ Desktop.app'
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#layout
@@ -235,6 +236,26 @@ on-mode-changed = []
     run = ['move-node-to-workspace 1']
 
     [[on-window-detected]]
+    if.app-id = 'com.apple.MobileSMS'
+    run = ['move-node-to-workspace 2']
+
+    [[on-window-detected]]
+    if.app-id = 'notion.id'
+    run = ['move-node-to-workspace 2']
+
+    [[on-window-detected]]
+    if.app-id = 'md.obsidian'
+    run = ['move-node-to-workspace 2']
+
+    [[on-window-detected]]
+    if.app-id = 'com.brave.Browser'
+    run = ['move-node-to-workspace 3']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.Safari'
+    run = ['move-node-to-workspace 3']
+
+    [[on-window-detected]]
     if.app-id = 'com.apple.finder'
     run = ['layout floating']
 
@@ -266,8 +287,6 @@ on-mode-changed = []
     # [[on-window-detected]]
     # if.app-id = 'com.todesktop.230313mzl4w4u92'
     # run = ['move-node-to-workspace 7']
-
-
 
     # Assign Workspace to Monitor
     # See: https://nikitabobko.github.io/AeroSpace/guide#multiple-monitors
