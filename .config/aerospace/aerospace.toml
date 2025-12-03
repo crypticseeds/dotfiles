@@ -28,7 +28,7 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 
 
 # Start AeroSpace at login
-start-at-login = false
+start-at-login = true
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
@@ -129,6 +129,8 @@ on-mode-changed = []
     # end tell'
     # '''
 
+    
+
     # App Shortcuts
     alt-a = 'exec-and-forget open -a /Applications/Antigravity.app'
     alt-b = 'exec-and-forget open -a /Applications/Brave\ Browser.app'
@@ -179,9 +181,6 @@ on-mode-changed = []
     alt-6 = 'workspace 6'
     alt-7 = 'workspace 7'
     alt-8 = 'workspace 8'
-    # alt-B = 'workspace B' # Browser
-    # alt-I = 'workspace I' # IDE
-    # alt-T = 'workspace T' # Terminal
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
     alt-shift-1 = 'move-node-to-workspace 1'    
@@ -192,9 +191,6 @@ on-mode-changed = []
     alt-shift-6 = 'move-node-to-workspace 6'
     alt-shift-7 = 'move-node-to-workspace 7'
     alt-shift-8 = 'move-node-to-workspace 8'
-    # alt-shift-B = 'move-node-to-workspace B'
-    # alt-shift-I = 'move-node-to-workspace I'
-    # alt-shift-T = 'move-node-to-workspace T'
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
     alt-tab = 'workspace-back-and-forth'
@@ -221,7 +217,7 @@ on-mode-changed = []
     alt-shift-l = ['join-with right', 'mode main']
 
 
-    # # Default Spaces
+    # # Default Spaces & Floating Windows
     # See: https://nikitabobko.github.io/AeroSpace/guide#a-note-on-displays-have-separate-spaces
     [[on-window-detected]]
     if.app-id = 'com.apple.mail'
@@ -256,7 +252,19 @@ on-mode-changed = []
     run = ['move-node-to-workspace 3']
 
     [[on-window-detected]]
+    if.app-id = 'com.apple.AddressBook'
+    run = ['layout floating']
+
+    [[on-window-detected]]
     if.app-id = 'com.apple.finder'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'org.hejki.osx.sshce' # SSH Config Editor
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.TextEdit'
     run = ['layout floating']
 
     # ===== START: AUTO-UPDATE SKETCHYBAR ON WINDOW DETECTION =====
@@ -267,26 +275,6 @@ on-mode-changed = []
     check-further-callbacks = true
     run = ['exec-and-forget sketchybar --trigger aerospace_workspace_change']
     # ===== END: AUTO-UPDATE SKETCHYBAR ON WINDOW DETECTION =====
-
-    # [[on-window-detected]]
-    # if.app-id = ' com.mitchellh.ghostty'
-    # run = ['move-node-to-workspace T']
-
-    # [[on-window-detected]]
-    # if.app-id = 'com.google.Chrome'
-    # run = ['move-node-to-workspace 4']
-
-    # [[on-window-detected]]
-    # if.app-id = 'com.google.antigravity'
-    # run = ['move-node-to-workspace 5']
-
-    # [[on-window-detected]]
-    # if.app-id = 'dev.zed.Zed'
-    # run = ['move-node-to-workspace 6']
-
-    # [[on-window-detected]]
-    # if.app-id = 'com.todesktop.230313mzl4w4u92'
-    # run = ['move-node-to-workspace 7']
 
     # Assign Workspace to Monitor
     # See: https://nikitabobko.github.io/AeroSpace/guide#multiple-monitors
@@ -299,14 +287,3 @@ on-mode-changed = []
     6 = 'secondary'
     7 = 'secondary'
     8 = 'secondary'
-    # B = 'main'
-    # I = 'secondary'
-    # T = 'secondary'
-    # 1 = 'LG ULTRAGEAR'  
-    # 2 = 'LG ULTRAGEAR'
-    # 3 = 'LG ULTRAGEAR'
-    # 4 = 'LG ULTRAGEAR'
-    # 5 = 'LG ULTRAGEAR'
-    # 6 = 'HS156PE'
-    # 7 = 'HS156PE'
-    # 8 = 'HS156PE'

@@ -43,6 +43,9 @@ function icon_map() {
   "Anki")
     icon_result=":anki:"
     ;;
+  "Antigravity")
+    icon_result=":antigravity:"
+    ;;
   "Anytype")
     icon_result=":anytype:"
     ;;
