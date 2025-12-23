@@ -42,16 +42,25 @@ alias gp='git push'
 alias gi='git init'
 alias gcl='git clone'
 
-# Aliases: Fzf
+# Aliases: Fzf - MacOS
 alias f='fzf --preview="bat --color=always --style=numbers {}"'
-alias fnv='nvim $(fzf -m --preview="bat --color=always --style=numbers {}")'
-alias fv='vim $(fzf -m --preview="bat --color=always --style=numbers {}")'
+alias fnv='nvim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
+alias fv='vim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
+
+# Aliases: Fzf - Linux
+# alias f='fzf --preview="batcat --color=always --style=numbers {}"'
+# alias fnv='nvim $(fzf -m --preview="batcat --color=always --style=numbers {}")' 
+# alias fv='vim $(fzf -m --preview="batcat --color=always --style=numbers {}")'
 
 # Aliases: General
 alias cls='clear'
-alias cat='bat'
+alias cat='bat' # For use on MacOS
+# alias cat='batcat' # For use on Linux - Ubuntu
 
-# Load custom zsh plugins
+# LinuxPlugins
+# plugins=(zsh-autosuggestions zsh-syntax-highlighting)
+
+# Load custom zsh plugins - MacOS
 source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
@@ -73,11 +82,13 @@ eval "$(uvx --generate-shell-completion zsh)"
 # ~/.zshrc
 
 # Set up fzf key bindings and fuzzy completion
-source <(fzf --zsh)
+source <(fzf --zsh) # For use on MacOS
+# source ~/.fzf.zsh # For use on Linux - Ubuntu
 
 # Initialize zoxide
 eval "$(zoxide init zsh)"
-# Initialize Starship prompt
+
+# Initialize Starship prompt - MacOS
 eval "$(starship init zsh)"
 
 # Added by Antigravity

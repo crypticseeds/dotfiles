@@ -12,6 +12,7 @@ To get this setup running properly, you will need to install the following tools
 - **Oh My Zsh**: A framework for managing your Zsh configuration.
 - **Starship**: A fast, customizable, and intelligent prompt for any shell.
 - **Tmux**: A terminal multiplexer for managing multiple terminal sessions.
+- **Tmux Plugins Manager**: A plugin manager for Tmux.
 
 ### Core CLI Utilities
 - **GNU Stow**: A symlink farm manager (used to manage these dotfiles).
