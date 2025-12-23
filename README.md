@@ -36,13 +36,10 @@ To get this setup running properly, you will need to install the following tools
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/femiakinlotan/dotfiles.git ~/dotfiles
+   git clone https://github.com/crypticseeds/dotfiles.git
+   cd dotfiles
    ```
-2. Navigate to the directory:
-   ```bash
-   cd ~/dotfiles
-   ```
-3. Use **GNU Stow** to symlink the configurations. For example:
+2. Use **GNU Stow** to symlink the configurations. For example:
    ```bash
    stow .
    ```
