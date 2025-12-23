@@ -1,9 +1,3 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
@@ -77,7 +71,8 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git zsh-autosuggestions)
+# plugins=(git zsh-autosuggestions)
+plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -111,11 +106,39 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias cat='bat'
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# Aliases: Eza
+alias ls='eza --icons=always'
+alias ll='eza --icons=always -lg'
+alias la='eza --icons=always -lag'
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Aliases: Zoxide
+alias cd='z'
+
+# Aliases: Tmux
+alias tn='tmux new-session -s'
+alias ta='tmux attach-session'
+alias tl='tmux list-sessions'
+alias tat='tmux attach-session -t'
+alias td='tmux detach'
+alias tk='tmux kill-session -t'
+alias tw='tmux new-window -n'
+
+# Aliases: Git
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit -m'
+alias gco='git checkout'
+alias gb='git branch'
+alias gu='git pull'
+alias gp='git push'
+alias gi='git init'
+alias gcl='git clone'
+
+alias cls='clear'
+
+# Load custom zsh plugins
+source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 . "$HOME/.local/bin/env"
 # The following lines have been added by Docker Desktop to enable Docker CLI completions.
@@ -134,6 +157,12 @@ eval "$(uv generate-shell-completion zsh)"
 eval "$(uvx --generate-shell-completion zsh)"
 # ~/.zshrc
 
+# Set up fzf key bindings and fuzzy completion
+source <(fzf --zsh)
+
+# Initialize zoxide
+eval "$(zoxide init zsh)"
+# Initialize Starship prompt
 eval "$(starship init zsh)"
 
 # >>> conda initialize >>>

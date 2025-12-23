@@ -153,7 +153,7 @@ on-mode-changed = []
     # alt-comma = 'layout accordion horizontal vertical'
 
     # Floating and Fullscreen
-    # alt-f = 'layout floating'
+    alt-ctrl-f = 'layout floating tiling'
     alt-shift-f = 'fullscreen'
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#focus
@@ -266,6 +266,10 @@ on-mode-changed = []
     [[on-window-detected]]
     if.app-id = 'com.apple.TextEdit'
     run = ['layout floating']
+
+    # [[on-window-detected]]
+    # if.app-id = 'com.github.wez.wezterm'
+    # run = ['layout floating']
 
     # ===== START: AUTO-UPDATE SKETCHYBAR ON WINDOW DETECTION =====
     # This triggers sketchybar to update workspace icons when new windows are detected
