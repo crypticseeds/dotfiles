@@ -42,27 +42,9 @@ alias gp='git push'
 alias gi='git init'
 alias gcl='git clone'
 
-# Aliases: Fzf - MacOS
-alias f='fzf --preview="bat --color=always --style=numbers {}"'
-alias fnv='nvim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
-alias fv='vim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
-
-# Aliases: Fzf - Linux
-# alias f='fzf --preview="batcat --color=always --style=numbers {}"'
-# alias fnv='nvim $(fzf -m --preview="batcat --color=always --style=numbers {}")' 
-# alias fv='vim $(fzf -m --preview="batcat --color=always --style=numbers {}")'
-
 # Aliases: General
+alias ds='docker stats -a --format "table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"'
 alias cls='clear'
-alias cat='bat' # For use on MacOS
-# alias cat='batcat' # For use on Linux - Ubuntu
-
-# LinuxPlugins
-# plugins=(zsh-autosuggestions zsh-syntax-highlighting)
-
-# Load custom zsh plugins - MacOS
-source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 . "$HOME/.local/bin/env"
 # The following lines have been added by Docker Desktop to enable Docker CLI completions.
@@ -75,21 +57,13 @@ export PATH="/usr/local/bin:$PATH"
 # Added by Windsurf
 export PATH="$HOME/.codeium/windsurf/bin:$PATH"
 
-
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 eval "$(uv generate-shell-completion zsh)"
 eval "$(uvx --generate-shell-completion zsh)"
 # ~/.zshrc
 
-# Set up fzf key bindings and fuzzy completion
-source <(fzf --zsh) # For use on MacOS
-# source ~/.fzf.zsh # For use on Linux - Ubuntu
-
 # Initialize zoxide
 eval "$(zoxide init zsh)"
-
-# Initialize Starship prompt - MacOS
-eval "$(starship init zsh)"
 
 # Added by Antigravity
 export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
@@ -97,3 +71,36 @@ export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+### MACOS CONFIGURATION STARTS HERE ###
+
+# Aliases: Fzf - MacOS
+alias f='fzf --preview="bat --color=always --style=numbers {}"'
+alias fnv='nvim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
+alias fv='vim $(fzf -m --preview="bat --color=always --style=numbers {}")' 
+
+alias cat='bat' # For use on MacOS
+
+# Load custom zsh plugins - MacOS
+source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# Set up fzf key bindings and fuzzy completion
+source <(fzf --zsh) # For use on MacOS
+
+# Initialize Starship prompt - MacOS
+eval "$(starship init zsh)"
+
+### UBUNTU CONFIGURATION STARTS HERE ###
+
+# Aliases: Fzf - Linux
+# alias f='fzf --preview="batcat --color=always --style=numbers {}"'
+# alias fnv='nvim $(fzf -m --preview="batcat --color=always --style=numbers {}")' 
+# alias fv='vim $(fzf -m --preview="batcat --color=always --style=numbers {}")'
+
+# alias cat='batcat' # For use on Linux - Ubuntu
+
+# Linux Plugins
+# plugins=(zsh-autosuggestions zsh-syntax-highlighting)
+
+# source ~/.fzf.zsh # For use on Linux - Ubuntu
