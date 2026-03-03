@@ -35,12 +35,44 @@ alias tkw='tmux kill-window -t'
 alias gs='git status'
 alias ga='git add'
 alias gc='git commit -m'
+alias gac='git add . && git commit -m'
 alias gco='git checkout'
-alias gb='git branch'
+alias gb='git branch'                           
 alias gu='git pull'
 alias gp='git push'
 alias gi='git init'
 alias gcl='git clone'
+
+# Aliases: Graphite - Stacked PR workflow
+alias gtb='gt branch create' # Create a new stacked branch from current
+# alias gtc='gt branch checkout' # Checkout a branch
+alias gts='gt stack' # Show stack hierarchy
+alias gtsy='gt sync' # Sync all stacked branches
+alias gtsb='gt submit' # Submit PR for current branch
+alias gtst='gt status' # Show status including trunk info
+alias gtd='gt doctor' # Fix stack issues
+alias gtu='gt branch up' # Move up the stack
+alias gtdn='gt branch down' # Move down the stack
+alias gs='git switch' # Switch branches
+
+# Aliases: Pnpm
+alias pf='pnpm format'
+alias pl='pnpm lint'
+alias plf='pnpm lint:fix'
+alias ptc='pnpm type-check'
+
+# Aliases: Ruff
+alias rc='ruff check .'
+alias rcf='ruff check --fix .'
+alias rf='ruff format .'
+
+# Aliases: Docker
+alias dc='doppler run -- docker-compose'
+alias dcu='doppler run -- docker-compose up'
+alias dcd='doppler run -- docker-compose down'
+
+alias drd='doppler run -- npm run dev'
+
 
 # Aliases: General
 alias ds='docker stats -a --format "table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"'
@@ -104,3 +136,9 @@ eval "$(starship init zsh)"
 # plugins=(zsh-autosuggestions zsh-syntax-highlighting)
 
 # source ~/.fzf.zsh # For use on Linux - Ubuntu
+
+# Added by Antigravity
+export PATH="/Users/femiakinlotan/.antigravity/antigravity/bin:$PATH"
+
+# Added by Antigravity
+export PATH="/Users/femiakinlotan/.antigravity/antigravity/bin:$PATH"
