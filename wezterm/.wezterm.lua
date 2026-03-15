@@ -11,7 +11,7 @@ config.initial_cols = 100
 config.initial_rows = 30
 
 -- Appearance
-config.font = wezterm.font 'JetBrainsMono Nerd Font Mono'
+config.font = wezterm.font 'JetBrainsMono Nerd Font'
 config.font_size = 16
 config.color_scheme = 'Catppuccin Mocha'
 config.window_decorations = 'RESIZE'
