@@ -47,4 +47,10 @@ To get this setup running properly, you will need to install the following tools
 2. Use **GNU Stow** to symlink the configurations. From your home directory:
    ```bash
    cd ~/dotfiles
-   stow --target="$HOME" .config
+   stow --target="$HOME" .configi
+
+For **Starship**, stow only its configuration from the `.config` directory:
+
+```bash
+cd ~/dotfiles/.config
+stow --target="$HOME/.config" starship
