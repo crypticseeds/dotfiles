@@ -13,6 +13,8 @@ To get this setup running properly, you will need to install the following tools
 - **Starship**: A fast, customizable, and intelligent prompt for any shell.
 - **Tmux**: A terminal multiplexer for managing multiple terminal sessions.
 - **Tmux Plugins Manager**: A plugin manager for Tmux.
+- **Nerd Fonts**: Icon‑patched font collection used for terminal glyphs.
+- Preferred font: JetBrainsMono Nerd Font Mono
 
 ### Core CLI Utilities
 - **GNU Stow**: A symlink farm manager (used to manage these dotfiles).
