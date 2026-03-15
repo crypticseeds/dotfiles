@@ -44,3 +44,7 @@ To get this setup running properly, you will need to install the following tools
    ```bash
    stow .
    ```
+2. Use **GNU Stow** to symlink the configurations. From your home directory:
+   ```bash
+   cd ~/dotfiles
+   stow --target="$HOME" .config
