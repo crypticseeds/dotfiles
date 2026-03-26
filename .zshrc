@@ -66,12 +66,16 @@ alias rc='ruff check .'
 alias rcf='ruff check --fix .'
 alias rf='ruff format .'
 
-# Aliases: Docker
+# Aliases: Doppler
 alias dc='doppler run -- docker-compose'
 alias dcu='doppler run -- docker-compose up'
 alias dcd='doppler run -- docker-compose down'
 
 alias drd='doppler run -- npm run dev'
+
+# Aliases: Coderabbit
+alias cr='coderabbit'
+alias crp='coderabbit --prompt-only'
 
 
 # Aliases: General
@@ -142,3 +146,4 @@ export PATH="/Users/femiakinlotan/.antigravity/antigravity/bin:$PATH"
 
 # Added by Antigravity
 export PATH="/Users/femiakinlotan/.antigravity/antigravity/bin:$PATH"
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"

@@ -10,6 +10,9 @@ local config = wezterm.config_builder()
 config.initial_cols = 100
 config.initial_rows = 30
 
+-- Set Defualt Working Directory
+
+
 -- Appearance
 config.font = wezterm.font 'JetBrainsMono Nerd Font'
 config.font_size = 16
