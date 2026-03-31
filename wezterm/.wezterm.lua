@@ -11,12 +11,13 @@ config.initial_cols = 100
 config.initial_rows = 30
 
 -- Set Defualt Working Directory
-
+config.default_cwd = wezterm.home_dir .. '/MEGA'
 
 -- Appearance
 config.font = wezterm.font 'JetBrainsMono Nerd Font'
 config.font_size = 16
 config.color_scheme = 'Catppuccin Mocha'
+-- config.color_scheme = 'Gruvbox dark, hard (base16)'
 config.window_decorations = 'RESIZE'
 config.hide_tab_bar_if_only_one_tab = true
 config.native_macos_fullscreen_mode = false
