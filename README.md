@@ -49,10 +49,40 @@ To get this setup running properly, you will need to install the following tools
 2. Use **GNU Stow** to symlink the configurations. From your home directory:
    ```bash
    cd ~/dotfiles
-   stow --target="$HOME" .configi
-
+   stow --target="$HOME" .config
+   ```
 For **Starship**, stow only its configuration from the `.config` directory:
+   ```bash
+   cd ~/dotfiles/.config
+   stow --target="$HOME/.config" starship
+   ```
+## Harness
+
+Use Claude Code with Moonshot AI Kimi models.
+
+After installing the Claude Code CLI, mark onboarding as complete:
 
 ```bash
-cd ~/dotfiles/.config
-stow --target="$HOME/.config" starship
+node --eval "
+   const homeDir = os.homedir(); 
+   const filePath = path.join(homeDir, '.claude.json');
+   if (fs.existsSync(filePath)) {
+      const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      fs.writeFileSync(filePath,JSON.stringify({ ...content, hasCompletedOnboarding: true }, 2), 'utf-8');
+   } else {
+      fs.writeFileSync(filePath,JSON.stringify({ hasCompletedOnboarding: true }), null, 'utf-8');
+   }"
+```
+
+### Environment variables
+
+Export these variables (or manage them with Doppler):
+
+export ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic
+export ANTHROPIC_AUTH_TOKEN=${YOUR_MOONSHOT_API_KEY}
+export ANTHROPIC_MODEL=kimi-k2.5
+export ANTHROPIC_DEFAULT_OPUS_MODEL=kimi-k2-thinking
+export ANTHROPIC_DEFAULT_SONNET_MODEL=kimi-k2.5
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=kimi-k2.5
+export CLAUDE_CODE_SUBAGENT_MODEL=kimi-k2.5
+export ENABLE_TOOL_SEARCH=true
