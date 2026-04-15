@@ -68,7 +68,7 @@ automatically-unhide-macos-hidden-apps = false
 #                          "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O",
 #                          "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
 
-persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8" ] #, "B", "I", "T"]
+persistent-workspaces = ["1", "2", "3", "4", "5", "6", "B", "G", "I", "M", "N", "P", "T"]
 
 # A callback that runs every time binding mode changes
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
@@ -180,13 +180,11 @@ on-mode-changed = []
     alt-4 = 'workspace 4'
     alt-5 = 'workspace 5'
     alt-6 = 'workspace 6'
-    # alt-7 = 'workspace 7'
-    # alt-8 = 'workspace 8'
     alt-b = 'workspace B' # Workspace for Browser
     alt-g = 'workspace G' # Workspace for Go
     alt-i = 'workspace I' # Workspace for IDE
     alt-m = 'workspace M' # Workspace for Mail
-    alt-n = 'workspace M' # Workspace for Notes
+    alt-n = 'workspace N' # Workspace for Notes
     alt-p = 'workspace P' # Workspace for Python
     alt-t = 'workspace T' # Workspace for Terminal
 
@@ -198,8 +196,6 @@ on-mode-changed = []
     alt-shift-4 = 'move-node-to-workspace 4'       
     alt-shift-5 = 'move-node-to-workspace 5'
     alt-shift-6 = 'move-node-to-workspace 6'
-    # alt-shift-7 = 'move-node-to-workspace 7'
-    # alt-shift-8 = 'move-node-to-workspace 8'
     alt-shift-b = 'move-node-to-workspace B'
     alt-shift-g = 'move-node-to-workspace G'
     alt-shift-i = 'move-node-to-workspace I'
@@ -305,8 +301,6 @@ on-mode-changed = []
     4 = 'main'
     5 = 'secondary'
     6 = 'secondary'
-    # 7 = 'secondary'
-    # 8 = 'secondary'
     B = 'main'
     G = 'main'
     I = 'main'
