@@ -56,6 +56,11 @@ For **Starship**, stow only its configuration from the `.config` directory:
    cd ~/dotfiles/.config
    stow --target="$HOME/.config" starship
    ```
+
+For hammerspoon
+```bash
+stow --target=$HOME hammerspoon 
+```
 ## Harness
 
 Use Claude Code with Moonshot AI Kimi models.
