@@ -11,7 +11,6 @@ separator_module.create("menu_separator")
 -- Right Side (Order: Right -> Left)
 require("items.theme_picker")
 require("items.calendar")
-require("items.control_center")
 require("items.battery")
 require("items.volume")
 require("items.pomodoro")
@@ -26,14 +25,14 @@ SBAR.add("event", "aerospace_is_ready")
 local spaces_loader = SBAR.add("item", { drawing = false })
 
 spaces_loader:subscribe("aerospace_is_ready", function()
-	-- This code runs only when the background waiter finishes
-	SBAR.begin_config()
-	require("items.spaces")
-	separator_module.create("resources_separator")
-	require("items.resources")
-	SBAR.end_config()
+    -- This code runs only when the background waiter finishes
+    SBAR.begin_config()
+    require("items.spaces")
+    separator_module.create("resources_separator")
+    require("items.resources")
+    SBAR.end_config()
 
-	spaces_loader:delete()
+    spaces_loader:delete()
 end)
 
 -- 6. Run the wait loop in the BACKGROUND
