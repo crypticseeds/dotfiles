@@ -1,9 +1,9 @@
 local icons = {
-	_100 = "􀊩",
-	_66 = "􀊧",
-	_33 = "􀊥",
-	_10 = "􀊡",
-	_0 = "􀊣",
+	_100 = "",
+	_66 = "",
+	_33 = "",
+	_10 = "",
+	_0 = "",
 }
 
 local volume_slider = SBAR.add("slider", 100, {
@@ -12,29 +12,40 @@ local volume_slider = SBAR.add("slider", 100, {
 	label = { drawing = false },
 	icon = { drawing = false },
 	slider = {
-		highlight_color = COLORS.accent_color,
+		highlight_color = COLORS.blue,
 		width = 0,
 		background = {
 			height = 6,
 			corner_radius = 3,
+			color = COLORS.grey,
 		},
 		knob = {
-			string = "􀀁",
-			drawing = false,
+			string = "⬤",
+			drawing = true,
 		},
 	},
+	background = {
+		drawing = false,
+	},
+	padding_left = 2,
+	padding_right = 2,
 })
 
 local volume_icon = SBAR.add("item", "volume_icon", {
 	position = "right",
+	icon = {
+		string = icons._100,
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
+		color = COLORS.white,
+		padding_left = 2,
+		padding_right = 2,
+	},
 	label = { drawing = false },
-})
-
-SBAR.add("bracket", "volume.bracket", {
-	volume_icon.name,
-	volume_slider.name,
-}, {
-	background = {},
+	background = {
+		drawing = false,
+	},
+	padding_left = 2,
+	padding_right = 2,
 })
 
 volume_slider:subscribe("mouse.clicked", function(env)
@@ -54,12 +65,11 @@ volume_slider:subscribe("volume_change", function(env)
 		icon = icons._10
 	end
 
-	volume_icon:set({ icon = icon })
+	volume_icon:set({ icon = { string = icon } })
 	volume_slider:set({ slider = { percentage = volume } })
 end)
 
 local function animate_slider_width(width)
-	-- Run the animation
 	SBAR.animate("tanh", 30.0, function()
 		volume_slider:set({
 			slider = { width = width },
@@ -67,16 +77,12 @@ local function animate_slider_width(width)
 	end)
 end
 
--- 6. THE AUTO-CLOSE LOGIC
--- When mouse leaves the slider, wait 0.1 second then check if we should close
 volume_slider:subscribe("mouse.exited", function()
 	SBAR.delay(0.1, function()
 		animate_slider_width(0)
 	end)
 end)
 
--- Expand on hover over icon (Optional, but makes it feel native)
--- Expand on hover over icon (Left Click) | Open Settings (Right Click)
 volume_icon:subscribe("mouse.clicked", function(env)
 	if env.BUTTON == "right" then
 		SBAR.exec("open /System/Library/PreferencePanes/Sound.prefPane")

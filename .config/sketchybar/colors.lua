@@ -10,7 +10,7 @@ colors.white = 0xffffffff
 colors.transparent = 0x00000000
 colors.red = 0xffff4444
 colors.orange = 0xffffa500
-colors.charging = 0xffffd700
+colors.green = 0xff39FF14
 
 -- 2. Define Your Schemes
 local schemes = {
@@ -104,15 +104,23 @@ local schemes = {
 		popup_background = 0xff2d2b02,
 		popup_border = 0xfff7fc17,
 	},
-	liquid_glass = {
-		bar_color = 0x00000000,
-		accent_color = 0xffffffff,
-		secondary_accent = 0xffd6eaf8,
-		disabled_color = 0xff777777,
-		background = 0x20ffffff,
-		background_border = 0x40ffffff,
-		popup_background = 0xee1a1d1e,
-		popup_border = 0x80ffffff,
+	todo = {
+		bar_color = 0xff1e1e2e,
+		accent_color = 0xffcad3f5,
+		secondary_accent = 0xff8aadf4,
+		disabled_color = 0xff939ab7,
+		background = 0xff000000,
+		background_border = 0x60494d64,
+		popup_background = 0xff1e1e2e,
+		popup_border = 0xffcad3f5,
+		black = 0xff000000,
+		white = 0xffcad3f5,
+		red = 0xffed8796,
+		green = 0xffa6da95,
+		blue = 0xff8aadf4,
+		yellow = 0xffeed49f,
+		orange = 0xfff5a97f,
+		grey = 0xff939ab7,
 	},
 }
 
@@ -129,7 +137,7 @@ if f then
 	f:close()
 end
 
-active_name = active_name or first_available
+active_name = active_name or "todo"
 local active_scheme_data = schemes[active_name]
 
 -- 4. Merge (Now simple and direct)

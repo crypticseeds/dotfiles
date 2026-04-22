@@ -14,20 +14,27 @@ local cpu = SBAR.add("item", "cpu", {
 	position = "left",
 	update_freq = 2,
 	icon = {
-		string = "􀧓",
+		string = "", -- Nerd Font CPU icon
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
 		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
+		color = COLORS.white,
 	},
-	label = { padding_right = 0 },
+	label = {
+		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
+		padding_right = 0,
+		color = COLORS.white,
+	},
 })
 
 local function cpu_update()
 	SBAR.exec("ps -A -o %cpu | awk '{s+=$1} END {print s}'", function(total_load)
 		local load = tonumber(total_load) or 0
 		local used = math.floor(load / core_count)
-		local color = (used > 80 and 0xffff4444) or (used > 60 and 0xffffa500) or nil
+		-- Adaptive colors from Catppuccin theme
+		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
 		cpu:set({
-			icon = { color = color or DEFAULT_ITEM.icon.color },
-			label = { string = math.floor(used) .. "%", color = color or DEFAULT_ITEM.label.color },
+			icon = { color = color },
+			label = { string = math.floor(used) .. "%", color = color },
 		})
 	end)
 end
@@ -42,19 +49,25 @@ local memory = SBAR.add("item", "memory", {
 	position = "left",
 	update_freq = 5,
 	icon = {
-		string = "􀫦",
+		string = "", -- Nerd Font Memory/Chip icon
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
 		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
+		color = COLORS.white,
 	},
-	label = { padding_right = 0 },
+	label = {
+		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
+		padding_right = 0,
+		color = COLORS.white,
+	},
 })
 
 local function memory_update()
 	SBAR.exec("memory_pressure | grep 'System-wide memory free percentage:' | awk '{print 100-$5}'", function(result)
 		local used = tonumber(result) or 0
-		local color = (used > 80 and 0xffff4444) or (used > 60 and 0xffffa500) or nil
+		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
 		memory:set({
-			icon = { color = color or DEFAULT_ITEM.icon.color },
-			label = { string = math.floor(used) .. "%", color = color or DEFAULT_ITEM.label.color },
+			icon = { color = color },
+			label = { string = math.floor(used) .. "%", color = color },
 		})
 	end)
 end
@@ -65,12 +78,10 @@ memory:subscribe("routine", memory_update)
 -- NETWORK INDICATOR (Stacked Up/Down)
 -- ==========================================================
 
--- 1. Configuration
-local interface = "en0" -- WiFi usually en0, Ethernet might be en1
-local popup_width = 50 -- Fixed width to prevent jitter when numbers change
+local interface = "en0"
+local popup_width = 60
 local position = "left"
 
--- 2. Helper: Format speed (kbps vs Mbps)
 local function format_speed(speed_val)
 	local speed = tonumber(speed_val) or 0
 	if speed > 999 then
@@ -80,25 +91,24 @@ local function format_speed(speed_val)
 	end
 end
 
--- 3. Create Network Items
-local pad_r = 4
-local arrow_shift = pad_r * 0.75
+local pad_r = -4
+
 -- Top Layer: Upload Speed
 local network_up = SBAR.add("item", "network_up", {
 	position = position,
-	width = 0, -- Width 0 allows it to overlap with the item below it
+	width = 0,
 	update_freq = 2,
-	y_offset = 5, -- Shift Up
+	y_offset = 4,
 	label = {
-		font = { size = DEFAULT_ITEM.label.font.size * 0.75 },
+		font = { family = "JetBrainsMono Nerd Font", size = 9.0 },
 		string = "0 kbps",
 		width = popup_width,
+		color = COLORS.white,
 	},
 	icon = {
-		font = { size = DEFAULT_ITEM.icon.font.size * 0.75 },
+		font = { family = "JetBrainsMono Nerd Font", size = 9.0 },
 		string = "",
-		color = COLORS.disabled_color,
-		highlight_color = COLORS.accent_color,
+		color = COLORS.white,
 		padding_right = pad_r,
 	},
 })
@@ -106,23 +116,21 @@ local network_up = SBAR.add("item", "network_up", {
 -- Bottom Layer: Download Speed
 local network_down = SBAR.add("item", "network_down", {
 	position = position,
-	y_offset = -5, -- Shift Down
+	y_offset = -4,
 	label = {
-		font = { size = DEFAULT_ITEM.label.font.size * 0.75 },
-		string = "   0 kbps",
+		font = { family = "JetBrainsMono Nerd Font", size = 9.0 },
+		string = "0 kbps",
 		width = popup_width,
+		color = COLORS.white,
 	},
 	icon = {
-		font = { size = DEFAULT_ITEM.icon.font.size * 0.75 },
+		font = { family = "JetBrainsMono Nerd Font", size = 9.0 },
 		string = "",
-		color = COLORS.disabled_color,
-		highlight_color = COLORS.accent_color,
-		padding_left = DEFAULT_ITEM.icon.padding_left + arrow_shift,
-		padding_right = pad_r - arrow_shift,
+		color = COLORS.white,
+		padding_right = pad_r,
 	},
 })
 
--- 4. Update Logic
 local last_ibytes = 0
 local last_obytes = 0
 local last_time = os.time()
@@ -135,55 +143,27 @@ local function network_update()
 
 		local current_time = os.time()
 		local delta_t = os.difftime(current_time, last_time)
-		if delta_t <= 0 then
-			delta_t = 1
-		end
+		if delta_t <= 0 then delta_t = 1 end
 
-		local down = (ibytes - last_ibytes) / delta_t / 1024 * 8 -- kbps
-		local up = (obytes - last_obytes) / delta_t / 1024 * 8 -- kbps
+		local down = (ibytes - last_ibytes) / delta_t / 1024 * 8
+		local up = (obytes - last_obytes) / delta_t / 1024 * 8
 
-		if last_ibytes == 0 then
-			down, up = 0, 0
-		end
+		if last_ibytes == 0 then down, up = 0, 0 end
 
-		last_ibytes = ibytes
-		last_obytes = obytes
-		last_time = current_time
+		last_ibytes, last_obytes, last_time = ibytes, obytes, current_time
 
-		-- Update Down (Bottom)
 		network_down:set({
 			label = { string = format_speed(down) },
-			icon = { highlight = (down > 0) }, -- Highlight icon if active
 		})
-
-		-- Update Up (Top)
 		network_up:set({
 			label = { string = format_speed(up) },
-			icon = { highlight = (up > 0) }, -- Highlight icon if active
 		})
 	end)
 end
 
 network_up:subscribe("routine", network_update)
 
--- ==========================================================
--- FINAL BRACKET (Unified Background)
--- ==========================================================
-
--- Wrap CPU, RAM, and Network into one single bracket
-SBAR.add("bracket", "resources.bracket", {
-	"cpu",
-	"memory",
-	"network_up", -- Top part of stack
-	"network_down", -- Bottom part of stack (defines the width)
-}, {
-	background = { drawing = true },
-})
-
--- ==========================================================
--- FORCE INITIAL UPDATES
--- ==========================================================
--- Call these immediately so we don't wait 2-5s for the first numbers
+-- Force initial updates
 cpu_update()
 memory_update()
 network_update()

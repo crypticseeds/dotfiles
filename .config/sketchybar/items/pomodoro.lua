@@ -16,16 +16,28 @@ end
 -- 4. CREATE MAIN ITEM
 local timer = SBAR.add("item", "pomodoro", {
 	position = "right",
-	icon = { string = "􀐱", y_offset = 1 },
-	label = { drawing = false },
+	icon = {
+		string = "", -- Using a similar icon to clock/timer
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
+		y_offset = 1,
+		padding_left = 2,
+	},
+	label = {
+		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
+		drawing = false,
+		padding_right = 2,
+	},
+	background = { drawing = false },
 	update_freq = 0, -- Don't update unless running
+	padding_left = 2,
+	padding_right = 2,
 })
 
 -- 5. LOGIC: Stop
 local function stop_timer()
 	active_timer_end = nil
 	timer:set({
-		icon = { padding_right = DEFAULT_ITEM.icon.padding_right },
+		icon = { padding_right = 2 },
 		label = { drawing = false },
 		update_freq = 0,
 		popup = { drawing = false },
@@ -78,17 +90,17 @@ timer:subscribe("routine", function()
 	end
 	local now = os.time()
 	local remaining = active_timer_end - now
-	local tight_padding = DEFAULT_ITEM.icon.padding_right * 0.5
+	local tight_padding = 2
 
 	if remaining > 0 then
 		timer:set({
-			icon = { padding_right = tight_padding },
+			icon = { padding_right = 2 },
 			label = { string = format_time(remaining), drawing = true },
 		})
 	else
 		active_timer_end = nil
 		timer:set({
-			icon = { padding_right = tight_padding },
+			icon = { padding_right = 2 },
 			label = { string = "Done!" },
 			update_freq = 0,
 		})

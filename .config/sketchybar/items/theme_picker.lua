@@ -7,9 +7,14 @@ local picker_trigger = SBAR.add("item", "theme_picker", {
 	icon = {
 		string = "󰏘",
 		font = { size = DEFAULT_ITEM.icon.font.size * 1.2 },
+		padding_left = 2,
+		padding_right = 2,
 	},
 	label = { drawing = false },
+	background = { drawing = false },
 	popup = { align = "right" },
+	padding_left = 2,
+	padding_right = 2,
 })
 
 -- 2. Alphabetical Sorting Logic

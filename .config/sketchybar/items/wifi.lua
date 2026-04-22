@@ -24,28 +24,11 @@ local ip_address = ""
 local function wifi_update()
 	SBAR.exec([[networksetup -getairportpower en0; echo "---"; ipconfig getifaddr en0; echo "---"; ipconfig getsummary en0 | awk -F': ' '/ SSID : / {print $2}']], function(result)
 		local power = result:match("Wi%-Fi Power %(en0%): (%a+)")
-		local ip = result:match("%-%-%-\n([%d%.]+)\n%-%-%-")
+		local ip = result:match("\n%-%-%-\n(.-)\n%-%-%-\n") or ""
+		local ssid = result:match("\n%-%-%-\n.-%-%-%-\n(.-)\n?$") or ""
 
-		-- SSID extraction: get everything after the second --- separator
-		local ssid = ""
-		local parts = {}
-		for part in result:gmatch("([^\n]*)\n?") do
-			table.insert(parts, part)
-		end
-
-		-- Very crude but effective way to find SSID after the last ---
-		local found_sep = 0
-		for _, v in ipairs(parts) do
-			if v == "---" then
-				found_sep = found_sep + 1
-			elseif found_sep == 2 then
-				ssid = v
-				break
-			end
-		end
-
-		ip_address = ip or ""
-		ssid = (ssid or ""):gsub("^%s*", ""):gsub("%s*$", "")
+		ip_address = ip:gsub("%s+", "")
+		ssid = ssid:gsub("^%s*", ""):gsub("%s*$", "")
 
 		local color = COLORS.white
 		local icon = ""
@@ -56,7 +39,7 @@ local function wifi_update()
 			icon = "󰖪"
 			label = "Off"
 		elseif ssid ~= "" then
-			color = 0xff39FF14 -- Neon Green
+			color = COLORS.green
 			icon = ""
 			label = ssid
 		else

@@ -9,13 +9,20 @@ require("items.menus")
 separator_module.create("menu_separator")
 
 -- Right Side (Order: Right -> Left)
-require("items.theme_picker")
 require("items.calendar")
+require("items.theme_picker")
+require("items.wifi")
 require("items.battery")
 require("items.volume")
 require("items.pomodoro")
 
-SBAR.add("bracket", "right.bracket", { "theme_picker", "pomodoro" }, { background = { drawing = true } })
+SBAR.add("bracket", "right.block", { "theme_picker", "wifi", "battery", "volume_icon", "pomodoro" }, {
+	background = {
+		drawing = true,
+		color = COLORS.black,
+		corner_radius = 5,
+	},
+})
 
 -- 4. Finalize
 SBAR.end_config()
@@ -30,6 +37,13 @@ spaces_loader:subscribe("aerospace_is_ready", function()
     require("items.spaces")
     separator_module.create("resources_separator")
     require("items.resources")
+    SBAR.add("bracket", "resources.bracket", { "cpu", "memory", "network_up", "network_down" }, {
+        background = {
+            drawing = true,
+            color = COLORS.black,
+            corner_radius = 5,
+        },
+    })
     SBAR.end_config()
 
     spaces_loader:delete()

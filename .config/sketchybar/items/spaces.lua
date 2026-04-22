@@ -305,7 +305,13 @@ table.insert(space_item_list, front_app.name)
 -- 7. BRACKET
 -- ==========================================================
 local spaces_bracket = SBAR.add("bracket", space_item_list, {
-    background = { drawing = true },
+    background = {
+        drawing = true,
+        color = COLORS.black,
+        corner_radius = 5,
+    },
+    padding_left = 5,
+    padding_right = 5,
 })
 
 -- ==========================================================
@@ -321,8 +327,8 @@ local function update_front_app()
         if is_app_focused then
             front_app:set({
                 drawing = true,
-                icon = { string = icon_map[name] or icon_map["Default"] or "APP" },
-                label = { string = name },
+                icon = { string = icon_map[name] or icon_map["Default"] or "APP", color = COLORS.accent_color },
+                label = { string = name, color = COLORS.accent_color },
             })
             if APPLICATION_MENU_COLLAPSED then
                 space_separator:set({ drawing = true })
@@ -378,7 +384,7 @@ swap_manager:subscribe("fade_in_spaces", function()
             space_separator:set({ drawing = is_app_focused })
 
             if is_app_focused then
-                front_app:set({ width = "dynamic", icon = { color = 0xffffffff }, label = { color = 0xffffffff } })
+                front_app:set({ width = "dynamic", icon = { color = COLORS.accent_color }, label = { color = COLORS.accent_color } })
             end
         end)
     end)

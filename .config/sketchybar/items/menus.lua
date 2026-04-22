@@ -15,7 +15,7 @@ local menu_items_list = {}
 -- 1. Create the Trigger Icon
 local menu_item = SBAR.add("item", "menu_trigger", {
 	position = "left",
-	icon = { font = { size = 20.0 }, string = "" },
+	icon = { font = { size = 18.0 }, string = "" },
 	label = { drawing = false },
 })
 
@@ -48,6 +48,8 @@ end
 SBAR.add("bracket", menu_items_list, {
 	background = {
 		drawing = true,
+		color = COLORS.black,
+		corner_radius = 5,
 	},
 })
 
@@ -57,7 +59,7 @@ local function update_menus_visuals(menus_string)
 	for menu_text in string.gmatch(menus_string, "[^\r\n]+") do
 		if idx <= max_items then
 			menu_items[idx]:set({
-				label = { string = menu_text, drawing = true },
+				label = { string = menu_text },
 				drawing = not APPLICATION_MENU_COLLAPSED,
 			})
 			idx = idx + 1
@@ -101,7 +103,7 @@ local function close_menu()
 	SBAR.animate("tanh", APPLICATION_MENU_TRANSITION_FRAMES, function()
 		SBAR.set("/menu\\..*/", {
 			width = 0,
-			label = { color = 0x00000000 },
+				label = { color = COLORS.transparent },
 		})
 	end)
 
@@ -178,10 +180,10 @@ for i = 1, max_items do
 	end)
 end
 
--- -- 8. Watcher (Update menus when app switches), disabled since on focus change moves mouse to middle of foxus window
--- local menu_watcher = SBAR.add("item", { drawing = false })
--- menu_watcher:subscribe("front_app_switched", function()
---     SBAR.exec(menu_bin .. " -l", function(result)
---         update_menus_visuals(result)
---     end)
--- end)
+-- 8. Watcher (Update menus when app switches)
+local menu_watcher = SBAR.add("item", { drawing = false })
+menu_watcher:subscribe("front_app_switched", function()
+	SBAR.exec(menu_bin .. " -l", function(result)
+		update_menus_visuals(result)
+	end)
+end)

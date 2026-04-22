@@ -1,5 +1,5 @@
 local border_width = 1
-local corner_raduis = 15
+local corner_radius = 5
 local item_padding = 10
 local height = 25
 local size = 13.5
@@ -8,10 +8,10 @@ local default_item = {
 	-- always the left object
 	icon = {
 		font = {
-			family = "Hack Nerd Font",
+			family = "JetBrainsMono Nerd Font",
 			size = size,
 		},
-		color = COLORS.accent_color,
+		color = COLORS.white,
 		padding_left = item_padding,
 		padding_right = item_padding,
 		y_offset = 1,
@@ -19,23 +19,23 @@ local default_item = {
 	-- always the right object
 	label = {
 		font = {
-			family = "Hack Nerd Font",
+			family = "JetBrainsMono Nerd Font",
 			style = "Semibold",
 			size = size,
 		},
-		color = COLORS.accent_color,
+		color = COLORS.white,
 		padding_right = item_padding,
 	},
 	background = {
 		color = COLORS.background,
 		border_color = COLORS.background_border,
 		border_width = border_width,
-		corner_radius = corner_raduis,
+		corner_radius = corner_radius,
 		height = height,
 	},
 	popup = {
 		background = {
-			corner_radius = corner_raduis,
+			corner_radius = corner_radius,
 			color = COLORS.popup_background,
 			border_width = border_width,
 			border_color = COLORS.popup_border,
