@@ -123,12 +123,32 @@ local network_down = SBAR.add("item", "network_down", {
 })
 
 -- 4. Update Logic
+local last_ibytes = 0
+local last_obytes = 0
+local last_time = os.time()
+
 local function network_update()
-	-- `ifstat` gives us current throughput. -b = simpler output, 0.1 = sample time, 1 = count
-	SBAR.exec("ifstat -i " .. interface .. " -b 0.1 1 | tail -n1", function(result)
-		local down, up = result:match("(%d+%.?%d*)%s+(%d+%.?%d*)")
-		down = tonumber(down) or 0
-		up = tonumber(up) or 0
+	SBAR.exec("netstat -I " .. interface .. " -b -n | tail -n 1 | awk '{print $7, $10}'", function(result)
+		local ibytes, obytes = result:match("(%d+)%s+(%d+)")
+		ibytes = tonumber(ibytes) or 0
+		obytes = tonumber(obytes) or 0
+
+		local current_time = os.time()
+		local delta_t = os.difftime(current_time, last_time)
+		if delta_t <= 0 then
+			delta_t = 1
+		end
+
+		local down = (ibytes - last_ibytes) / delta_t / 1024 * 8 -- kbps
+		local up = (obytes - last_obytes) / delta_t / 1024 * 8 -- kbps
+
+		if last_ibytes == 0 then
+			down, up = 0, 0
+		end
+
+		last_ibytes = ibytes
+		last_obytes = obytes
+		last_time = current_time
 
 		-- Update Down (Bottom)
 		network_down:set({
