@@ -79,6 +79,9 @@ end)
 
 battery:subscribe("mouse.exited", function()
 	battery_update()
+	battery:set({
+		label = { drawing = false },
+	})
 end)
 
 battery:subscribe({ "routine", "power_source_change", "system_woke" }, battery_update)

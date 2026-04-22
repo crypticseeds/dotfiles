@@ -4,7 +4,7 @@ local wifi = SBAR.add("item", "wifi", {
 	icon = {
 		string = "",
 		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
-		color = 0xff39FF14, -- Neon Green as seen in wifi.sh
+		color = 0xff39FF14,
 		padding_left = 4,
 		padding_right = 4,
 	},
