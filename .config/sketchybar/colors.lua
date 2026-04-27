@@ -11,6 +11,8 @@ colors.transparent = 0x00000000
 colors.red = 0xffff4444
 colors.orange = 0xffffa500
 colors.green = 0xff39FF14
+colors.yellow = 0xfffffc17
+colors.blue = 0xff15bdf9
 
 -- 2. Define Your Schemes
 local schemes = {

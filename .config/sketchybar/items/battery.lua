@@ -32,7 +32,6 @@ local function battery_update()
 			local charge_num = tonumber(charge)
 			local is_charging = batt_info:find("AC Power")
 
-			-- 1. COLOR & ICON LOGIC (from sketchybar-todo/plugins/battery.sh)
 			local color = COLORS.white
 			local icon = ""
 
