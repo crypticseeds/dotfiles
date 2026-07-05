@@ -105,7 +105,7 @@ eval "$(zoxide init zsh)"
 export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
 
 # Harness
-alias claude='doppler run -- claude'
+# alias claude='doppler run -- claude'
 alias oc='opencode'
 
 export NVM_DIR="$HOME/.nvm"
@@ -130,6 +130,9 @@ source <(fzf --zsh) # For use on MacOS
 
 # Initialize Starship prompt - MacOS
 eval "$(starship init zsh)"
+
+# Initialize Direnv
+eval "$(direnv hook zsh)"
 
 ### UBUNTU CONFIGURATION STARTS HERE ###
 
