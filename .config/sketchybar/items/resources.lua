@@ -1,86 +1,10 @@
 -- ==========================================================
--- CPU INDICATOR
--- ==========================================================
-
-local core_count = 1 -- default fallback
-local handle = io.popen("sysctl -n machdep.cpu.thread_count")
-if handle then
-	local result = handle:read("*a")
-	core_count = tonumber(result) or 1
-	handle:close()
-end
-
-local cpu = SBAR.add("item", "cpu", {
-	position = "left",
-	update_freq = 2,
-	icon = {
-		string = "", -- Nerd Font CPU icon
-		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
-		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
-		color = COLORS.white,
-	},
-	label = {
-		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
-		padding_right = 0,
-		color = COLORS.white,
-	},
-})
-
-local function cpu_update()
-	SBAR.exec("ps -A -o %cpu | awk '{s+=$1} END {print s}'", function(total_load)
-		local load = tonumber(total_load) or 0
-		local used = math.floor(load / core_count)
-		-- Adaptive colors from Catppuccin theme
-		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
-		cpu:set({
-			icon = { color = color },
-			label = { string = math.floor(used) .. "%", color = color },
-		})
-	end)
-end
-
-cpu:subscribe("routine", cpu_update)
-
--- ==========================================================
--- RAM / MEMORY INDICATOR
--- ==========================================================
-
-local memory = SBAR.add("item", "memory", {
-	position = "left",
-	update_freq = 5,
-	icon = {
-		string = "", -- Nerd Font Memory/Chip icon
-		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
-		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
-		color = COLORS.white,
-	},
-	label = {
-		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
-		padding_right = 0,
-		color = COLORS.white,
-	},
-})
-
-local function memory_update()
-	SBAR.exec("memory_pressure | grep 'System-wide memory free percentage:' | awk '{print 100-$5}'", function(result)
-		local used = tonumber(result) or 0
-		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
-		memory:set({
-			icon = { color = color },
-			label = { string = math.floor(used) .. "%", color = color },
-		})
-	end)
-end
-
-memory:subscribe("routine", memory_update)
-
--- ==========================================================
 -- NETWORK INDICATOR (Stacked Up/Down)
 -- ==========================================================
 
 local interface = "en0"
 local popup_width = 60
-local position = "left"
+local position = "right"
 
 local function format_speed(speed_val)
 	local speed = tonumber(speed_val) or 0
@@ -111,6 +35,8 @@ local network_up = SBAR.add("item", "network_up", {
 		color = COLORS.white,
 		padding_right = pad_r,
 	},
+	padding_left = 2,
+	padding_right = 2,
 })
 
 -- Bottom Layer: Download Speed
@@ -129,6 +55,8 @@ local network_down = SBAR.add("item", "network_down", {
 		color = COLORS.white,
 		padding_right = pad_r,
 	},
+	padding_left = 2,
+	padding_right = 2,
 })
 
 local last_ibytes = 0
@@ -162,6 +90,99 @@ local function network_update()
 end
 
 network_up:subscribe("routine", network_update)
+
+-- ==========================================================
+-- RAM / MEMORY INDICATOR
+-- ==========================================================
+
+local memory = SBAR.add("item", "memory", {
+	position = "right",
+	update_freq = 5,
+	icon = {
+		string = "", -- Nerd Font Memory/Chip icon
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
+		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
+		color = COLORS.white,
+	},
+	label = {
+		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
+		padding_right = 0,
+		color = COLORS.white,
+	},
+	padding_left = 2,
+	padding_right = 2,
+})
+
+local function memory_update()
+	SBAR.exec("memory_pressure | grep 'System-wide memory free percentage:' | awk '{print 100-$5}'", function(result)
+		local used = tonumber(result) or 0
+		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
+		memory:set({
+			icon = { color = color },
+			label = { string = math.floor(used) .. "%", color = color },
+		})
+	end)
+end
+
+memory:subscribe("routine", memory_update)
+
+-- ==========================================================
+-- CPU INDICATOR
+-- ==========================================================
+
+local core_count = 1 -- default fallback
+local handle = io.popen("sysctl -n machdep.cpu.thread_count")
+if handle then
+	local result = handle:read("*a")
+	core_count = tonumber(result) or 1
+	handle:close()
+end
+
+local cpu = SBAR.add("item", "cpu", {
+	position = "right",
+	update_freq = 2,
+	icon = {
+		string = "", -- Nerd Font CPU icon
+		font = { family = "JetBrainsMono Nerd Font", size = 15.0 },
+		padding_right = DEFAULT_ITEM.icon.padding_right * 0.5,
+		color = COLORS.white,
+	},
+	label = {
+		font = { family = "JetBrainsMono Nerd Font", size = 14.0 },
+		padding_right = 0,
+		color = COLORS.white,
+	},
+	padding_left = 2,
+	padding_right = 2,
+})
+
+local function cpu_update()
+	SBAR.exec("ps -A -o %cpu | awk '{s+=$1} END {print s}'", function(total_load)
+		local load = tonumber(total_load) or 0
+		local used = math.floor(load / core_count)
+		-- Adaptive colors from Catppuccin theme
+		local color = (used > 80 and COLORS.red) or (used > 60 and COLORS.orange) or COLORS.white
+		cpu:set({
+			icon = { color = color },
+			label = { string = math.floor(used) .. "%", color = color },
+		})
+	end)
+end
+
+cpu:subscribe("routine", cpu_update)
+
+SBAR.add("bracket", "resources.bracket", {
+	"cpu",
+	"memory",
+	"network_up",
+	"network_down",
+}, {
+	background = {
+		drawing = true,
+		color = COLORS.black,
+		corner_radius = 5,
+	},
+})
 
 -- Force initial updates
 cpu_update()

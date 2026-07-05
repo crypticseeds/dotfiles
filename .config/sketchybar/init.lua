@@ -16,6 +16,13 @@ require("items.battery")
 require("items.volume")
 require("items.pomodoro")
 
+local resources_separator = SBAR.add("item", "resources_separator", {
+	position = "right",
+	width = 5,
+})
+
+require("items.resources")
+
 SBAR.add("bracket", "right.block", { "theme_picker", "wifi", "battery", "volume_icon", "pomodoro" }, {
 	background = {
 		drawing = true,
@@ -35,15 +42,6 @@ spaces_loader:subscribe("aerospace_is_ready", function()
     -- This code runs only when the background waiter finishes
     SBAR.begin_config()
     require("items.spaces")
-    separator_module.create("resources_separator")
-    require("items.resources")
-    SBAR.add("bracket", "resources.bracket", { "cpu", "memory", "network_up", "network_down" }, {
-        background = {
-            drawing = true,
-            color = COLORS.black,
-            corner_radius = 5,
-        },
-    })
     SBAR.end_config()
 
     spaces_loader:delete()
