@@ -1,0 +1,95 @@
+tap "anomalyco/tap"
+tap "dopplerhq/doppler", "https://github.com/DopplerHQ/homebrew-doppler.git"
+tap "felixkratz/formulae", "https://github.com/FelixKratz/homebrew-formulae"
+tap "nikitabobko/tap"
+tap "opgginc/tap"
+tap "steipete/tap"
+tap "thezoraiz/ascii-image-converter", "https://github.com/TheZoraiz/homebrew-ascii-image-converter"
+tap "waydabber/betterdisplay"
+tap "withgraphite/tap"
+# Programmable completion for Bash 4.2+
+brew "bash-completion@2"
+# Clone of cat(1) with syntax highlighting and Git integration
+brew "bat"
+# Resource monitor. C++ version and continuation of bashtop and bpytop
+brew "btop"
+# Load/unload environment variables based on $PWD
+brew "direnv"
+# Pack, ship and run any application as a lightweight container
+brew "docker", link: false
+# CLI for interacting with Doppler secrets and configuration
+brew "doppler"
+# Modern, maintained replacement for ls
+brew "eza"
+# Command-line fuzzy finder written in Go
+brew "fzf"
+# GitHub command-line tool
+brew "gh"
+# Syntax-highlighting pager for git and diff output
+brew "git-delta"
+# Render markdown on the CLI
+brew "glow"
+# GNU Privacy Guard (OpenPGP)
+brew "gnupg"
+# Live reload for Go apps
+brew "go-air"
+# Kubernetes package manager
+brew "helm"
+# Lightweight and flexible command-line JSON processor
+brew "jq"
+# Modern load testing tool, using Go and JavaScript
+brew "k6"
+# Simple terminal UI for git commands
+brew "lazygit"
+# Powerful, lightweight programming language
+brew "lua"
+# Ambitious Vim-fork focused on extensibility and agility
+brew "neovim"
+# Open-source, cross-platform JavaScript runtime environment
+brew "node@24"
+# Fast, disk space efficient package manager
+brew "pnpm"
+# Interpreted, interactive, object-oriented programming language
+brew "python@3.13"
+# Cross-shell prompt for astronauts
+brew "starship"
+# Organize software neatly under a single directory tree (e.g. /usr/local)
+brew "stow"
+# Terminal multiplexer
+brew "tmux"
+# Shell extension to navigate your filesystem faster
+brew "zoxide"
+# Fish-like fast/unobtrusive autosuggestions for zsh
+brew "zsh-autosuggestions"
+# Fish shell like syntax highlighting for zsh
+brew "zsh-syntax-highlighting"
+# The AI coding agent built for the terminal.
+brew "anomalyco/tap/opencode", trusted: true
+# Status bar + window borders (installed but not auto-dumped by brew bundle)
+brew "felixkratz/formulae/sketchybar"
+brew "felixkratz/formulae/borders"
+cask "aerospace"
+cask "amazon-q"
+# AI code review CLI
+cask "coderabbit"
+cask "font-jetbrains-mono"
+cask "font-jetbrains-mono-nerd-font"
+cask "font-sketchybar-app-font"
+# Desktop automation application
+cask "hammerspoon"
+# Menu bar manager
+cask "jordanbaird-ice"
+# AI-powered productivity tool for the command-line
+cask "kiro-cli"
+# Tool that provides consistent, highly configurable symbols for apps
+cask "sf-symbols"
+# GPU-accelerated cross-platform terminal emulator and multiplexer
+cask "wezterm"
+go "github.com/air-verse/air"
+go "golang.org/x/tools/gopls"
+go "golang.org/x/vuln/cmd/govulncheck"
+uv "ruff"
+npm "@google/gemini-cli"
+npm "@openai/codex"
+npm "@usebruno/cli"
+npm "corepack"

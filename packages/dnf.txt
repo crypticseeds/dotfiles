@@ -1,0 +1,24 @@
+# Fedora packages (dnf). One per line, # comments allowed.
+# Installed by scripts/bootstrap.sh. Add what you want on Fedora here.
+zsh
+git
+stow
+make
+curl
+unzip
+neovim
+tmux
+fzf
+bat
+eza
+zoxide
+direnv
+jq
+gh
+btop
+starship
+git-delta
+lazygit
+glow
+zsh-autosuggestions
+zsh-syntax-highlighting
