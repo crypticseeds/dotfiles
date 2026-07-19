@@ -1,75 +1,100 @@
 # Dotfiles
 
-My personal configuration files for macOS, managed with GNU Stow.
+Personal configuration for macOS and Linux, deployed with GNU Stow. One
+source of truth for shell, editor, terminal, and AI harness config (Claude
+Code, Codex, Cursor, opencode, pi).
 
-## Prerequisites
+## Fresh machine
 
-To get this setup running properly, you will need to install the following tools. You can find the installation instructions on their respective official websites.
+```sh
+# macOS
+xcode-select --install
+git clone git@github.com:crypticseeds/dotfiles.git ~/dotfiles
+cd ~/dotfiles && sh scripts/bootstrap.sh
 
-### Shell & Terminal
-- **WezTerm**: A GPU-accelerated cross-platform terminal emulator.
-- **Zsh**: The default shell for macOS.
-- **Oh My Zsh**: A framework for managing your Zsh configuration.
-- **Starship**: A fast, customizable, and intelligent prompt for any shell.
-- **Tmux**: A terminal multiplexer for managing multiple terminal sessions.
-- **Tmux Plugins Manager**: A plugin manager for Tmux.
-- **Nerd Fonts**: Icon‑patched font collection used for terminal glyphs.
-- Preferred font: JetBrainsMono Nerd Font
-
-### Core CLI Utilities
-- **GNU Stow**: A symlink farm manager (used to manage these dotfiles).
-- **Zoxide**: A smarter `cd` command.
-- **Eza**: A modern replacement for `ls` with icons and colors.
-- **Bat**: A `cat` clone with syntax highlighting and Git integration.
-- **Fzf**: A general-purpose command-line fuzzy finder.
-- **Zsh Autosuggestions**: Fish-like fast-forward autosuggestions for Zsh.
-- **Zsh Syntax Highlighting**: Fish-shell like syntax highlighting for Zsh.
-
-### Window Management (macOS)
-- **AeroSpace**: An i3-like tiling window manager for macOS.
-- **Sketchybar**: A highly customizable macOS status bar.
-
-### Development Tools
-- **Neovim**: A hyperextensible Vim-based text editor.
-- **UV**: An extremely fast Python package manager and resolver.
-- **Docker**: A platform for developing, shipping, and running applications in containers.
-- **Git**: Distributed version control system.
-
-## Setup
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/crypticseeds/dotfiles.git
-   cd dotfiles
-   ```
-2. Use **GNU Stow** to symlink the configurations. For example:
-   ```bash
-   stow .
-   ```
-2. Use **GNU Stow** to symlink the configurations. From your home directory:
-   ```bash
-   cd ~/dotfiles
-   stow --target="$HOME" .config
-   ```
-For **Starship**, stow only its configuration from the `.config` directory:
-   ```bash
-   cd ~/dotfiles/.config
-   stow --target="$HOME/.config" starship
-   ```
-
-For hammerspoon
-```bash
-stow --target=$HOME hammerspoon 
+# Ubuntu / Debian / Fedora
+sudo apt install -y git   # or: sudo dnf install -y git
+git clone git@github.com:crypticseeds/dotfiles.git ~/dotfiles
+cd ~/dotfiles && sh scripts/bootstrap.sh
 ```
-## Harness
 
-Use Claude Code with Moonshot AI Kimi models.
+`bootstrap.sh` detects the OS, installs packages (`packages/Brewfile` on
+macOS, `packages/apt.txt` / `packages/dnf.txt` on Linux), installs any missing
+AI harnesses (`packages/harnesses.sh`), backs up conflicting distro defaults,
+runs `make install`, and clones TPM (tmux plugins themselves are gitignored -
+press `prefix + I` inside tmux once to install them).
+
+If stow hits a conflict it aborts safely without changing anything: move the
+conflicting file out of the way and rerun `make install`.
+
+Already provisioned? Just run:
+
+```sh
+make install    # auto-detects OS, stows everything, runs health check
+```
+
+## Make targets
+
+| Target | What it does |
+|---|---|
+| `make install` | Stow everything for this OS + `skills` + `doctor` |
+| `make restow` | Re-stow after adding/removing files in packages |
+| `make delete` | Remove all managed symlinks (safe; only touches links) |
+| `make skills` | Regenerate per-skill links for claude/codex |
+| `make doctor` | Health check: links, skills, agents, credential scan |
+
+## Layout
+
+Each top-level directory is a stow package mirroring `$HOME`:
+
+| Package | Deploys to | Notes |
+|---|---|---|
+| `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
+| `claude/` `codex/` `cursor/` `opencode/` `pi/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
+| `zsh/` `nvim/` `tmux/` `starship/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
+| `wezterm/` `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
+| `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
+| `cursor-themes/` `zed/` | not stowed | Reference copies |
+
+## AI harness config (one source of truth)
+
+`agents/.agents/AGENTS.md` is the single global instruction file. Every
+harness reads it through symlinks committed to this repo:
+
+```
+~/.claude/CLAUDE.md ─┐
+~/.codex/AGENTS.md ──┤
+~/.cursor/AGENTS.md ─┼──> agents/.agents/AGENTS.md
+~/.config/opencode/AGENTS.md ─┤
+~/.pi/agent/AGENTS.md ────────┘
+```
+
+- **Skills** live in `agents/.agents/skills/` (Agent Skills standard). pi and
+  opencode read `~/.agents/skills` natively; `make skills` links them into
+  claude/codex. Installing a new skill (e.g. `npx skills add ...`) writes
+  through `~/.agents` straight into the repo - commit it.
+- **Subagents**: `agents/.agents/subagents/` is shared by Claude Code and
+  Cursor (same format). opencode agents live in
+  `opencode/.config/opencode/agent/` (different frontmatter schema).
+- **Per-project instructions** belong in each project's own `AGENTS.md`, not
+  here - every harness picks those up natively.
+
+## Adding things
+
+- **An app config**: create `<pkg>/.config/<app>/...`, add `<pkg>` to the
+  right group in the `Makefile` (`COMMON`, `TOOLS`, or `MACONLY`), run
+  `make restow`.
+- **A macOS app**: add a line to `packages/Brewfile`.
+- **A Linux package**: add a line to `packages/apt.txt` / `packages/dnf.txt`.
+- **A file to an existing package**: just add it, then `make restow`.
+
+## Harness: Claude Code with Moonshot Kimi
 
 After installing the Claude Code CLI, mark onboarding as complete:
 
 ```bash
 node --eval "
-   const homeDir = os.homedir(); 
+   const homeDir = os.homedir();
    const filePath = path.join(homeDir, '.claude.json');
    if (fs.existsSync(filePath)) {
       const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -78,16 +103,3 @@ node --eval "
       fs.writeFileSync(filePath,JSON.stringify({ hasCompletedOnboarding: true }), null, 'utf-8');
    }"
 ```
-
-### Environment variables
-
-Export these variables (or manage them with Doppler):
-
-export ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic
-export ANTHROPIC_AUTH_TOKEN=${YOUR_MOONSHOT_API_KEY}
-export ANTHROPIC_MODEL=kimi-k2.5
-export ANTHROPIC_DEFAULT_OPUS_MODEL=kimi-k2-thinking
-export ANTHROPIC_DEFAULT_SONNET_MODEL=kimi-k2.5
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=kimi-k2.5
-export CLAUDE_CODE_SUBAGENT_MODEL=kimi-k2.5
-export ENABLE_TOOL_SEARCH=true

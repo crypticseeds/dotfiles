@@ -1,0 +1,26 @@
+# Ubuntu / Debian packages (apt). One per line, # comments allowed.
+# Installed by scripts/bootstrap.sh. Add what you want on Linux here.
+zsh
+git
+stow
+make
+curl
+unzip
+neovim
+tmux
+fzf
+bat
+eza
+zoxide
+direnv
+jq
+gh
+btop
+zsh-autosuggestions
+zsh-syntax-highlighting
+
+# Not in apt - install manually if wanted:
+#   starship   -> curl -sS https://starship.rs/install.sh | sh
+#   git-delta  -> https://github.com/dandavison/delta/releases (.deb)
+#   lazygit    -> https://github.com/jesseduffield/lazygit/releases
+#   glow       -> https://github.com/charmbracelet/glow/releases
