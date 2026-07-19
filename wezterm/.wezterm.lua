@@ -28,5 +28,17 @@ config.window_close_confirmation = 'NeverPrompt'
 --     'HackNerdFontMono-Regular',
 --   })
 
+-- Key bindings
+-- Make Alt/Option+Arrow move by word, matching Terminal.app/iTerm/Zed behavior.
+-- Sends ESC-b / ESC-f, which zsh (emacs mode) binds to backward-word / forward-word.
+config.keys = {
+  { key = 'LeftArrow', mods = 'OPT', action = wezterm.action.SendString '\x1bb' },
+  { key = 'RightArrow', mods = 'OPT', action = wezterm.action.SendString '\x1bf' },
+  -- Uncomment to make Alt/Option+Up/Down act as plain Up/Down (history navigation)
+  -- instead of printing stray A/B characters:
+  -- { key = 'UpArrow', mods = 'OPT', action = wezterm.action.SendString '\x1b[A' },
+  -- { key = 'DownArrow', mods = 'OPT', action = wezterm.action.SendString '\x1b[B' },
+}
+
 -- Finally, return the configuration to wezterm:
 return config
