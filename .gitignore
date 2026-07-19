@@ -1,4 +1,7 @@
 .DS_Store
 .env
-.config/tmux/plugins
+tmux/.config/tmux/plugins
 .idea/
+PLAN.md
+# herdr-managed integration files (herdr integration install <tool>)
+herdr-agent-state.*
