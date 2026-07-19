@@ -5,14 +5,13 @@ return {
     name = "catppuccin",
     priority = 1000,
     config = function()
-      local mocha = require("catppuccin.palettes").get_palette("mocha")
       require("catppuccin").setup({
         flavour = "mocha",
         integrations = {
             -- Add integrations here
-            cmp = true,
+            blink_cmp = true,
             gitsigns = true,
-            nvimtree = true,
+            snacks = true,
             treesitter = true,
         },
       })

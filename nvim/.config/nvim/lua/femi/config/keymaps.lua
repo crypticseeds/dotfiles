@@ -30,8 +30,8 @@ vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]])
 -- ctrl c as escape cuz Im lazy to reach up to the esc key
 vim.keymap.set("i", "<C-c>", "<Esc>")
 vim.keymap.set("n", "<C-c>", ":nohl<CR>", { desc = "Clear search hl", silent = true })
--- format without prettier using the built in
-vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
+-- format buffer using the attached LSP
+vim.keymap.set("n", "<leader>cf", function() vim.lsp.buf.format() end, { desc = "Format buffer (LSP)" })
 
 -- Unmaps Q in normal mode
 vim.keymap.set("n", "Q", "<nop>")
@@ -40,7 +40,7 @@ vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "x", '"_x', opts)
 
 -- Replace the word cursor is on globally
-vim.keymap.set("n", "<leader>s", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
+vim.keymap.set("n", "<leader>rw", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
     { desc = "Replace word cursor is on globally" })
 
 -- Executes shell command from in here making file executable

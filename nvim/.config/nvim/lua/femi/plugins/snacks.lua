@@ -4,6 +4,7 @@ return {
         "folke/snacks.nvim",
         priority = 1000,
         lazy = false,
+        dependencies = { "nvim-tree/nvim-web-devicons" }, -- file icons for picker/explorer
         -- NOTE: Options
         opts = {
             styles = {
@@ -16,6 +17,9 @@ return {
             },
             -- Snacks Modules
             input = {
+                enabled = true,
+            },
+            explorer = {
                 enabled = true,
             },
             quickfile = {
@@ -141,7 +145,10 @@ return {
             { "<leader>lg", function() require("snacks").lazygit() end, desc = "Lazygit" },
             { "<leader>gl", function() require("snacks").lazygit.log() end, desc = "Lazygit Logs" },
             { "<leader>rN", function() require("snacks").rename.rename_file() end, desc = "Fast Rename Current File" },
-            { "<leader>dB", function() require("snacks").bufdelete() end, desc = "Delete or Close Buffer  (Confirm)" },
+            { "<leader>bd", function() require("snacks").bufdelete() end, desc = "Delete or Close Buffer  (Confirm)" },
+
+            -- File Explorer
+            { "<leader>e", function() require("snacks").explorer() end, desc = "Toggle File Explorer" },
 
             -- Snacks Picker
             { "<leader>pf", function() require("snacks").picker.files() end, desc = "Find Files (Snacks Picker)" },
@@ -149,12 +156,38 @@ return {
             { "<leader>ps", function() require("snacks").picker.grep() end, desc = "Grep word" },
             { "<leader>pws", function() require("snacks").picker.grep_word() end, desc = "Search Visual selection or Word", mode = { "n", "x" } },
             { "<leader>pk", function() require("snacks").picker.keymaps({ layout = "ivy" }) end, desc = "Search Keymaps (Snacks Picker)" },
+            { "<leader>pr", function() require("snacks").picker.recent() end, desc = "Recent Files" },
 
             -- Git Stuff
             { "<leader>gbr", function() require("snacks").picker.git_branches({ layout = "select" }) end, desc = "Pick and Switch Git Branches" },
 
             -- Other Utils
-            { "<leader>th" , function() require("snacks").picker.colorschemes({ layout = "ivy" }) end, desc = "Pick Color Schemes"},
+            -- Theme picker that also persists the choice to lua/current-theme.lua
+            -- (loaded from init.lua), so it survives restarts.
+            {
+                "<leader>th",
+                function()
+                    require("snacks").picker.colorschemes({
+                        layout = "ivy",
+                        confirm = function(picker, item)
+                            picker:close()
+                            if item then
+                                picker.preview.state.colorscheme = nil
+                                vim.schedule(function()
+                                    vim.cmd("colorscheme " .. item.text)
+                                    local file = vim.fn.stdpath("config") .. "/lua/current-theme.lua"
+                                    local f = io.open(file, "w")
+                                    if f then
+                                        f:write(('vim.cmd("colorscheme %s")\n'):format(item.text))
+                                        f:close()
+                                    end
+                                end)
+                            end
+                        end,
+                    })
+                end,
+                desc = "Pick Color Schemes",
+            },
             { "<leader>vh", function() require("snacks").picker.help() end, desc = "Help Pages" },
         }
     },
