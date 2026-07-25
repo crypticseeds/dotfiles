@@ -122,17 +122,19 @@ navigate_workspace_down = "ctrl+j"
 # type = "pane"
 # command = "lazygit"
 
-# herdr-file-viewer: open in a split beside the current pane
+# herdr-file-viewer: open in a split beside the current pane.
+# Goes through file-viewer-open.sh, which links the shared plugin checkout
+# into the current session first if needed (herdr plugins are per-session).
 [[keys.command]]
 key = "prefix+f"
 type = "shell"
-command = "herdr plugin action invoke open-file-viewer --plugin herdr-file-viewer"
+command = "sh $HOME/.config/herdr/scripts/file-viewer-open.sh open-file-viewer"
 
 # herdr-file-viewer: open in its own tab
 [[keys.command]]
 key = "prefix+shift+f"
 type = "shell"
-command = "herdr plugin action invoke open-file-viewer-tab --plugin herdr-file-viewer"
+command = "sh $HOME/.config/herdr/scripts/file-viewer-open.sh open-file-viewer-tab"
 
 # Legacy indexed shortcut config is still parsed for compatibility.
 # Prefer switch_tab, switch_workspace, and focus_agent for new configs.
