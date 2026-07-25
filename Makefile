@@ -65,7 +65,7 @@ delete:
 skills:
 	@for t in $(HOME)/.claude/skills $(HOME)/.codex/skills; do \
 		mkdir -p $$t; \
-		find -L $$t -maxdepth 1 -type l -delete; \
+		find $$t -maxdepth 1 -type l ! -exec test -e {} \; -delete; \
 		for s in $(HOME)/.agents/skills/*/; do \
 			ln -sfn "$${s%/}" "$$t/$$(basename $$s)"; \
 		done; \
