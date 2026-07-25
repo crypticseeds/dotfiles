@@ -49,6 +49,8 @@ command -v starship >/dev/null && eval "$(starship init zsh)"
 command -v fzf      >/dev/null && source <(fzf --zsh)
 command -v uv       >/dev/null && eval "$(uv generate-shell-completion zsh)"
 command -v uvx      >/dev/null && eval "$(uvx --generate-shell-completion zsh)"
+command -v kubectl  >/dev/null && source <(kubectl completion zsh) && compdef k=kubectl
+command -v kind     >/dev/null && source <(kind completion zsh)
 
 # nvm
 export NVM_DIR="$HOME/.nvm"
@@ -151,6 +153,33 @@ alias hrsl='herdr session list'
 alias hrsa='herdr session attach'
 alias hrss='herdr session stop'
 alias hrsd='herdr session delete'
+
+# Kubectl (completion is set up in the tool init section above)
+alias k='kubectl'
+alias kg='kubectl get'
+alias kgp='kubectl get pods'
+alias kgs='kubectl get svc'
+alias kgd='kubectl get deploy'
+alias kgn='kubectl get nodes'
+alias kga='kubectl get all'
+alias kd='kubectl describe'
+alias kl='kubectl logs'
+alias klf='kubectl logs -f'
+alias kex='kubectl exec -it'
+alias kaf='kubectl apply -f'
+alias kdf='kubectl delete -f'
+alias kpf='kubectl port-forward'
+alias kev='kubectl get events --sort-by=.lastTimestamp'
+# Context and namespace (plain kubectl - no kubectx/kubens dependency)
+alias kctx='kubectl config use-context'
+alias kctxl='kubectl config get-contexts'
+alias kns='kubectl config set-context --current --namespace'
+
+# Kind - local clusters (never alias `kind` itself; it shadows the binary)
+alias kindc='kind create cluster'
+alias kindd='kind delete cluster'
+alias kindl='kind get clusters'
+alias kindi='kind load docker-image'
 
 # Harnesses
 alias oc='opencode'
