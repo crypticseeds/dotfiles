@@ -41,7 +41,7 @@ Define success criteria. Loop until verified. Evidence, not assertion.
 - Run the relevant tests, linter, or build before claiming completion. Show the evidence. Unverified work is not done.
 - Never weaken, skip, or delete a test or assertion to make it pass. Fix the code, or flag the test as wrong.
 - No placeholder, stub, or TODO code presented as complete work.
-- After about 3 failed attempts at the same problem, stop. Summarize what you tried and what you learned in a markdown file, then ask.
+- After about 3 failed attempts at the same problem, stop. Summarize what you tried and what you learned in an HTML file, then ask.
 
 ## Communication
 
@@ -51,6 +51,16 @@ Define success criteria. Loop until verified. Evidence, not assertion.
 - Report finished work as: what changed, how it was verified, open concerns.
 - Prioritize being correct over agreeing with the user. Push back with reasons when warranted.
 - Never use the em dash "—". Use a plain dash "-" instead.
+
+## User-facing documents: HTML, not markdown
+
+Markdown files are for agent reference only. Anything saved for the user to read or review is delivered as HTML.
+
+- When saving an artifact the user is meant to read or review (reports, plans, reviews, summaries, handoffs), write it as a single self-contained HTML file and share the path.
+- Markdown files are reserved for the agent's own working notes and internal reference. Never hand one to the user as the deliverable.
+- Keep the HTML clean and simple: inline CSS, no external dependencies, readable when opened directly in a browser.
+- Add interactivity when it helps the user respond: checkboxes to approve/reject items, collapsible sections for detail. Feedback captured this way (e.g. checked boxes the user reports back, or state the agent can re-read) should map to clear next actions.
+- Include architectural drawings when they aid understanding, as inline SVG or simple HTML/CSS diagrams inside the same file.
 
 ## Runtime Safety
 
