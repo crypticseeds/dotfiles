@@ -6,6 +6,10 @@
 # ----------------------------------------------------------------------------
 export PATH="$HOME/.local/bin:$PATH"
 
+# Default editor: Zed, blocking until the file is closed (required by git etc.)
+export EDITOR="zed --wait"
+export VISUAL="zed --wait"
+
 # Homebrew (Apple Silicon, Intel mac, Linuxbrew) - first match wins
 for b in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew; do
   if [ -x "$b/bin/brew" ]; then
