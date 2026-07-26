@@ -54,6 +54,7 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | `zsh/` `nvim/` `tmux/` `starship/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
 | `wezterm/` `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
+| `docs/` | not stowed | Reference notes, e.g. [local Kubernetes](docs/kubernetes/README.md) |
 | `cursor-themes/` `zed/` | not stowed | Reference copies |
 
 ## AI harness config (one source of truth)
