@@ -15,6 +15,11 @@ MACONLY := wezterm hammerspoon aerospace sketchybar
 UNAME := $(shell uname -s)
 STOW  := stow -v -t $(HOME)
 
+# Printed after a restow. Make cannot reload the calling shell itself: every
+# recipe line runs in its own subshell, so `exec zsh` here would replace that
+# subshell, not your terminal. Remind instead, and let you pick the moment.
+reload-hint = printf '\nRestow complete. Run  exec zsh  to load the changes in this shell.\n'
+
 .PHONY: install mac linux restow restow-mac restow-linux delete skills doctor
 
 install:
@@ -49,11 +54,13 @@ restow-mac:
 	$(STOW) -R agents $(COMMON) $(MACONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
+	@$(reload-hint)
 
 restow-linux:
 	$(STOW) -R agents $(COMMON)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
+	@$(reload-hint)
 
 delete:
 	$(STOW) -D agents $(COMMON) $(MACONLY) $(TOOLS)
