@@ -14,8 +14,10 @@ brew "bat"
 brew "btop"
 # Load/unload environment variables based on $PWD
 brew "direnv"
+# Container runtime for macOS - replaces Docker Desktop, backs kind
+brew "colima"
 # Pack, ship and run any application as a lightweight container
-brew "docker", link: false
+brew "docker"
 # CLI for interacting with Doppler secrets and configuration
 brew "doppler"
 # Modern, maintained replacement for ls
@@ -38,6 +40,10 @@ brew "helm"
 brew "jq"
 # Modern load testing tool, using Go and JavaScript
 brew "k6"
+# Run local Kubernetes clusters as Docker containers
+brew "kind"
+# Kubernetes command-line tool
+brew "kubernetes-cli"
 # Simple terminal UI for git commands
 brew "lazygit"
 # Powerful, lightweight programming language
