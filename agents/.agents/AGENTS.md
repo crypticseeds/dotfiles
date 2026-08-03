@@ -56,6 +56,7 @@ Define success criteria. Loop until verified. Evidence, not assertion.
 
 Markdown files are for agent reference only. Anything saved for the user to read or review is delivered as HTML.
 
+- **Load the `html-deliverable` skill** whenever you write something up for the user - reports, findings, plans, proposals, reviews, comparisons, handoffs - or whenever you need decisions, several answers at once, or in-depth reasoning that chat would bury. It is the default path for this, not an option. Do not hand over a markdown document or a long list of chat questions instead.
 - When saving an artifact the user is meant to read or review (reports, plans, reviews, summaries, handoffs), write it as a single self-contained HTML file and share the path.
 - Markdown files are reserved for the agent's own working notes and internal reference. Never hand one to the user as the deliverable.
 - Keep the HTML clean and simple: inline CSS, no external dependencies, readable when opened directly in a browser.
