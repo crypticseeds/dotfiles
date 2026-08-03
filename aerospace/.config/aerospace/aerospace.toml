@@ -276,6 +276,10 @@ on-mode-changed = []
     run = ['layout floating']
 
     [[on-window-detected]]
+    if.app-id = 'com.apple.ActivityMonitor'
+    run = ['layout floating']
+
+    [[on-window-detected]]
     if.app-id = 'org.hejki.osx.sshce' # SSH Config Editor
     run = ['layout floating']
 
