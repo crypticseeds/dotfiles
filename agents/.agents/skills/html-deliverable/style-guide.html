@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevOpsFoundry — Style Guide v13</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&display=swap" rel="stylesheet">
+<style>
+  /* ==================================================================
+     DevOpsFoundry design tokens — LOCKED v13
+     Base is v7. One button personality only: the square sweep.
+     Accent is MODE-AWARE. This was decided deliberately.
+     ================================================================== */
+  :root {
+    --mono:'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* light (cream) */
+    --bg:#faf5ec; --surface:#f4ecdf;
+    --ink:#000000; --muted:#4d4947; --ink-body:#1a1a1a;
+    --accent:#e07000; --accent-press:#c96400; --on-accent:#000000;
+    --added:#007038; --open:#00667a; --data:#7340bf; --removed:#c2334a; --amber:#7d6410;
+    --border:#202020; --rule:#202020; --hairline:#00000022;
+    --heat-1:#e0700033; --heat-2:#e0700066; --heat-3:#e07000aa; --heat-4:#e07000;
+    --body-weight:400;
+
+    /* Button border weight and icon stroke */
+    --btn-bw:1.5px;
+    --icon-stroke:1.75;
+  }
+  html[data-mode="dark"] {
+    --bg:#0a0a0a; --surface:#141414;
+    --ink:#eeeae4; --muted:#a8a29b; --ink-body:#cfc9c0;
+    --accent:#ff8100; --accent-press:#ee7800; --on-accent:#000000;
+    --added:#00c26e; --open:#00abd6; --data:#af85ff; --removed:#ff6b81; --amber:#e8b13b;
+    --border:#4d4947; --rule:#6b6560; --hairline:#ffffff24;
+    --heat-1:#ff810033; --heat-2:#ff810066; --heat-3:#ff8100aa; --heat-4:#ff8100;
+    --body-weight:450;
+  }
+
+  * { box-sizing:border-box; }
+  html { -webkit-font-smoothing:antialiased; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono);
+         font-size:14px; line-height:1.6; }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 24px 140px; }
+  ::selection { background:var(--accent); color:var(--on-accent); }
+
+  .topbar { position:sticky; top:0; z-index:60; background:var(--surface); border-bottom:1px solid var(--border); }
+  .topbar-in { max-width:1200px; margin:0 auto; padding:11px 24px; display:flex; align-items:center;
+               justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .topbar-in .t { font-size:12px; color:var(--muted); }
+  .topbar-in .t b { color:var(--ink); font-weight:700; }
+  /* Bar actions — LOCKED: the mode toggle is ALWAYS last, nothing after it.
+     Actions inside are .btn.sm — the sweep button. There is no other button. */
+  .topbar-actions { display:flex; align-items:center; gap:14px; margin-left:auto; }
+  /* Mode toggle — LOCKED: bare Lucide icon, no background, no border */
+  .tgl { background:none; border:0; padding:4px; margin:0; cursor:pointer; color:var(--ink);
+         display:flex; align-items:center; border-radius:0; }
+  .tgl:hover { color:var(--accent); }
+  .tgl:focus-visible { outline:1px solid var(--accent); outline-offset:3px; }
+  .i-sun { display:block; } .i-moon { display:none; }
+  html[data-mode="dark"] .i-sun { display:none; }
+  html[data-mode="dark"] .i-moon { display:block; }
+
+  /* ---------- SECTION DEVICE — LOCKED v7 ---------- */
+  .sec-label { font-size:14px; letter-spacing:.5px; text-transform:uppercase; font-weight:700;
+               margin-bottom:16px; color:var(--ink); }
+  .sec-label b { color:var(--accent); font-weight:700; }
+  .section-rule { border-top:1px solid var(--rule); padding-top:11px; display:flex; align-items:center;
+                  gap:10px; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+                  color:var(--muted); font-weight:600; }
+  .section-rule i { width:8px; height:8px; background:var(--accent); flex:none; margin-left:auto; }
+
+  h1 { font-size:clamp(34px,5vw,64px); line-height:1.04; letter-spacing:-.03em; font-weight:700; margin:0 0 16px; }
+  h2 { font-size:clamp(24px,3vw,36px); line-height:1.14; letter-spacing:-.02em; font-weight:700; margin:0 0 14px; }
+  h3 { font-size:20px; line-height:1.25; font-weight:700; margin:0 0 10px; }
+  .sec { margin-top:88px; }
+  .lede { color:var(--muted); max-width:74ch; }
+  .body { font-size:18px; line-height:1.56; font-weight:var(--body-weight); color:var(--ink-body); max-width:62ch; }
+  .small { font-size:13px; color:var(--muted); }
+  .eyebrow { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+
+  .note { border:1px solid var(--border); background:var(--surface); padding:14px 16px; font-size:13px;
+          color:var(--muted); margin:20px 0; }
+  .note b { color:var(--ink); font-weight:600; }
+  .note code { color:var(--ink); }
+  .note.lock { border-left:4px solid var(--accent); }
+  .note.warn { border-left:4px solid var(--removed); }
+
+  /* ---------- swatches ---------- */
+  .sw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:0;
+             border:1px solid var(--border); }
+  .sw { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:0 0 12px; }
+  .sw i { display:block; height:64px; }
+  .sw .m { padding:11px 12px 0; }
+  .sw b { display:block; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+  .sw code { display:block; font-size:11px; color:var(--muted); margin-top:4px; }
+  .sw em { display:block; font-style:normal; font-size:10px; color:var(--muted); margin-top:3px; letter-spacing:.03em; }
+
+  .tbl { width:100%; border-collapse:collapse; font-size:12px; border:1px solid var(--border); }
+  .tbl th { text-align:left; font-weight:700; padding:10px 12px; border-bottom:1px solid var(--border);
+            font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); background:var(--surface); }
+  .tbl td { padding:9px 12px; border-bottom:1px solid var(--hairline); vertical-align:top; }
+  .tbl tr:last-child td { border-bottom:0; }
+  .tbl code { color:var(--ink); }
+  .tbl .ok { color:var(--added); font-weight:600; }
+  .tbl .bad { color:var(--removed); font-weight:600; }
+  .tbl .mid { color:var(--open); font-weight:600; }
+
+  /* ---------- BUTTON — the square sweep. The only button. Border 1.5px ---------- */
+  .btn {
+    --c: var(--accent);
+    font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    display:inline-block; padding:0 26px; height:3em;
+    line-height:calc(3em - (var(--btn-bw) * 2));   /* tracks the border weight — do not hard-code */
+    overflow:hidden; cursor:pointer; position:relative; z-index:1; text-decoration:none;
+    color:var(--c); background:transparent; border:var(--btn-bw) solid var(--c); border-radius:0;
+    transition:color .3s;
+  }
+  .btn::before {
+    content:""; position:absolute; z-index:-1; background:var(--c);
+    width:340px; height:340px; top:100%; left:100%; border-radius:0;   /* SQUARE sweep — locked */
+    transition:.4s all;
+  }
+  .btn:hover { color:#000; }                       /* black, never white — 8.39:1 vs 2.50:1 */
+  .btn:hover::before { top:-120px; left:-120px; }
+  .btn:focus-visible { outline:1px solid var(--c); outline-offset:3px; }
+  .btn.solid { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .btn.solid::before { background:var(--bg); }
+  .btn.solid:hover { color:var(--accent); }
+  /* chrome-scale sweep button — for topbars and dense UI. Same personality, smaller. */
+  .btn.sm { font-size:11px; font-weight:700; padding:0 15px; height:2.6em;
+            line-height:calc(2.6em - (var(--btn-bw) * 2)); }
+  .btnrow { display:flex; gap:18px; flex-wrap:wrap; align-items:center; }
+
+  /* comparison strip — only used in §04 to show the weight change */
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn, .btn::before { transition:none; }
+    .btn:hover::before { top:0; left:0; width:100%; height:100%; }
+  }
+
+  /* ---------- components ---------- */
+  .term { border:1px solid var(--border); background:var(--surface); }
+  .term-bar { display:flex; gap:6px; padding:9px 11px; border-bottom:1px solid var(--border); align-items:center; }
+  .term-bar u { width:11px; height:11px; border-radius:50%; display:block; }
+  .term-bar b { margin-left:9px; font-size:10px; letter-spacing:.08em; color:var(--muted); font-weight:400; }
+  .term-bd { padding:14px 16px; font-size:14px; line-height:1.7; color:var(--ink); overflow-x:auto; }
+  .term-bd i { color:var(--accent); font-style:normal; font-weight:700; }
+  .term-bd .ok { color:var(--added); }
+  .cur { border-bottom:1px solid var(--accent); animation:bl 1s steps(1) infinite; }
+  @keyframes bl { 50% { border-color:transparent; } }
+  @media (prefers-reduced-motion: reduce) { .cur { animation:none; } }
+
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); border:1px solid var(--border); }
+  .gc { padding:16px; border-right:1px solid var(--border); }
+  .gc:last-child { border-right:0; }
+  .gc h4 { margin:0 0 5px; font-size:15px; font-weight:700; }
+  .gc p { margin:0; font-size:12px; color:var(--muted); }
+
+  .rows .row { display:flex; gap:16px; padding:15px 0; border-bottom:1px solid var(--hairline); }
+  .rows .n { font-size:12px; color:var(--accent); display:flex; align-items:center; gap:7px; flex:none; font-weight:600; }
+  .rows .n i { width:8px; height:8px; background:var(--accent); display:block; }
+  .rows h4 { margin:0 0 3px; font-size:16px; font-weight:700; }
+  .rows p { margin:0; font-size:13px; color:var(--muted); }
+
+  .heat { display:grid; grid-template-columns:repeat(26,1fr); gap:3px; }
+  .heat b { padding-top:100%; display:block; background:var(--surface); border:1px solid var(--hairline); }
+  .heat b.l1{background:var(--heat-1)} .heat b.l2{background:var(--heat-2)}
+  .heat b.l3{background:var(--heat-3)} .heat b.l4{background:var(--heat-4)}
+
+  .foot { border-top:1px solid var(--border); margin-top:26px; padding-top:16px; display:flex;
+          justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .foot .ic { display:flex; gap:14px; }
+  .foot .ic a { color:var(--ink); display:flex; }
+  .foot .ic a:hover { color:var(--accent); }
+
+  .chips { display:flex; flex-wrap:wrap; gap:9px; font-size:12px; }
+  .chips span { border:1px solid currentColor; padding:4px 10px; display:flex; align-items:center; gap:6px; font-weight:600; }
+  .chips span::before { content:""; width:7px; height:7px; background:currentColor; }
+
+  .diff { font-size:13px; line-height:1.75; border:1px solid var(--border); }
+  .diff div { padding:3px 12px; }
+  .diff .a { color:var(--added); background:color-mix(in srgb, var(--added) 13%, transparent); }
+  .diff .r { color:var(--removed); background:color-mix(in srgb, var(--removed) 13%, transparent); }
+  .diff .c { color:var(--muted); }
+
+  .icon-strip { display:flex; flex-wrap:wrap; gap:20px; align-items:center; color:var(--ink); }
+  .icon-strip.accent { color:var(--accent); }
+
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:26px; align-items:start; }
+  @media (max-width:860px) {
+    .cols { grid-template-columns:1fr; }
+    .heat { grid-template-columns:repeat(13,1fr); }
+    .term-bd div { white-space:nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="t"><b>STYLE GUIDE v13</b> &nbsp;·&nbsp; border 1.5px · focus 1px · stroke 1.75</div>
+    <div class="topbar-actions">
+      <button class="btn sm">Contact</button>
+      <button class="tgl" id="mode" aria-label="Toggle colour mode">
+      <svg class="i-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="i-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+    </button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div style="padding-top:56px">
+    <div class="sec-label">[ <b>DEVOPSFOUNDRY</b> ]</div>
+    <div class="section-rule">Design system · v13 <i></i></div>
+    <h1 style="margin-top:34px">The system,<br>locked.</h1>
+    <p class="lede">Everything on this page is decided. Where a rule has a known cost, the cost is written down next to it rather than left for someone to rediscover. This file is the visual source of truth; <code>style-guide.md</code> is its written companion.</p>
+  </div>
+
+  <!-- ============ 00 DECISION REGISTER ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>DECISIONS</b> ]</div>
+    <div class="section-rule">What changed in v13, and why <i></i></div>
+
+    <div class="note lock">
+      <b>There is one button. It is the square sweep.</b> Outline is the default, <code>.solid</code> inverts it for a single primary action per view, and <code>.btn.sm</code> is the same button at chrome scale for topbars and dense UI. That is the entire button system. A filled non-sweeping chrome variant was tried and <b>deleted</b> — a second personality in the chrome is exactly the inconsistency that makes an interface feel assembled rather than designed. If a bar needs an action, it gets <code>.btn.sm</code>. Nothing else is permitted.
+    </div>
+
+    <div class="note lock">
+      <b>The accent is mode-aware, and that is deliberate.</b> <code>#e07000</code> on light, <code>#ff8100</code> on dark.
+      This was reversed twice during the v4–v6 review and landed here on purpose after all three options were rendered side by side.
+      A single value was tried in both directions: <code>#ff8100</code> everywhere is too weak on cream (2.30:1), and <code>#e07000</code> everywhere loses the fire in dark (6.12:1 vs 7.91:1).
+      <b>Do not "fix" this back to a single value.</b> It is not an oversight.
+    </div>
+
+    <table class="tbl">
+      <thead><tr><th style="width:190px">Decision</th><th>Locked as</th><th style="width:190px">Supersedes</th></tr></thead>
+      <tbody>
+        <tr><td><b>Button border</b></td><td><b>1.5px</b> — one weight for every button border</td><td>—</td></tr>
+        <tr><td><b>Icon stroke</b></td><td><b>1.75</b> — Lucide, 20px</td><td>1.5 · 2</td></tr>
+        <tr><td><b>Icon size</b></td><td><b>20px standalone, 18px for controls inside a section rule</b></td><td>flat 20px</td></tr>
+        <tr><td><b>Button system</b></td><td><b>Square sweep only.</b> <code>.btn</code> · <code>.solid</code> · <code>.sm</code>. No other button exists</td><td>filled chrome variant</td></tr>
+        <tr><td><b>Toggle position</b></td><td><b>Always the final element on the right of any bar. Nothing comes after it</b></td><td>—</td></tr>
+        <tr><td>Accent</td><td>Mode-aware — <code>#e07000</code> light / <code>#ff8100</code> dark</td><td>v4 single-accent</td></tr>
+        <tr><td>Section label</td><td>Ink brackets + accent bold word, 14px/700</td><td>v6 all-ink variant</td></tr>
+        <tr><td>Accent square</td><td>Right end of the section rule</td><td>"right side stays empty"</td></tr>
+        <tr><td>Primary button</td><td>Square-sweep fill, black text on hover</td><td>hard-shadow button</td></tr>
+        <tr><td>Mode toggle</td><td>Bare Lucide sun/moon — no background, no border</td><td>bordered text button</td></tr>
+        <tr><td>Table-grid highlight</td><td><b>Dropped.</b> All cells equal weight</td><td>second-accent fill cell</td></tr>
+        <tr><td>Semantic colours</td><td>added / open / data / removed, both modes</td><td>—</td></tr>
+        <tr><td>Amber</td><td>In palette, parked, no assigned role</td><td>—</td></tr>
+        <tr><td>Body weight</td><td>450 dark / 400 light, dimming kept</td><td>flat 400</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <b>The toggle rule, stated precisely.</b> The mode toggle is the last element on the right of every bar it appears in — site header, guide chrome, generated feedback pages, all of them. Any action that would otherwise sit at the far right (contact, copy, save, submit) goes <em>immediately before</em> it. The bar above demonstrates it: a <code>.btn.sm</code> action, then the toggle, then nothing.
+    </div>
+  </section>
+
+  <!-- ============ 01 PALETTE ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>PALETTE</b> ]</div>
+    <div class="section-rule">Core surfaces and ink <i></i></div>
+
+    <div class="sw-grid">
+      <div class="sw"><i style="background:var(--bg);box-shadow:inset 0 0 0 1px var(--hairline)"></i><div class="m"><b>Background</b><code id="c-bg"></code><em>page ground</em></div></div>
+      <div class="sw"><i style="background:var(--surface)"></i><div class="m"><b>Surface</b><code id="c-su"></code><em>cards, bars, code</em></div></div>
+      <div class="sw"><i style="background:var(--ink)"></i><div class="m"><b>Ink</b><code id="c-ink"></code><em>headings, UI text</em></div></div>
+      <div class="sw"><i style="background:var(--ink-body)"></i><div class="m"><b>Ink — body</b><code id="c-ib"></code><em>long-form reading</em></div></div>
+      <div class="sw"><i style="background:var(--muted)"></i><div class="m"><b>Muted</b><code id="c-mu"></code><em>secondary text</em></div></div>
+      <div class="sw"><i style="background:var(--rule)"></i><div class="m"><b>Rule</b><code id="c-ru"></code><em>section separation</em></div></div>
+      <div class="sw"><i style="background:var(--border)"></i><div class="m"><b>Border</b><code id="c-bo"></code><em>panels, terminal</em></div></div>
+      <div class="sw"><i style="background:var(--accent)"></i><div class="m"><b>Accent</b><code id="c-ac"></code><em>brand — mode-aware</em></div></div>
+    </div>
+
+    <h2 style="margin-top:64px">Semantic set</h2>
+    <p class="small" style="max-width:70ch">Tuned so every colour sits in the same contrast band as the accent — nothing shouts louder than the brand. Minimum perceptual separation is ΔE 30.7 in dark and 25.3 in light, verified pairwise.</p>
+
+    <div class="sw-grid" style="margin-top:20px">
+      <div class="sw"><i style="background:var(--added)"></i><div class="m"><b>Added</b><code id="c-ad"></code><em>success · diff +</em></div></div>
+      <div class="sw"><i style="background:var(--open)"></i><div class="m"><b>Open</b><code id="c-op"></code><em>pending · in progress</em></div></div>
+      <div class="sw"><i style="background:var(--data)"></i><div class="m"><b>Data</b><code id="c-da"></code><em>links · charts</em></div></div>
+      <div class="sw"><i style="background:var(--removed)"></i><div class="m"><b>Removed</b><code id="c-re"></code><em>error · diff −</em></div></div>
+      <div class="sw"><i style="background:var(--amber)"></i><div class="m"><b>Amber</b><code id="c-am"></code><em>PARKED — no role</em></div></div>
+    </div>
+
+    <div class="cols" style="margin-top:26px">
+      <div>
+        <div class="chips">
+          <span style="color:var(--added)">ADDED</span><span style="color:var(--open)">OPEN</span>
+          <span style="color:var(--data)">DATA</span><span style="color:var(--removed)">REMOVED</span>
+        </div>
+        <div class="diff" style="margin-top:16px">
+          <div class="c">  resource "aws_eks_cluster" "main" {</div>
+          <div class="r">-   version = "1.28"</div>
+          <div class="a">+   version = "1.31"</div>
+          <div class="c">  }</div>
+        </div>
+      </div>
+      <div class="note warn" style="margin:0">
+        <b>Amber restriction.</b> In dark mode amber sits ΔE 18.6 from the accent — below the confusion threshold, and it cannot be tuned away. Amber must never be a small status marker sitting next to an orange one. It is fine for large fills, chart series and highlights. In light mode the separation is ΔE 31.0, so the restriction applies to dark only.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 TYPOGRAPHY ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>TYPE</b> ]</div>
+    <div class="section-rule">Geist Mono · variable 300–700 <i></i></div>
+
+    <div class="cols">
+      <div>
+        <h3>Body — mode-aware weight</h3>
+        <p class="body">Most outages are not surprises. They are known failure modes that nobody had budget to fix, discovered at the worst possible hour by the person least equipped to fix them.</p>
+        <p class="small" style="margin-top:14px">18px / 1.56 · weight <b id="bw"></b> · colour <code>--ink-body</code></p>
+      </div>
+      <div class="note" style="margin-top:0">
+        <b>Why the weight differs by mode.</b> Light-on-dark type optically erodes, so the same weight reads thinner in dark than light. Dark runs <b>450</b>, light runs <b>400</b>. Geist Mono is a true variable font on the 300–700 axis, so any value between is available — you are not limited to 400/500 steps.
+        <br><br>
+        <b>Dimming is kept.</b> <code>--ink-body</code> stays dimmer than full ink in both modes; the added weight compensates rather than replaces it.
+      </div>
+    </div>
+
+    <table class="tbl" style="margin-top:26px">
+      <thead><tr><th style="width:170px">Role</th><th>Spec</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td>display</td><td>clamp(34–64px) / 700 / −0.03em</td><td>page h1</td></tr>
+        <tr><td>h2</td><td>clamp(24–36px) / 700 / −0.02em</td><td>section headings</td></tr>
+        <tr><td>h3</td><td>20px / 700</td><td>sub-headings</td></tr>
+        <tr><td>body-expanded</td><td>18px / 1.56 / 450 dark · 400 light · max 62ch</td><td>articles, guides</td></tr>
+        <tr><td>label-01</td><td>14px / 700 / +0.5px / uppercase</td><td>section label, nav, buttons</td></tr>
+        <tr><td>eyebrow</td><td>11–12px / 600 / +0.12em / uppercase</td><td>rule descriptor</td></tr>
+        <tr><td>code-01</td><td>14px / 1.7</td><td>code blocks, terminal</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ 03 SECTION DEVICE ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>SECTION DEVICE</b> ]</div>
+    <div class="section-rule">Two levels, square on the right <i></i></div>
+
+    <div class="note lock">
+      <b>Locked form.</b> Bracket label above — square brackets in <code>--ink</code>, the word in <code>--accent</code> at <b>14px / 700</b>. Below it the full-width 1px <code>--rule</code>, with the uppercase eyebrow at the left and the <b>8px accent square at the right</b>. The square closes the line rather than leading it; the right side no longer stays empty.
+    </div>
+
+    <div class="cols">
+      <div style="border:1px solid var(--border); padding:24px 20px">
+        <div class="sec-label">[ <b>PROJECTS</b> ]</div>
+        <div class="section-rule">Featured work <i></i></div>
+        <h2 style="margin-top:20px">Things I built and still run.</h2>
+      </div>
+      <div style="border:1px solid var(--border); padding:24px 20px">
+        <div class="sec-label">[ <b>CAPABILITIES</b> ]</div>
+        <div class="section-rule">What I do <i></i></div>
+        <h2 style="margin-top:20px">Six things I do properly.</h2>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <b>Known cost, accepted.</b> <code>#e07000</code> on cream is <b>2.98:1</b>, below the 4.5:1 bar for normal-size text, and a 14px label does not qualify for the 3.0:1 large-text exemption (that needs 18.66px bold). This is a deliberate brand decision, not an oversight — the accent word is short, uppercase, bold and always paired with an ink-coloured bracket and a full-strength square. If a future page needs the label to pass outright, raise it to 19px bold rather than changing the colour.
+    </div>
+  </section>
+
+  <!-- ============ 04 BUTTONS ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>BUTTONS</b> ]</div>
+    <div class="section-rule">Square-sweep — the only button · 1.5px <i></i></div>
+
+    <div class="note lock">
+      <b>One button personality across the site.</b> <b>1.5px</b> accent border, 0px corners, transparent ground; on hover an accent square sweeps in from the bottom-right and the label flips to black. Chrome and topbars use <code>.btn.sm</code> — the same sweep, the same border weight, a smaller scale. <b>There is no non-sweeping button anywhere in this system.</b>
+      <br><br>
+      <b>Hover text is black, never white.</b> White on accent is 2.50:1; black is 8.39:1. Honours <code>prefers-reduced-motion</code> by filling instantly instead of sweeping.
+    </div>
+
+    <div class="btnrow" style="margin-top:24px">
+      <button class="btn">Resume</button>
+      <button class="btn">Get in touch</button>
+      <button class="btn solid">Primary</button>
+      <button class="btn sm">Chrome</button>
+    </div>
+    <p class="small" style="margin-top:16px">Outline is the default. <code>.solid</code> inverts it for a single primary action per view — use sparingly. <code>.sm</code> is for topbars and dense UI.</p>
+
+    <div class="note warn">
+      <b>Known cost of 1.5px, accepted.</b> A border cannot occupy half a device pixel, so the browser rounds it. On a <b>2x display it renders as 3 device pixels</b>, which is the intended lighter weight. On a <b>1x display it rounds down to 1px</b> — identical to the structural border, so buttons stop out-weighing panels and table grids. You are choosing "3 device pixels on modern screens, 2 on the rest". At 110% or 125% browser zoom it can round either way. If a future audit shows meaningful 1x traffic, revisit the weight then — but not by reaching for another fraction: 1.25px and 1.75px never resolve cleanly at any common ratio.
+    </div>
+
+    <div class="note">
+      <b>Implementation note.</b> The border weight lives in <code>--btn-bw</code> and the line-height is <code>calc(3em - (var(--btn-bw) * 2))</code>. Earlier revisions hard-coded <code>calc(3em - 4px)</code>, which silently pushes the label off centre the moment the weight changes. Never hard-code it again.
+    </div>
+
+    <h3 style="margin-top:56px">Bar ordering — toggle always last</h3>
+    <div class="cols" style="margin-top:16px">
+      <div style="border:1px solid var(--accent); padding:0">
+        <div style="padding:11px 16px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+          <span class="small" style="font-size:11px">DEVOPSFOUNDRY</span>
+          <span class="topbar-actions">
+            <button class="btn sm">Contact</button>
+            <span class="tgl" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
+          </span>
+        </div>
+        <div style="padding:14px 16px"><span class="chips"><span style="color:var(--added)">CORRECT</span></span></div>
+      </div>
+      <div style="border:1px solid var(--border); padding:0">
+        <div style="padding:11px 16px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+          <span class="small" style="font-size:11px">DEVOPSFOUNDRY</span>
+          <span class="topbar-actions">
+            <span class="tgl" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
+            <button class="btn sm">Contact</button>
+          </span>
+        </div>
+        <div style="padding:14px 16px"><span class="chips"><span style="color:var(--removed)">WRONG</span></span></div>
+      </div>
+    </div>
+    <p class="small" style="margin-top:12px">Actions go immediately before the toggle. Nothing is ever placed after it.</p>
+  </section>
+
+  <!-- ============ 05 COMPONENTS ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>COMPONENTS</b> ]</div>
+    <div class="section-rule">Terminal, grids, rows, footer <i></i></div>
+
+    <h3>Terminal typing</h3>
+    <div class="term">
+      <div class="term-bar"><u style="background:#ff5f57"></u><u style="background:#febc2e"></u><u style="background:#28c840"></u><b>zsh — devopsfoundry</b></div>
+      <div class="term-bd">
+        <div><i>$</i> terraform apply -auto-approve</div>
+        <div class="ok">  Apply complete. 4 added, 1 changed.</div>
+        <div><i>$</i> argocd app sync platform<span class="cur">&nbsp;</span></div>
+      </div>
+    </div>
+    <p class="small" style="margin-top:12px">Every line is a <code>$</code> prompt with an accent-coloured sigil. Blinking <b>underline</b> cursor, no diff syntax, no window shadow. Traffic-light dots are the one permitted exception to the 0px radius rule.</p>
+
+    <h3 style="margin-top:56px">Table-grid cards</h3>
+    <div class="grid2">
+      <div class="gc"><h4>Kubernetes</h4><p>EKS · GKE · self-managed</p></div>
+      <div class="gc"><h4>Observability</h4><p>Prometheus · Grafana · OTel</p></div>
+      <div class="gc"><h4>CI/CD</h4><p>Actions · ArgoCD · Flux</p></div>
+      <div class="gc"><h4>IaC</h4><p>Terraform · Pulumi · Ansible</p></div>
+    </div>
+    <p class="small" style="margin-top:12px">Collapsed shared 1px borders, all cells equal. <b>No highlight cell</b> — dropped in v7. If one card genuinely needs to lead, use the accent selection border, not a coloured fill.</p>
+
+    <h3 style="margin-top:56px">Numbered rows</h3>
+    <div class="rows">
+      <div class="row"><div class="n"><i></i> 01</div><div><h4>Assess</h4><p>Map the failure modes before touching anything</p></div></div>
+      <div class="row"><div class="n"><i></i> 02</div><div><h4>Automate</h4><p>Encode the runbook so it survives the on-call rota</p></div></div>
+      <div class="row"><div class="n"><i></i> 03</div><div><h4>Hand over</h4><p>Documentation someone can actually follow at 3am</p></div></div>
+    </div>
+    <p class="small" style="margin-top:12px">Only for real sequences. Accent square, mono number, hairline separators.</p>
+
+    <h3 style="margin-top:56px">Footer</h3>
+    <div class="foot">
+      <div>© 2026 DevOps Foundry — Femi Akinlotan. All rights reserved.</div>
+      <div class="ic">
+        <a href="#" aria-label="LinkedIn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></a>
+        <a href="#" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-6.7A5.2 5.2 0 0 0 20 4.8a4.9 4.9 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.7 12.7 0 0 0-6.8 0C6.8.9 5.7 1.2 5.7 1.2A4.9 4.9 0 0 0 5.6 4.8 5.2 5.2 0 0 0 4 8.8c0 5.2 3.2 6.4 6.2 6.7a3.4 3.4 0 0 0-.9 2.6V22"/></svg></a>
+        <a href="#" aria-label="X"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 2h3l-7.5 8.6L22 22h-6.9l-4.4-5.8L5.6 22H2.5l8-9.2L2 2h7l4 5.3L18 2z"/></svg></a>
+      </div>
+    </div>
+    <p class="small" style="margin-top:12px">Single quiet line. Bare Lucide icons at 20px / <b>1.75</b> stroke, accent on hover.</p>
+  </section>
+
+  <!-- ============ 06 ICONS + SHAPE ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>SHAPE</b> ]</div>
+    <div class="section-rule">Radius, borders, icons <i></i></div>
+
+    <div class="note lock">
+      <b>Icon stroke is 1.75, size is 20px — 18px inside a section rule.</b> The stroke sits between the previous values of 1.5 and 2. Unlike the button border, an SVG stroke is antialiased rather than snapped to whole device pixels, so 1.75 renders as a genuine intermediate weight at every pixel ratio. There is no display-dependency caveat on this one. The <b>18px exception</b> is scoped narrowly: it applies only to interactive controls sitting inside a section rule, never to standalone icons.
+    </div>
+
+    <div class="icon-strip" style="margin:22px 0 12px" id="icons-ink"></div>
+    <div class="icon-strip accent" id="icons-accent"></div>
+    <p class="small" style="margin-top:12px">Lucide, 20px, stroke 1.75. Ink by default, accent when interactive or highlighted.</p>
+
+    <table class="tbl" style="margin-top:26px">
+      <tbody>
+        <tr><td style="width:190px"><b>Border radius</b></td><td><b>0px everywhere.</b> Only exception: macOS traffic-light dots in the terminal component.</td></tr>
+        <tr><td><b>Section rule</b></td><td><code>--rule</code> — always clearly visible, brighter than the component border in dark.</td></tr>
+        <tr><td><b>Component border</b></td><td><code>--border</code> — terminal, table-grids, panels, footer strip.</td></tr>
+        <tr><td><b>Hairline</b></td><td><code>--hairline</code> — quiet dividers, list separators, low-emphasis containers.</td></tr>
+        <tr><td><b>Button system</b></td><td><b>Square sweep only.</b> <code>.btn</code>, <code>.solid</code>, <code>.sm</code>. No filled, flat or non-sweeping button exists anywhere.</td></tr>
+        <tr><td><b>Button border</b></td><td><b><code>1.5px</code></b> via <code>--btn-bw</code>. One weight for every button. See §04 for the accepted cost.</td></tr>
+        <tr><td><b>Icons</b></td><td>Lucide only, <code>strokeWidth={1.75}</code>. <b><code>size={20}</code> standalone; <code>size={18}</code> for a control embedded in a section rule</b>, where 20px overpowers the 11px eyebrow. Ink by default, accent when interactive.</td></tr>
+        <tr><td><b>Mode toggle</b></td><td>Bare Lucide sun/moon — <b>no background, no border, no track</b>; hover turns it accent. A pill or switch was considered and rejected: it needs rounded corners and would cost a second exception to the 0px rule.</td></tr>
+        <tr><td><b>Toggle position</b></td><td><b>Always the final element on the right of any bar. Nothing comes after it.</b> Actions sit immediately before it.</td></tr>
+        <tr><td><b>Focus ring</b></td><td><b><code>1px</code></b> solid <code>--accent</code>, <code>outline-offset:3px</code>. Deliberately lighter than the 1.5px border — it sits outside the element and only appears on keyboard focus.</td></tr>
+        <tr><td><b>Selection cue</b></td><td>1px accent border marks the active item; any paired marker is a square <code>■</code>, never a round bullet.</td></tr>
+        <tr><td><b>Gradients</b></td><td class="bad">Never. Any kind, anywhere. Use flat colour, texture or layering instead.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ 07 SIGNATURE ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>SIGNATURE</b> ]</div>
+    <div class="section-rule">Contribution graph, foundry-heated <i></i></div>
+    <div class="heat" id="heat"></div>
+    <p class="small" style="margin-top:14px">Surface → accent at 20 / 40 / 67 / 100%. Mode-aware like the accent itself.</p>
+  </section>
+
+  <!-- ============ 08 REGISTER ============ -->
+  <section class="sec">
+    <div class="sec-label">[ <b>REGISTER</b> ]</div>
+    <div class="section-rule">Known costs, accepted knowingly <i></i></div>
+
+    <table class="tbl">
+      <thead><tr><th style="width:210px">Item</th><th style="width:110px">Measure</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>1.5px button border at 1x</b></td><td class="mid">rounds to 1px</td><td>Accepted. Renders as 3 device pixels at 2x, 2 at 1x, where it matches the structural border. Display-dependent by nature — no fraction avoids this. Revisit if 1x traffic proves significant.</td></tr>
+        <tr><td>Accent text on cream</td><td class="bad">2.98:1</td><td>Accepted. Section-label word only — short, bold, uppercase, always paired with ink brackets. Raise to 19px bold if a page needs it to pass.</td></tr>
+        <tr><td>Accent text on near-black</td><td class="ok">7.91:1</td><td>Passes.</td></tr>
+        <tr><td>Black on accent fill</td><td class="ok">8.39:1</td><td>Passes. This is why button hover text is black.</td></tr>
+        <tr><td>White on accent fill</td><td class="bad">2.50:1</td><td>Forbidden. Never put white text on the accent.</td></tr>
+        <tr><td>White on dark <code>--data</code></td><td class="bad">2.76:1</td><td>If <code>--data</code> is ever used as a fill, text on it must be black in dark / cream in light. Never white.</td></tr>
+        <tr><td>Body text, both modes</td><td class="ok">≥ 9:1</td><td>Passes.</td></tr>
+        <tr><td>Semantic colours, both modes</td><td class="ok">≥ 5.0:1</td><td>Passes.</td></tr>
+        <tr><td>Amber vs accent, dark</td><td class="bad">ΔE 18.6</td><td>Restricted — see §01.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<script>
+const hex = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function paint() {
+  const map = { 'c-bg':'--bg','c-su':'--surface','c-ink':'--ink','c-ib':'--ink-body','c-mu':'--muted',
+                'c-ru':'--rule','c-bo':'--border','c-ac':'--accent','c-ad':'--added','c-op':'--open',
+                'c-da':'--data','c-re':'--removed','c-am':'--amber' };
+  Object.entries(map).forEach(([id,v]) => { const e = document.getElementById(id); if (e) e.textContent = hex(v); });
+  const bw = document.getElementById('bw'); if (bw) bw.textContent = hex('--body-weight');
+}
+
+/* Lucide specimens — stroke tracks --icon-stroke */
+const ICONS = {
+  terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  check:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  branch:'<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  pkg:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>'
+};
+const stroke = hex('--icon-stroke') || '1.75';
+const draw = names => names.map(n =>
+  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`
+).join('');
+document.getElementById('icons-ink').innerHTML = draw(Object.keys(ICONS));
+document.getElementById('icons-accent').innerHTML = draw(['terminal','shield','arrow','check','branch']);
+
+const lv = ['','','l1','l1','l2','l2','l3','l4'];
+document.getElementById('heat').innerHTML =
+  Array.from({length:104}, () => `<b class="${lv[Math.floor(Math.random()*lv.length)]}"></b>`).join('');
+
+const mb = document.getElementById('mode');
+function sync() { paint(); }
+mb.addEventListener('click', () => {
+  document.documentElement.dataset.mode = document.documentElement.dataset.mode === 'dark' ? 'light' : 'dark';
+  sync();
+});
+sync();
+</script>
+</body>
+</html>

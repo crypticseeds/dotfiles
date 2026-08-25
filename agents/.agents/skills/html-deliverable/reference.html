@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevOpsFoundry — HTML Deliverable Reference</title>
+<style>
+/* ============================================================================
+   DevOpsFoundry HTML deliverable — canonical reference implementation.
+   Tokens and rules follow style-guide-v13. Copy this file to start a new
+   deliverable; do not rebuild from memory.
+
+   Locked: border 1.5px · focus 1px · icon stroke 1.75 (20px, 18px in rules)
+           one button (square sweep) · 0px radius · no gradients
+   ========================================================================= */
+:root{
+  --mono:'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --bg:#faf5ec; --surface:#f4ecdf;
+  --ink:#000000; --muted:#4d4947; --ink-body:#1a1a1a;
+  --accent:#e07000; --accent-press:#c96400; --on-accent:#000000;
+  --added:#007038; --open:#00667a; --data:#7340bf; --removed:#c2334a;
+  --added-bg:#00703814; --removed-bg:#c2334a14;
+  --added-mark:#00703830; --removed-mark:#c2334a30;
+  --border:#202020; --rule:#202020; --hairline:#00000022;
+  --body-weight:400; --btn-bw:1.5px;
+}
+html[data-mode="dark"]{
+  --bg:#0a0a0a; --surface:#141414;
+  --ink:#eeeae4; --muted:#a8a29b; --ink-body:#cfc9c0;
+  --accent:#ff8100; --accent-press:#ee7800; --on-accent:#000000;
+  --added:#00c26e; --open:#00abd6; --data:#af85ff; --removed:#ff6b81;
+  --added-bg:#00c26e1c; --removed-bg:#ff6b811c;
+  --added-mark:#00c26e38; --removed-mark:#ff6b8138;
+  --border:#4d4947; --rule:#6b6560; --hairline:#ffffff24;
+  --body-weight:450;
+}
+*{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.6}
+::selection{background:var(--accent);color:var(--on-accent)}
+
+/* FOCUS — global, 1px accent. Declared once. Never per component. */
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+textarea:focus-visible{outline:1px solid var(--accent);outline-offset:-1px}
+
+/* ---- topbar: mode toggle is ALWAYS last ---- */
+.topbar{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar-in,main{max-width:1060px;margin:0 auto;padding-left:24px;padding-right:24px}
+.topbar-in{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.t{font-size:12px;color:var(--muted)}.t b{color:var(--ink);font-weight:700}
+.topbar-actions{display:flex;align-items:center;gap:14px;margin-left:auto}
+.count{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.count.on{color:var(--accent);font-weight:700}
+
+/* ---- the ONLY button: square sweep ---- */
+.btn{--c:var(--accent);font-family:inherit;font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  display:inline-block;padding:0 26px;height:3em;line-height:calc(3em - (var(--btn-bw)*2));overflow:hidden;cursor:pointer;
+  position:relative;z-index:1;text-decoration:none;color:var(--c);background:transparent;
+  border:var(--btn-bw) solid var(--c);border-radius:0;transition:color .3s}
+.btn::before{content:"";position:absolute;z-index:-1;background:var(--c);width:340px;height:340px;top:100%;left:100%;transition:.4s all}
+.btn:hover{color:#000}
+.btn:hover::before{top:-120px;left:-120px}
+.btn.solid{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.solid::before{background:var(--bg)}
+.btn.solid:hover{color:var(--accent)}
+.btn.sm{font-size:11px;font-weight:700;padding:0 15px;height:2.6em;line-height:calc(2.6em - (var(--btn-bw)*2))}
+.btnrow{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+@media (prefers-reduced-motion:reduce){
+  .btn,.btn::before{transition:none}
+  .btn:hover::before{top:0;left:0;width:100%;height:100%}
+}
+/* bare icon control — same family as the mode toggle */
+.ico-btn{background:none;border:0;padding:4px;margin:0;cursor:pointer;color:var(--ink);display:flex;align-items:center}
+.ico-btn:hover{color:var(--accent)}
+.i-sun{display:block}.i-moon{display:none}
+html[data-mode="dark"] .i-sun{display:none}
+html[data-mode="dark"] .i-moon{display:block}
+
+/* ---- structure ---- */
+main{padding-bottom:130px}
+.hero{padding:52px 0 20px;border-bottom:1px solid var(--rule)}
+.sec-label{font-size:14px;letter-spacing:.5px;text-transform:uppercase;font-weight:700;color:var(--ink);margin-bottom:16px}
+.sec-label b{color:var(--accent)}
+.section-rule{border-top:1px solid var(--rule);padding-top:11px;display:flex;align-items:center;gap:10px;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.section-rule .sq{width:8px;height:8px;background:var(--accent);flex:none}
+.section-rule .cmt-toggle{margin-left:auto}
+h1{font-size:clamp(32px,5vw,54px);line-height:1.05;letter-spacing:-.03em;font-weight:700;margin:22px 0 16px;max-width:19ch}
+h3{font-size:16px;font-weight:700;margin:0 0 8px;color:var(--ink)}
+.sec{margin-top:64px}
+.lede{color:var(--muted);max-width:72ch}
+.body{font-size:17px;line-height:1.56;font-weight:var(--body-weight);color:var(--ink-body);max-width:64ch}
+p{margin:0}
+code{color:var(--ink);font-family:inherit;font-size:.94em}
+.cap{font-size:12px;color:var(--muted);margin-top:12px}
+.note{border:1px solid var(--border);background:var(--surface);padding:14px 16px;font-size:13px;color:var(--muted);margin:20px 0}
+.note b{color:var(--ink);font-weight:600}
+.note.lock{border-left:4px solid var(--accent)}
+.note.warn{border-left:4px solid var(--removed)}
+.note.good{border-left:4px solid var(--added)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid var(--border)}
+.tbl th{text-align:left;font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--hairline);vertical-align:top;color:var(--ink-body)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl b{color:var(--ink)}
+.ok{color:var(--added);font-weight:700}.bad{color:var(--removed);font-weight:700}
+details{border:1px solid var(--border);padding:0 16px;margin:18px 0}
+summary{padding:13px 0;color:var(--ink);cursor:pointer;font-weight:700}
+details>*:not(summary){padding-bottom:14px;color:var(--muted)}
+
+/* ============ DIAGRAMS ============ */
+.dg{border:1px solid var(--border);background:var(--surface);padding:26px 22px}
+/* A — linear flow */
+.flow{display:flex;align-items:stretch;flex-wrap:wrap}
+.node{flex:1 1 130px;min-width:130px;border:1px solid var(--border);background:var(--bg);padding:14px 13px;
+  display:flex;flex-direction:column;gap:8px}
+.node .ic{color:var(--muted);display:block}
+.node b{font-size:13px;font-weight:700;color:var(--ink);line-height:1.3}
+.node span{font-size:11px;color:var(--muted);line-height:1.45}
+.node.on{border-color:var(--accent)}
+.node.on .ic{color:var(--accent)}
+.edge{flex:0 0 46px;display:flex;align-items:center;justify-content:center;color:var(--accent);position:relative}
+.edge em{position:absolute;top:calc(50% + 12px);left:50%;transform:translateX(-50%);font-style:normal;font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+@media (max-width:700px){
+  .flow{flex-direction:column}
+  .node{flex:1 1 auto;width:100%}
+  .edge{flex:0 0 40px;width:100%;transform:rotate(90deg)}
+  .edge em{display:none}
+}
+/* B — tiers */
+.tiers{display:flex;flex-direction:column;border:1px solid var(--border)}
+.tier{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border)}
+.tier:last-child{border-bottom:0}
+.tier-k{padding:14px 13px;background:var(--surface);border-right:1px solid var(--border);
+  font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.tier-v{padding:13px;display:flex;gap:10px;flex-wrap:wrap;background:var(--bg)}
+.pill{display:flex;align-items:center;gap:8px;border:1px solid var(--hairline);padding:7px 11px;font-size:12px;color:var(--ink)}
+.pill svg{color:var(--muted);flex:none}
+.pill.on{border-color:var(--accent)}.pill.on svg{color:var(--accent)}
+@media (max-width:700px){.tier{grid-template-columns:1fr}.tier-k{border-right:0;border-bottom:1px solid var(--hairline)}}
+/* C — svg topology */
+.svg-wrap{background:var(--bg);border:1px solid var(--border)}
+.svg-wrap svg{display:block;width:100%;height:auto}
+.s-box{fill:var(--surface);stroke:var(--border);stroke-width:1}
+.s-box.on{stroke:var(--accent)}
+.s-group{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.s-t{fill:var(--ink);font-family:var(--mono);font-size:11px;font-weight:700}
+.s-m{fill:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:.08em}
+.s-line{stroke:var(--accent);stroke-width:1.5;fill:none}
+.s-line.q{stroke:var(--muted);stroke-dasharray:4 3}
+.s-ico{stroke:var(--muted);stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.s-ico.on{stroke:var(--accent)}
+/* D — sequence */
+.seq{border:1px solid var(--border)}
+.seq .r{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--hairline);align-items:flex-start;background:var(--bg)}
+.seq .r:last-child{border-bottom:0}
+.seq .n{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:12px;font-weight:700;flex:none;min-width:52px}
+.seq .n i{width:8px;height:8px;background:var(--accent);display:block}
+.seq h4{margin:0 0 3px;font-size:14px;font-weight:700;color:var(--ink)}
+.seq p{margin:0;font-size:12px;color:var(--muted)}
+.vocab{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));border:1px solid var(--border)}
+.vocab div{padding:14px 12px;border-right:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+  display:flex;flex-direction:column;gap:7px;background:var(--bg)}
+.vocab svg{color:var(--accent)}
+.vocab b{font-size:12px;color:var(--ink)}
+.vocab span{font-size:10px;color:var(--muted);letter-spacing:.05em}
+
+/* ============ CODE BLOCKS ============ */
+.code{position:relative;border:1px solid var(--border);background:var(--surface);margin:20px 0}
+.code pre{margin:0;padding:16px 54px 16px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.7;
+  color:var(--ink-body);overflow-x:auto;white-space:pre}
+.code-copy{position:absolute;top:8px;right:8px}
+.code-copy .i-check{display:none}
+.code-copy.done{color:var(--added)}
+.code-copy.done .i-copy{display:none}
+.code-copy.done .i-check{display:block}
+
+/* ============ DIFF BLOCKS ============ */
+/* A diff never goes in a plain .code block — added and removed must be
+   distinguishable with the hue ignored, so each changed line carries a bar,
+   a tint and a marker glyph. The marker gap is CSS width, not a character:
+   the copied text stays a byte-exact patch. */
+.code.diff{overflow-x:auto}
+.diff-head{display:flex;align-items:center;gap:12px;padding:9px 54px 9px 16px;border-bottom:1px solid var(--hairline);
+  font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;position:sticky;left:0}
+.diff-head .stat{margin-left:auto;display:flex;gap:10px;letter-spacing:0}
+.diff-head .pa{color:var(--added)}
+.diff-head .pr{color:var(--removed)}
+.diff-body{width:max-content;min-width:100%;padding:12px 0;font-size:12.5px;line-height:1.7;color:var(--ink-body)}
+.dl{display:block;white-space:pre;padding:0 54px 0 13px;border-left:3px solid transparent}
+.dl i{display:inline-block;width:2ch;font-style:normal;font-weight:700;color:var(--muted)}
+.dl.a{background:var(--added-bg);border-left-color:var(--added)}
+.dl.a i{color:var(--added)}
+.dl.r{background:var(--removed-bg);border-left-color:var(--removed)}
+.dl.r i{color:var(--removed)}
+.dl.h{color:var(--muted);margin:6px 0 2px}
+.dl.a mark{background:var(--added-mark);color:inherit}
+.dl.r mark{background:var(--removed-mark);color:inherit}
+
+/* ============ SECTION COMMENTS ============ */
+.cmt-toggle{position:relative}
+.cmt-toggle .badge{position:absolute;top:-2px;right:-2px;min-width:14px;height:14px;padding:0 3px;background:var(--accent);
+  color:var(--on-accent);font-size:9px;font-weight:700;line-height:14px;text-align:center;display:none;font-style:normal}
+[data-has-comment="true"] .cmt-toggle{color:var(--accent)}
+[data-has-comment="true"] .cmt-toggle .badge{display:block}
+[data-has-comment="true"] > .section-rule{border-top-color:var(--accent)}
+.cmt-panel{display:none;margin-top:18px;border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--surface)}
+.cmt-panel.open{display:block}
+.cmt-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--hairline);
+  font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.cmt-head .x{margin-left:auto}
+.quotes{padding:10px 14px 0;display:flex;flex-direction:column;gap:6px}
+.quote{display:flex;gap:9px;align-items:flex-start;border-left:1px solid var(--accent);padding:3px 0 3px 9px;color:var(--muted);font-size:12px}
+.quote span{flex:1;overflow-wrap:anywhere}
+.quote button{background:none;border:0;color:var(--muted);cursor:pointer;font:inherit;font-size:14px;line-height:1;padding:0 2px}
+.quote button:hover{color:var(--removed)}
+.cmt-panel textarea{display:block;width:calc(100% - 28px);margin:12px 14px 14px;padding:10px 12px;border:1px solid var(--border);
+  background:var(--bg);color:var(--ink);font:inherit;font-size:13px;resize:vertical;border-radius:0}
+.sel-chip{position:absolute;z-index:60;display:none;align-items:center;gap:7px;padding:6px 11px;
+  border:var(--btn-bw) solid var(--accent);background:var(--bg);color:var(--accent);font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--mono);border-radius:0}
+.sel-chip:hover{background:var(--accent);color:var(--on-accent)}
+.sel-chip.on{display:flex}
+
+/* ============ DECISIONS ============ */
+.dec{padding:18px 0;border-bottom:1px solid var(--hairline)}
+.dec:last-of-type{border-bottom:0}
+.q{margin-bottom:4px;color:var(--ink);font-size:16px;font-weight:700}
+.why{max-width:84ch;margin-bottom:12px;color:var(--muted);font-size:13px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+label.opt{display:flex;gap:9px;align-items:center;padding:9px 13px;border:1px solid var(--hairline);cursor:pointer}
+label.opt:hover{border-color:var(--accent)}
+label.opt span{color:var(--ink-body);font-size:13px}
+input[type=radio],input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:15px;height:15px;margin:0;
+  border:1px solid var(--muted);background:transparent;border-radius:0;cursor:pointer}
+input[type=radio]:checked,input[type=checkbox]:checked{border-color:var(--accent);
+  box-shadow:inset 0 0 0 3px var(--bg),inset 0 0 0 12px var(--accent)}
+.final{width:100%;margin-top:14px;padding:11px 13px;border:1px solid var(--border);background:var(--surface);
+  color:var(--ink);font:inherit;font-size:13px;resize:vertical;border-radius:0}
+.saved{position:fixed;right:22px;bottom:22px;padding:9px 14px;border:1px solid var(--accent);background:var(--surface);
+  color:var(--ink);font-size:12px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:70}
+.saved.on{opacity:1}
+
+@media (max-width:820px){
+  .topbar-in,main{padding-left:16px;padding-right:16px}
+  .dg{padding:18px 14px}
+  .tbl,.tbl thead,.tbl tbody,.tbl tr,.tbl th,.tbl td{display:block}
+  .tbl thead{display:none}
+  .tbl tr{border-bottom:1px solid var(--border)}
+  .tbl tr:last-child{border-bottom:0}
+  .tbl td{border-bottom:0;padding:4px 12px}
+  .tbl td:first-child{padding-top:12px}
+  .tbl td:last-child{padding-bottom:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="t"><b>HTML DELIVERABLE</b> &nbsp;·&nbsp; reference implementation · style guide v13</div>
+    <div class="topbar-actions">
+      <span class="count" id="count">0 comments</span>
+      <button class="btn sm" id="copy">Copy feedback</button>
+      <button class="ico-btn" id="mode" aria-label="Toggle colour mode">
+        <svg class="i-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="i-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section class="hero" data-sec="Overview">
+    <div class="sec-label">[ <b>REFERENCE</b> ]</div>
+    <h1>Copy this file. Do not rebuild from memory.</h1>
+    <p class="lede">The canonical HTML deliverable: style guide v13 tokens, one button, section comments, quoted feedback, four diagram patterns and a plain-text export. Everything below is both documentation and a working copy-source. Select any text to quote it into a comment.</p>
+  </section>
+
+  <section class="sec" data-sec="Rules">
+    <div class="sec-label">[ <b>RULES</b> ]</div>
+    <div class="section-rule">Non-negotiable <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <table class="tbl">
+      <tbody>
+        <tr><td style="width:180px"><b>One button</b></td><td>The square sweep. <code>.btn</code> outline is default, <code>.solid</code> inverts for one primary action per view, <code>.sm</code> is chrome scale. No other button exists.</td></tr>
+        <tr><td><b>Button border</b></td><td><code>1.5px</code> via <code>--btn-bw</code>. Line-height is <code>calc(3em - (var(--btn-bw) * 2))</code> — never hard-code it.</td></tr>
+        <tr><td><b>Focus ring</b></td><td><code>1px</code> accent, declared <b>once, globally</b>. Never per component; a missed control falls through to browser-default blue.</td></tr>
+        <tr><td><b>Icons</b></td><td>Lucide only, stroke <code>1.75</code>. <code>20px</code> standalone, <code>18px</code> for a control inside a section rule.</td></tr>
+        <tr><td><b>Radius</b></td><td class="bad">0px everywhere. No exceptions.</td></tr>
+        <tr><td><b>Gradients</b></td><td class="bad">Never. Any kind, anywhere.</td></tr>
+        <tr><td><b>Toggle</b></td><td>Always the final element on the right of any bar. Actions go immediately before it.</td></tr>
+        <tr><td><b>Self-contained</b></td><td>Inline CSS and JS. No external fetch, no build step, opens from <code>file://</code>.</td></tr>
+      </tbody>
+    </table>
+    <div class="code">
+      <button class="ico-btn code-copy" aria-label="Copy code">
+        <svg class="i-copy" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="14" height="14"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <svg class="i-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </button>
+<pre>:root{ --btn-bw:1.5px; }
+
+:focus-visible         { outline:1px solid var(--accent); outline-offset:3px; }
+textarea:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+
+.btn{
+  border:var(--btn-bw) solid var(--c);
+  line-height:calc(3em - (var(--btn-bw) * 2));  /* never hard-code */
+  border-radius:0;
+}</pre>
+    </div>
+    <div class="btnrow" style="margin-top:22px">
+      <button class="btn">Get in touch</button>
+      <button class="btn solid">Primary</button>
+      <button class="btn sm">Chrome</button>
+    </div>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Diffs">
+    <div class="sec-label">[ <b>DIFFS</b> ]</div>
+    <div class="section-rule">Never a plain code block <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="code diff">
+      <button class="ico-btn code-copy" aria-label="Copy diff">
+        <svg class="i-copy" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="14" height="14"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <svg class="i-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </button>
+      <div class="diff-head">web/app/api/session/route.ts<span class="stat"><b class="pa">+2</b><b class="pr">−2</b></span></div>
+      <div class="diff-body">
+        <span class="dl h">@@ -12,7 +12,7 @@ POST handler</span>
+        <span class="dl"><i> </i>export async function POST(req: Request) {</span>
+        <span class="dl r"><i>-</i>  const user = await getUser(req)</span>
+        <span class="dl r"><i>-</i>  if (!user) return new Response('no', { status: 401 })</span>
+        <span class="dl a"><i>+</i>  const user = await requireUser(req)</span>
+        <span class="dl a"><i>+</i>  if (!user.pro) return forbidden('pro plan required')</span>
+        <span class="dl"><i> </i>  const body = await req.json()</span>
+        <span class="dl"><i> </i>}</span>
+      </div>
+    </div>
+    <p class="cap">One <code>.dl</code> per line: <code>.a</code> added, <code>.r</code> removed, <code>.h</code> hunk header, bare for context. The leading marker sits in <code>&lt;i&gt;</code> so it can be coloured and given its own 2ch column. Optional: a <code>.diff-head</code> filename bar, and <code>&lt;mark&gt;</code> around an intra-line change when a one-token edit would otherwise be missed.</p>
+    <table class="tbl">
+      <tbody>
+        <tr><td style="width:180px"><b>Four signals</b></td><td>Bar, tint, coloured marker, literal <code>+</code>/<code>-</code>. Green/red is the pair that fails for colourblind readers, so the block must still read with hue stripped out.</td></tr>
+        <tr><td><b>Blocks, not <code>&lt;pre&gt;</code></b></td><td>Inline spans tint only as far as the text runs; <code>display:block</code> inside <code>&lt;pre&gt;</code> doubles the leading. Block children of a plain div avoid both, and <code>width:max-content;min-width:100%</code> keeps the tint full width through a horizontal scroll.</td></tr>
+        <tr><td><b>Copy</b></td><td>No <code>&lt;pre&gt;</code> and no newlines in the markup, so the handler joins <code>.dl</code> text with <code>\n</code>. Still <code>textContent</code>, never <code>innerHTML</code>.</td></tr>
+        <tr><td><b>Not included</b></td><td>Line numbers, side-by-side split, syntax highlighting. Each needs a gutter that fights the bar or a tokenizer, and neither earns it in a read-once document.</td></tr>
+      </tbody>
+    </table>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Diagram A — Linear flow">
+    <div class="sec-label">[ <b>DIAGRAM A · LINEAR FLOW</b> ]</div>
+    <div class="section-rule">Request paths · HTML · reflows on mobile <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="dg">
+      <div class="flow">
+        <div class="node"><span class="ic" data-i="user"></span><b>Visitor</b><span>Browser</span></div>
+        <div class="edge" data-arrow><em>HTTPS</em></div>
+        <div class="node"><span class="ic" data-i="globe"></span><b>Edge</b><span>CDN · lhr1</span></div>
+        <div class="edge" data-arrow><em>POST</em></div>
+        <div class="node on"><span class="ic" data-i="shield"></span><b>Contact API</b><span>Turnstile · rate limit</span></div>
+        <div class="edge" data-arrow><em>SQL</em></div>
+        <div class="node"><span class="ic" data-i="database"></span><b>Neon</b><span>Lead storage</span></div>
+      </div>
+      <p class="cap">Accent marks the entity under discussion; everything else stays structural. Prefer this whenever the shape is a line.</p>
+    </div>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Diagram B — Tiers">
+    <div class="sec-label">[ <b>DIAGRAM B · TIERS</b> ]</div>
+    <div class="section-rule">What lives where · no arrows, deliberately <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="dg">
+      <div class="tiers">
+        <div class="tier"><div class="tier-k">Edge</div><div class="tier-v">
+          <span class="pill" data-p="globe">CDN</span><span class="pill" data-p="shield">Turnstile</span><span class="pill" data-p="lock">WAF</span></div></div>
+        <div class="tier"><div class="tier-k">Application</div><div class="tier-v">
+          <span class="pill on" data-p="server">Next.js</span><span class="pill" data-p="webhook">Route handlers</span><span class="pill" data-p="workflow">Server actions</span></div></div>
+        <div class="tier"><div class="tier-k">Platform</div><div class="tier-v">
+          <span class="pill" data-p="container">Containers</span><span class="pill" data-p="git-branch">GitOps</span><span class="pill" data-p="activity">Observability</span></div></div>
+        <div class="tier"><div class="tier-k">Data</div><div class="tier-v">
+          <span class="pill" data-p="database">Neon</span><span class="pill" data-p="zap">Upstash</span><span class="pill" data-p="mail">Resend</span></div></div>
+      </div>
+    </div>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Diagram C — Topology">
+    <div class="sec-label">[ <b>DIAGRAM C · TOPOLOGY</b> ]</div>
+    <div class="section-rule">Grouping and fan-out · inline SVG <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="svg-wrap">
+      <svg viewBox="0 0 760 268" role="img" aria-label="Cluster topology: ingress to three services and two data stores">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker>
+          <marker id="ahq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
+        </defs>
+        <rect class="s-group" x="196" y="18" width="392" height="234"/>
+        <text class="s-m" x="206" y="36">KUBERNETES CLUSTER</text>
+        <rect class="s-box" x="26" y="120" width="118" height="56"/>
+        <g class="s-ico" transform="translate(40,134) scale(0.72)"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>
+        <text class="s-t" x="66" y="146">Visitor</text><text class="s-m" x="66" y="160">BROWSER</text>
+        <rect class="s-box on" x="216" y="120" width="118" height="56"/>
+        <g class="s-ico on" transform="translate(230,134) scale(0.72)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></g>
+        <text class="s-t" x="256" y="146">Ingress</text><text class="s-m" x="256" y="160">TLS · WAF</text>
+        <rect class="s-box" x="400" y="52" width="118" height="50"/>
+        <g class="s-ico" transform="translate(412,64) scale(0.62)"><rect x="2" y="2" width="20" height="8"/><rect x="2" y="14" width="20" height="8"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></g>
+        <text class="s-t" x="436" y="74">API</text><text class="s-m" x="436" y="88">3 REPLICAS</text>
+        <rect class="s-box" x="400" y="136" width="118" height="50"/>
+        <g class="s-ico" transform="translate(412,148) scale(0.62)"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/></g>
+        <text class="s-t" x="436" y="158">Worker</text><text class="s-m" x="436" y="172">QUEUE</text>
+        <rect class="s-box" x="400" y="196" width="118" height="42"/>
+        <g class="s-ico" transform="translate(412,204) scale(0.6)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></g>
+        <text class="s-t" x="436" y="216">Metrics</text><text class="s-m" x="436" y="229">PROM · OTEL</text>
+        <rect class="s-box" x="612" y="52" width="120" height="50"/>
+        <g class="s-ico" transform="translate(624,64) scale(0.62)"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></g>
+        <text class="s-t" x="648" y="74">Postgres</text><text class="s-m" x="648" y="88">PRIMARY</text>
+        <rect class="s-box" x="612" y="136" width="120" height="50"/>
+        <g class="s-ico" transform="translate(624,148) scale(0.62)"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></g>
+        <text class="s-t" x="648" y="158">Redis</text><text class="s-m" x="648" y="172">CACHE</text>
+        <path class="s-line" d="M144 148 H210" marker-end="url(#ah)"/>
+        <path class="s-line" d="M334 148 H360 V77 H394" marker-end="url(#ah)"/>
+        <path class="s-line" d="M334 148 H394" marker-end="url(#ah)"/>
+        <path class="s-line q" d="M334 148 H360 V217 H394" marker-end="url(#ahq)"/>
+        <path class="s-line" d="M518 77 H606" marker-end="url(#ah)"/>
+        <path class="s-line" d="M518 161 H606" marker-end="url(#ah)"/>
+        <text class="s-m" x="152" y="142">HTTPS</text>
+      </svg>
+    </div>
+    <p class="cap">One <code>viewBox</code>, width 100%, height auto — scales rather than scrolls. Dashed edge = secondary path. Dashed box = logical boundary, not a deployable. Tighten the viewBox to the content.</p>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Diagram D — Sequence">
+    <div class="sec-label">[ <b>DIAGRAM D · SEQUENCE</b> ]</div>
+    <div class="section-rule">Ordered steps with narrative <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="seq">
+      <div class="r"><div class="n"><i></i> 01</div><div><h4>Browser posts the form</h4><p>Client validation, honeypot, Turnstile token attached</p></div></div>
+      <div class="r"><div class="n"><i></i> 02</div><div><h4>Route handler verifies</h4><p>Action and hostname checked against Cloudflare</p></div></div>
+      <div class="r"><div class="n"><i></i> 03</div><div><h4>Rate limit by HMAC identifier</h4><p>Address hashed before it reaches the limiter</p></div></div>
+      <div class="r"><div class="n"><i></i> 04</div><div><h4>Persist, track, notify</h4><p>Database insert, analytics event, confirmation mail</p></div></div>
+    </div>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Icon vocabulary">
+    <div class="sec-label">[ <b>ICONS</b> ]</div>
+    <div class="section-rule">Lucide + text label · no vendor logos <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <div class="vocab" id="vocab"></div>
+    <div class="note">Lucide has no vendor marks beyond <code>github</code> and <code>gitlab</code>, and no brand pack is approved. Use the generic shape with a text label — "Postgres" under a database cylinder carries the same information.</div>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+
+  <section class="sec" data-sec="Feedback mechanics">
+    <div class="sec-label">[ <b>FEEDBACK</b> ]</div>
+    <div class="section-rule">Three ways in, one way out <button class="ico-btn cmt-toggle" aria-label="Comment on this section"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><i class="badge"></i></button><i class="sq"></i></div>
+    <table class="tbl">
+      <thead><tr><th style="width:180px">Affordance</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><b>Section comment</b></td><td>Speech-bubble in any section rule. For "this whole section is wrong".</td></tr>
+        <tr><td><b>Quoted comment</b></td><td>Select text, click the chip. The exact phrase is quoted into that section.</td></tr>
+        <tr><td><b>Decisions + catch-all</b></td><td>Structured choices, then a free-text box. Most useful feedback lands in the box.</td></tr>
+      </tbody>
+    </table>
+    <details><summary>Export format</summary><p>Plain text only, so it survives a chat box. Unanswered items emit <code>(not answered)</code> rather than being dropped — the difference between "no" and "skipped" matters. Quotes appear under their section with a <code>&gt;</code> marker.</p></details>
+
+    <div class="dec">
+      <div class="q">Example decision</div>
+      <div class="why">Radios for one-of-N, checkboxes for many-of-N. Square, never circles. Whole label clickable.</div>
+      <div class="opts" id="opt-example"></div>
+    </div>
+
+    <textarea class="final" data-final rows="5" placeholder="Anything else — the catch-all box..."></textarea>
+    <div class="cmt-panel"><div class="cmt-head">Comment · <span class="sec-name"></span><button class="ico-btn x" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="quotes"></div><textarea rows="3" placeholder="Your comment on this section..."></textarea></div>
+  </section>
+</main>
+
+<button class="sel-chip" id="chip">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  Comment
+</button>
+<div class="saved" id="saved">Saved</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Lucide paths ---------- */
+  var P={
+    user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/><path d="M2 12h20"/>',
+    shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>',
+    server:'<rect x="2" y="2" width="20" height="8"/><rect x="2" y="14" width="20" height="8"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>',
+    cloud:'<path d="M17.5 19a4.5 4.5 0 0 0 0-9h-1.8A7 7 0 1 0 4 16.7"/>',
+    lock:'<rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    container:'<path d="M22 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 4 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 22 16Z"/><path d="m4.3 7 7.7 4.4 7.7-4.4"/><path d="M12 22V11.4"/>',
+    webhook:'<path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3s1.34-3 3-3h.01"/><path d="m6 9 3-3 3 3"/><path d="M9 6v6"/><circle cx="18" cy="17" r="3"/>',
+    workflow:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><path d="M10 6.5h4a2 2 0 0 1 2 2v3"/>',
+    'git-branch':'<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+    activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+    mail:'<rect x="2" y="4" width="20" height="16"/><path d="m2 7 10 6 10-6"/>',
+    network:'<rect x="9" y="2" width="6" height="6"/><rect x="2" y="16" width="6" height="6"/><rect x="16" y="16" width="6" height="6"/><path d="M12 8v4M12 12H5v4M12 12h7v4"/>',
+    terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>'
+  };
+  function svg(n,size){
+    return '<svg width="'+(size||20)+'" height="'+(size||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+      'stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'+(P[n]||'')+'</svg>';
+  }
+  var ARROW='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+  document.querySelectorAll("[data-i]").forEach(function(el){el.innerHTML=svg(el.dataset.i,20)});
+  document.querySelectorAll("[data-arrow]").forEach(function(el){el.insertAdjacentHTML("afterbegin",ARROW)});
+  document.querySelectorAll("[data-p]").forEach(function(el){el.insertAdjacentHTML("afterbegin",svg(el.dataset.p,16))});
+
+  var VOCAB=[["user","Visitor","ACTOR"],["globe","Edge / CDN","NETWORK"],["shield","Gateway","SECURITY"],
+    ["server","Service","COMPUTE"],["container","Container","RUNTIME"],["database","Datastore","DATA"],
+    ["zap","Cache / queue","DATA"],["webhook","Integration","EXTERNAL"],["git-branch","Pipeline","DELIVERY"],
+    ["activity","Telemetry","OBSERVE"],["mail","Notification","EXTERNAL"],["network","Topology","STRUCTURE"]];
+  document.getElementById("vocab").innerHTML=VOCAB.map(function(v){
+    return "<div>"+svg(v[0],20)+"<b>"+v[1]+"</b><span>"+v[2]+"</span></div>"}).join("");
+
+  document.getElementById("opt-example").innerHTML=["Option A","Option B","Undecided"].map(function(v){
+    return '<label class="opt"><input type="radio" name="example" value="'+v+'"><span>'+v+'</span></label>'}).join("");
+
+  /* ---------- state ---------- */
+  var KEY="devopsfoundry-html-deliverable-reference";
+  var root=document.documentElement,cue=document.getElementById("saved"),chip=document.getElementById("chip"),timer;
+  var state=(function(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}})();
+  state.comments=state.comments||{};
+  function save(){
+    try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+    cue.classList.add("on");clearTimeout(timer);
+    timer=setTimeout(function(){cue.classList.remove("on")},750);
+  }
+  var sections=Array.prototype.slice.call(document.querySelectorAll("[data-sec]"));
+  function entry(n){if(!state.comments[n])state.comments[n]={text:"",quotes:[]};return state.comments[n]}
+  function hasContent(n){var e=state.comments[n];return !!e&&((e.text||"").trim()!==""||(e.quotes||[]).length>0)}
+  function renderQuotes(sec){
+    var box=sec.querySelector(".quotes");if(!box)return;
+    box.innerHTML=(entry(sec.dataset.sec).quotes||[]).map(function(q,i){
+      return '<div class="quote"><span>&gt; '+q.replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})+
+        '</span><button data-q="'+i+'" aria-label="Remove quote">&times;</button></div>'}).join("");
+  }
+  function refresh(sec){
+    var n=sec.dataset.sec;
+    sec.setAttribute("data-has-comment",hasContent(n)?"true":"false");
+    var b=sec.querySelector(".cmt-toggle .badge");
+    if(b){var e=entry(n);var c=(e.quotes||[]).length+((e.text||"").trim()?1:0);b.textContent=c>0?String(c):""}
+    var total=sections.filter(function(s){return hasContent(s.dataset.sec)}).length;
+    var el=document.getElementById("count");
+    el.textContent=total===0?"0 comments":(total+(total===1?" comment":" comments"));
+    el.className="count"+(total?" on":"");
+  }
+  function openPanel(sec,focus){
+    var p=sec.querySelector(".cmt-panel");if(!p)return;
+    p.classList.add("open");
+    var nm=p.querySelector(".sec-name");if(nm)nm.textContent=sec.dataset.sec;
+    if(focus)p.querySelector("textarea").focus();
+  }
+  sections.forEach(function(sec){
+    var name=sec.dataset.sec,panel=sec.querySelector(".cmt-panel");
+    if(panel){
+      var ta=panel.querySelector("textarea");
+      ta.setAttribute("autocomplete","off");
+      ta.value=entry(name).text||"";
+      ta.addEventListener("input",function(){entry(name).text=ta.value;save();refresh(sec)});
+      panel.querySelector(".x").addEventListener("click",function(){panel.classList.remove("open")});
+      panel.querySelector(".quotes").addEventListener("click",function(ev){
+        var b=ev.target.closest("button[data-q]");if(!b)return;
+        entry(name).quotes.splice(parseInt(b.dataset.q,10),1);
+        renderQuotes(sec);save();refresh(sec);
+      });
+      renderQuotes(sec);
+      if(hasContent(name))openPanel(sec,false);
+    }
+    var tg=sec.querySelector(".cmt-toggle");
+    if(tg)tg.addEventListener("click",function(){
+      var p=sec.querySelector(".cmt-panel");
+      if(p.classList.contains("open"))p.classList.remove("open");else openPanel(sec,true);
+    });
+    refresh(sec);
+  });
+
+  /* ---------- selection -> quoted comment ---------- */
+  var pending=null;
+  function hideChip(){chip.classList.remove("on");pending=null}
+  document.addEventListener("mouseup",function(ev){
+    var t=ev.target;
+    if(t&&t.closest&&t.closest(".sel-chip"))return;   /* target may be document: guard .closest */
+    setTimeout(function(){
+      var sel=window.getSelection();
+      if(!sel||sel.isCollapsed){hideChip();return}
+      var text=sel.toString().trim();
+      if(text.length<2){hideChip();return}
+      var node=sel.anchorNode,el=node&&(node.nodeType===1?node:node.parentElement);
+      if(!el||!el.closest||el.closest(".cmt-panel")||el.closest(".topbar")){hideChip();return}
+      var sec=el.closest("[data-sec]");if(!sec){hideChip();return}
+      var r=sel.getRangeAt(0).getBoundingClientRect();
+      if(!r||(!r.width&&!r.height)){hideChip();return}
+      pending={sec:sec,text:text.replace(/\s+/g," ").slice(0,220)};
+      chip.style.top=(r.top+window.scrollY-40)+"px";
+      chip.style.left=Math.max(10,r.left+window.scrollX)+"px";
+      chip.classList.add("on");
+    },0);
+  });
+  document.addEventListener("scroll",hideChip,{passive:true});
+  chip.addEventListener("click",function(){
+    if(!pending)return;
+    var sec=pending.sec;
+    entry(sec.dataset.sec).quotes.push(pending.text);
+    renderQuotes(sec);save();refresh(sec);openPanel(sec,true);
+    window.getSelection().removeAllRanges();hideChip();
+  });
+
+  /* ---------- controls ---------- */
+  Array.prototype.slice.call(document.querySelectorAll('input[type=radio]')).forEach(function(r){
+    r.checked=state[r.name]===r.value;
+    r.addEventListener("change",function(){state[r.name]=r.value;save()});
+  });
+  var fin=document.querySelector("[data-final]");
+  fin.setAttribute("autocomplete","off");
+  fin.value=state.final||"";
+  fin.addEventListener("input",function(){state.final=fin.value;save()});
+
+  if(state.mode)root.dataset.mode=state.mode;
+  document.getElementById("mode").addEventListener("click",function(){
+    root.dataset.mode=root.dataset.mode==="dark"?"light":"dark";
+    state.mode=root.dataset.mode;save();
+  });
+
+  /* ---------- export ---------- */
+  var LABELS={example:"Example decision"};
+  function buildText(){
+    var o=[];
+    o.push("DevOpsFoundry - html-deliverable-reference feedback");
+    o.push("==================================================");o.push("");
+    o.push("DECISIONS");
+    Object.keys(LABELS).forEach(function(k){o.push("  - "+LABELS[k]+": "+(state[k]||"(not answered)"))});
+    o.push("");o.push("SECTION COMMENTS");
+    var any=false;
+    sections.forEach(function(sec){
+      var n=sec.dataset.sec,e=state.comments[n];if(!e)return;
+      var t=(e.text||"").trim(),q=e.quotes||[];if(!t&&!q.length)return;
+      any=true;o.push("");o.push("  ["+n+"]");
+      q.forEach(function(x){o.push("  > "+x)});
+      o.push("  "+(t||"(quote only, no comment)"));
+    });
+    if(!any){o.push("");o.push("  (none)")}
+    o.push("");o.push("ANYTHING ELSE");
+    o.push("  "+((state.final||"").trim()||"(not answered)"));
+    return o.join("\n");
+  }
+  function fallback(text){
+    var ta=document.createElement("textarea");
+    ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    var ok=false;try{ok=document.execCommand("copy")}catch(e){}
+    document.body.removeChild(ta);return ok;
+  }
+  /* ---------- code + diff block copy ---------- */
+  document.querySelectorAll(".code").forEach(function(box){
+    var btn=box.querySelector(".code-copy"), pre=box.querySelector("pre"), body=box.querySelector(".diff-body");
+    if(!btn||(!pre&&!body))return;
+    btn.addEventListener("click",function(){
+      /* a diff has no <pre>; its block lines carry no newlines, so join them */
+      var text=body
+        ? [].map.call(body.querySelectorAll(".dl"),function(l){return l.textContent}).join("\n")
+        : pre.textContent;
+      function done(ok){
+        if(!ok)return;
+        btn.classList.add("done");
+        setTimeout(function(){btn.classList.remove("done")},1400);
+      }
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){done(true)},function(){done(fallback(text))});
+      }else{done(fallback(text))}
+    });
+  });
+
+  var cb=document.getElementById("copy");
+  cb.addEventListener("click",function(){
+    var text=buildText();
+    function done(ok){var o=cb.textContent;cb.textContent=ok?"Copied":"Copy failed";setTimeout(function(){cb.textContent=o},1400)}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){done(true)},function(){done(fallback(text))});
+    }else{done(fallback(text))}
+  });
+})();
+</script>
+</body>
+</html>
