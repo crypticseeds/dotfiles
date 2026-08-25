@@ -5,3 +5,6 @@ tmux/.config/tmux/plugins
 PLAN.md
 # herdr-managed integration files (herdr integration install <tool>)
 herdr-agent-state.*
+# cmux skills installed from manaflow-ai/cmux (managed by skills CLI, not versioned)
+agents/.agents/skills/cmux/
+agents/.agents/skills/cmux-*/
