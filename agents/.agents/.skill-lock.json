@@ -27,6 +27,195 @@
       "skillFolderHash": "962eb7ef77f17e0bce530153d4fec2136c5fa061",
       "installedAt": "2026-07-12T08:47:22.170Z",
       "updatedAt": "2026-07-12T08:47:22.170Z"
+    },
+    "cmux": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux/SKILL.md",
+      "skillFolderHash": "ca1f2bb7e8415df068dd74aa71e8edbd64413d13",
+      "installedAt": "2026-08-07T22:49:12.966Z",
+      "updatedAt": "2026-08-07T22:49:12.966Z"
+    },
+    "cmux-architecture": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-architecture/SKILL.md",
+      "skillFolderHash": "8d5255018beced368c598df598a6971659f887e5",
+      "installedAt": "2026-08-07T22:49:12.970Z",
+      "updatedAt": "2026-08-07T22:49:12.970Z"
+    },
+    "cmux-backend": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-backend/SKILL.md",
+      "skillFolderHash": "bf1b357494a511ec31592f7bba397e0b82682cbe",
+      "installedAt": "2026-08-07T22:49:12.972Z",
+      "updatedAt": "2026-08-07T22:49:12.972Z"
+    },
+    "cmux-billing": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-billing/SKILL.md",
+      "skillFolderHash": "71f5ee77a83309e15d0772a4974b4ebbf44a73d7",
+      "installedAt": "2026-08-07T22:49:12.973Z",
+      "updatedAt": "2026-08-07T22:49:12.973Z"
+    },
+    "cmux-browser": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-browser/SKILL.md",
+      "skillFolderHash": "9a041083aa27b3127d59e631aa2b4f6be9bd683b",
+      "installedAt": "2026-08-07T22:49:12.974Z",
+      "updatedAt": "2026-08-07T22:49:12.974Z"
+    },
+    "cmux-custom-sidebar": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-custom-sidebar/SKILL.md",
+      "skillFolderHash": "1511fcd909d1a2942642deb92900d0834dc12145",
+      "installedAt": "2026-08-07T22:49:12.975Z",
+      "updatedAt": "2026-08-07T22:49:12.975Z"
+    },
+    "cmux-customization": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-customization/SKILL.md",
+      "skillFolderHash": "ed2b4a7674fb5dd1cea34de762b146ca88032a74",
+      "installedAt": "2026-08-07T22:49:12.977Z",
+      "updatedAt": "2026-08-07T22:49:12.977Z"
+    },
+    "cmux-debugging": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-debugging/SKILL.md",
+      "skillFolderHash": "62fd425c8e6c9482e91144d78ef5108757031c5d",
+      "installedAt": "2026-08-07T22:49:12.978Z",
+      "updatedAt": "2026-08-07T22:49:12.978Z"
+    },
+    "cmux-dev-workflow": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-dev-workflow/SKILL.md",
+      "skillFolderHash": "c680ef4d3342c6e603725795e6e72cee8a264e1c",
+      "installedAt": "2026-08-07T22:49:12.979Z",
+      "updatedAt": "2026-08-07T22:49:12.979Z"
+    },
+    "cmux-diagnostics": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-diagnostics/SKILL.md",
+      "skillFolderHash": "d418a30cf7582d7b7f4ff9202e0493174a57eced",
+      "installedAt": "2026-08-07T22:49:12.980Z",
+      "updatedAt": "2026-08-07T22:49:12.980Z"
+    },
+    "cmux-ghostty": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-ghostty/SKILL.md",
+      "skillFolderHash": "d20a327215f542564b72851fe7f5c5be0f7ce236",
+      "installedAt": "2026-08-07T22:49:12.981Z",
+      "updatedAt": "2026-08-07T22:49:12.981Z"
+    },
+    "cmux-keyboard-shortcuts": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-keyboard-shortcuts/SKILL.md",
+      "skillFolderHash": "38adda9b0d9a3dc6cb1ecbfd27cf8f87dd4b669b",
+      "installedAt": "2026-08-07T22:49:12.982Z",
+      "updatedAt": "2026-08-07T22:49:12.982Z"
+    },
+    "cmux-localization": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-localization/SKILL.md",
+      "skillFolderHash": "21ec889f639a96f51596323abcb095679feda8f8",
+      "installedAt": "2026-08-07T22:49:12.983Z",
+      "updatedAt": "2026-08-07T22:49:12.983Z"
+    },
+    "cmux-markdown": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-markdown/SKILL.md",
+      "skillFolderHash": "a8e4b5c4aeea3fb054b3190a9f02a1f28ab53467",
+      "installedAt": "2026-08-07T22:49:12.984Z",
+      "updatedAt": "2026-08-07T22:49:12.984Z"
+    },
+    "cmux-release": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-release/SKILL.md",
+      "skillFolderHash": "8f7f95872100e085882200e6e307a591de2ca64c",
+      "installedAt": "2026-08-07T22:49:12.985Z",
+      "updatedAt": "2026-08-07T22:49:12.985Z"
+    },
+    "cmux-settings": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-settings/SKILL.md",
+      "skillFolderHash": "780aae4361776ecbf15b8d37fc30930e79abd427",
+      "installedAt": "2026-08-07T22:49:12.986Z",
+      "updatedAt": "2026-08-07T22:49:12.986Z"
+    },
+    "cmux-shared-behavior": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-shared-behavior/SKILL.md",
+      "skillFolderHash": "c8352699e3594dacf19a40330a596f2898a99afd",
+      "installedAt": "2026-08-07T22:49:12.987Z",
+      "updatedAt": "2026-08-07T22:49:12.987Z"
+    },
+    "cmux-socket-policy": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-socket-policy/SKILL.md",
+      "skillFolderHash": "36869daa8b679987f921509a5b72a7599300e58a",
+      "installedAt": "2026-08-07T22:49:12.988Z",
+      "updatedAt": "2026-08-07T22:49:12.988Z"
+    },
+    "cmux-testing": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-testing/SKILL.md",
+      "skillFolderHash": "884af88ca49cbfe3028ea609e35e6c01bd7cfadd",
+      "installedAt": "2026-08-07T22:49:12.989Z",
+      "updatedAt": "2026-08-07T22:49:12.989Z"
+    },
+    "cmux-workspace": {
+      "source": "manaflow-ai/cmux",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/manaflow-ai/cmux.git",
+      "skillPath": "skills/cmux-workspace/SKILL.md",
+      "skillFolderHash": "80ddccaf21ad5f9500771fbc4bbff92f7a90673b",
+      "installedAt": "2026-08-07T22:49:12.990Z",
+      "updatedAt": "2026-08-07T22:49:12.990Z"
+    },
+    "code-review": {
+      "source": "coderabbitai/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/coderabbitai/skills.git",
+      "skillPath": "skills/code-review/SKILL.md",
+      "skillFolderHash": "5049a0877f3e224666b7bdfe4a42aaccd78b3379",
+      "installedAt": "2026-08-12T10:08:00.495Z",
+      "updatedAt": "2026-08-12T10:08:00.495Z"
     }
   },
   "dismissed": {
