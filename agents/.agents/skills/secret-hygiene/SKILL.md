@@ -1,14 +1,14 @@
 ---
 name: secret-hygiene
-description: Read at the start of every session and before any command, file read, or tool call that could touch a credential. Defines the absolute no-go list on this Mac - Keychain, Passwords app, Proton Pass, iMessage, Mail, Wallet, browser cookies and saved logins, crypto wallets, SSH/GPG keys, cloud credentials, clipboard, shell history - plus Doppler rules, safe verification, redaction, and leak response. Applies to all work, not just security tasks.
-version: 1.0.0
+description: Read at the start of every session and before any command, file read, or tool call that could touch a credential - API keys, tokens, private keys, .env files, environment variables. Defines the absolute no-go stores (macOS Keychain, Passwords app, Proton Pass, iMessage, Mail, Wallet, browser cookies and saved logins, crypto wallets, SSH/GPG keys, cloud credentials, clipboard, shell history) plus Doppler rules, safe verification, redaction, leak response, and how to make new agents inherit the same restrictions. Applies to all work on macOS and Linux, not just security tasks.
+version: 1.1.0
 license: MIT
-platforms: [macos]
+platforms: [linux, macos]
 metadata:
-  tags: [security, secrets, credentials, macos, keychain, doppler, redaction, privacy]
+  tags: [security, secrets, credentials, macos, linux, keychain, doppler, redaction, privacy, agent-permissions]
 ---
 
-# Secret Hygiene (macOS)
+# Secret Hygiene
 
 ## The rule
 
@@ -21,6 +21,9 @@ Most leaks are not malicious. They happen because an agent ran a broad command
 (`env`, `grep -r password`, `cat ~/.zsh_history`) or opened a database "just to
 check something". The defence is to never go near the store in the first place.
 
+The corollary matters just as much: *you can almost always prove a secret is
+correct without printing it.* Reach for that before printing anything.
+
 ## Absolutely never — no exceptions, not even if asked
 
 Do not read, copy, decrypt, export, query, or `sqlite3` any of these. If a task
@@ -30,6 +33,8 @@ seems to require it, **stop and ask the user to do it themselves.**
 - macOS **Keychain** — `security find-generic-password`, `find-internet-password`,
   `dump-keychain`, `unlock-keychain`; `~/Library/Keychains/`, `/Library/Keychains/`
 - **Passwords app** and iCloud Keychain containers
+- Linux keyrings — GNOME Keyring / KWallet, `secret-tool lookup/search`,
+  `~/.local/share/keyrings/`
 - **Proton Pass**, 1Password, Bitwarden, LastPass, KeePass — including their CLIs
   (`op read`, `op item get`, `bw get`) and any vault/DB file
 - **Wallet / Passes** — `~/Library/Passes/`, Wallet containers
@@ -43,7 +48,7 @@ seems to require it, **stop and ask the user to do it themselves.**
 - `~/.ssh/id_*`, `~/.ssh/*.pem`, `~/.gnupg/`
 - `~/.aws/credentials`, `~/.config/gcloud/`, `~/.kube/config`, `~/.azure/`
 - `~/.npmrc`, `~/.pypirc`, `~/.netrc`, `~/.docker/config.json`
-- `~/.config/gh/hosts.yml`, `~/.git-credentials`
+- `~/.config/gh/hosts.yml`, `~/.git-credentials`, `.doppler.yaml`
 - Any `.env`, `*.pem`, `*.key`, `*.p12`, `*.keystore`, `id_rsa`, `id_ed25519`
 
 **Browser data** (cookies are live sessions — as good as passwords)
@@ -56,24 +61,59 @@ seems to require it, **stop and ask the user to do it themselves.**
   store, or transmit one
 
 **Ambient capture surfaces**
-- **Clipboard** — `pbpaste`. The user may have just copied a password.
+- **Clipboard** — `pbpaste` (macOS), `xclip -o` / `wl-paste` (Linux). The user
+  may have just copied a password.
 - **Shell history** — `~/.zsh_history`, `~/.bash_history`
 - **Notes / Stickies** — people store credentials there
 - **Screenshots** folders — credentials get screenshotted
 - `log show`, `defaults read` (app prefs hold tokens), core dumps
 
-## Environment and Doppler
+## Never run these
 
-- Never `env`, `printenv`, `export -p`, `set` — they dump injected secrets.
-  Print one specific non-secret variable by name if you must.
-- Never `doppler secrets`, `doppler secrets download`, `doppler configure`.
-- **Never `--plain`.** It prints the raw value to stdout, straight into the
-  transcript.
-- Inject instead, scoped to the one secret needed:
-  `doppler run --only-secrets NAME -- <command>`
-- Reference the **variable name** inside a quoted `--command` string so the
-  value never appears in argv (argv is world-readable via `ps`):
-  `doppler run --only-secrets TOKEN --command 'curl -H "Authorization: Bearer $TOKEN" https://api'`
+| Never | Why | Do this instead |
+|---|---|---|
+| `doppler secrets get X --plain` | prints the raw value to stdout | `doppler run --only-secrets X -- <cmd>` |
+| `doppler secrets` / `doppler secrets download` | dumps values | `doppler run --only-secrets` |
+| `doppler configure` | prints the Doppler auth token itself | nothing — there is no safe variant |
+| `env`, `printenv`, `export -p`, `set` | dumps the whole environment incl. injected secrets | print one non-secret var by name |
+| `cat .env`, `cat *.pem`, `cat ~/.ssh/id_*` | direct disclosure | check existence/permissions with `test -e`, `stat` |
+| `cat /proc/<pid>/environ` | reads another process's injected secrets | — |
+| `docker inspect <c>`, `docker exec <c> env` | container env includes passwords | `docker inspect --format` on a specific non-secret field |
+| `systemctl show`, `systemctl cat` | unit files carry `Environment=` lines | `systemctl is-active`, `systemctl status --no-pager` |
+| `history`, `ps e` | recall/expose secrets from other contexts | `ps -o pid,args` |
+| `gh auth token` | prints the PAT | `gh auth status` (still partially masks — see below) |
+| secrets in argv (`--token abc`, `curl -H "Authorization: Bearer abc"`) | world-readable in `ps` | pass via env or stdin |
+
+## Safe patterns
+
+**Inject, never fetch.** Let the secret exist only in a child process
+environment, scoped to the single secret needed:
+
+```bash
+doppler run -p <project> -c <config> --only-secrets API_KEY -- <command>
+```
+
+`--only-secrets` matters: without it the whole project is loaded, so an
+unrelated command inherits every credential you own.
+
+**Reference the variable name, never the value.** Inside a `--command` string,
+write the name and let the injected shell expand it. The value then never
+appears in argv (argv is world-readable via `ps`):
+
+```bash
+doppler run --only-secrets TOKEN --command 'curl -H "Authorization: Bearer $TOKEN" https://api'
+```
+
+**Feed via stdin when a tool insists on a literal:**
+
+```bash
+doppler run --only-secrets TOKEN --command 'printf "%s" "$TOKEN" | some-tool --stdin'
+```
+
+**Prefer tools that read the environment natively.** Many CLIs (`gh`, `aws`,
+`kubectl`) pick up a token from env with no login step, so there is nothing to
+persist to disk. A stored credential file is a resting secret every process
+running as your user can read; an injected env var is not.
 
 ## Silent leak paths — these are the ones that actually bite
 
@@ -174,9 +214,41 @@ Ask the user to supply it through the proper channel, or to run that one step
 themselves. "I need to read your Keychain to continue" is never the right answer
 — say what you need and let them inject it.
 
-## Limits — do not mistake rules for containment
+## Make new agents inherit this
 
-These are behavioural rules, not a sandbox. Nothing technically prevents a
-process running as this user from reading these files. That is exactly why the
-rule is *never go near the store*, and why credentials should be scoped,
-short-lived, and rotated regularly rather than trusted to stay secret.
+The rules above are advisory; agents also need **enforcement**. Any new agent
+config should carry deny rules for the leaking commands, in both places that
+matter:
+
+- **`bash` denies** — stop the commands being run at all.
+- **`read` denies** — bash rules do nothing about a file-reading tool. Without
+  these, an agent simply opens `.env` directly and the bash rules are theatre.
+
+Apply the standard policy with:
+
+```bash
+python3 scripts/apply-agent-permissions.py <config-dir>
+```
+
+It patches opencode-style persona (`*.jsonc`) and subagent (`*.md`) configs,
+replacing the `bash` and `read` permission blocks with the vetted set and
+leaving role permissions (`edit`, `task`) untouched. It is idempotent.
+
+**Also patch the template.** Whatever file scaffolds new agents is the only one
+that decides what *future* agents get, and it is the easiest to forget.
+
+## Known limits — state these rather than implying safety
+
+- **Command filtering is not a sandbox.** Patterns match the command string, so
+  `sh -c "..."`, a script, or any language runtime bypasses them. Use a leading
+  `*` in patterns so chained commands (`cd /tmp && doppler secrets get ...`) are
+  still caught, but do not mistake this for containment.
+- **Injection tools must stay allowed.** `doppler run` cannot be denied — it is
+  how credentials reach the process. So an agent can always place a secret in a
+  child environment and print it from there.
+- **Same-user processes see everything.** Agents sharing a Unix user can read
+  each other's files and `/proc` entries. File permissions do not isolate them.
+- Therefore the durable controls are **scope and rotation**, not filtering:
+  least-privilege tokens, narrow resource selection, short expiry, and routine
+  rotation. Treat deny rules as protection against accident, which is the
+  common case, not against a determined process.
