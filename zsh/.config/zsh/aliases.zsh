@@ -118,7 +118,14 @@ alias kindl='kind get clusters'
 alias kindi='kind load docker-image'
 
 # Harnesses
-alias oc='opencode'
+# oc: plain opencode on macOS (keep permission prompts locally);
+# --auto elsewhere (remote servers) so agents don't block on approvals.
+if [[ "$OSTYPE" == darwin* ]]; then
+  alias oc='opencode'
+else
+  alias oc='opencode --auto'
+fi
+alias oca='doppler run --only-secrets OPENCODE_SERVER_PASSWORD,OPENCODE_SERVER_USERNAME -- opencode attach https://opencode.internal.devopsfoundry.com'
 # alias claude='doppler run -- claude'
 
 # General
