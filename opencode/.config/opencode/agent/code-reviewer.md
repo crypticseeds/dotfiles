@@ -8,12 +8,17 @@ permission:
     "*": allow
     "*.env": deny
     "*.env.*": deny
-    "*.env.example": allow
     "**/*.env": deny
     "**/*.env.*": deny
+    "*.env.example": allow
     "**/*.env.example": allow
     "**/*.pem": deny
     "**/*.key": deny
+    "**/id_rsa": deny
+    "**/id_ed25519": deny
+    "**/.netrc": deny
+    "**/.doppler.yaml": deny
+    "**/credentials": deny
   glob: allow
   grep: allow
   list: allow

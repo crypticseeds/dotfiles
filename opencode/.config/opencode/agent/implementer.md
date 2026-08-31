@@ -3,7 +3,21 @@ name: implementer
 description: Primary software implementation agent for features, bug fixes, refactors, and maintenance. Use when code or project files must change. Researches unfamiliar code before editing, implements the smallest idiomatic solution, verifies it with project checks, and automatically requests independent code and security review before completion.
 mode: primary
 permission:
-  read: allow
+  read:
+    "*": allow
+    "*.env": deny
+    "*.env.*": deny
+    "**/*.env": deny
+    "**/*.env.*": deny
+    "*.env.example": allow
+    "**/*.env.example": allow
+    "**/*.pem": deny
+    "**/*.key": deny
+    "**/id_rsa": deny
+    "**/id_ed25519": deny
+    "**/.netrc": deny
+    "**/.doppler.yaml": deny
+    "**/credentials": deny
   glob: allow
   grep: allow
   list: allow
