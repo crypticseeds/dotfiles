@@ -6,6 +6,13 @@
 # ----------------------------------------------------------------------------
 export PATH="$HOME/.local/bin:$PATH"
 
+# opencode: per-user install location (Linux installer puts it here), and an
+# optional machine-local config overlay merged on top of the stowed config.
+# Both lines are inert on machines where the paths do not exist.
+[ -d "$HOME/.opencode/bin" ] && export PATH="$HOME/.opencode/bin:$PATH"
+[ -f "$HOME/.config/opencode/opencode.local.json" ] && \
+  export OPENCODE_CONFIG="$HOME/.config/opencode/opencode.local.json"
+
 # Default editor - first one installed wins. Zed blocks until the file is
 # closed (required by git etc.); the fallbacks cover headless boxes with no Zed.
 for e in "zed --wait" nvim vi; do
