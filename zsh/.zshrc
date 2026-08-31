@@ -6,9 +6,14 @@
 # ----------------------------------------------------------------------------
 export PATH="$HOME/.local/bin:$PATH"
 
-# Default editor: Zed, blocking until the file is closed (required by git etc.)
-export EDITOR="zed --wait"
-export VISUAL="zed --wait"
+# Default editor - first one installed wins. Zed blocks until the file is
+# closed (required by git etc.); the fallbacks cover headless boxes with no Zed.
+for e in "zed --wait" nvim vi; do
+  if command -v "${e%% *}" >/dev/null; then
+    export EDITOR="$e" VISUAL="$e"
+    break
+  fi
+done
 
 # Homebrew (Apple Silicon, Intel mac, Linuxbrew) - first match wins
 for b in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew; do
