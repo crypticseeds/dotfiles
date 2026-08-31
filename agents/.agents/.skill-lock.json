@@ -6,9 +6,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/skills.git",
       "skillPath": "skills/find-skills/SKILL.md",
-      "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
+      "skillFolderHash": "76a98a285cb0434f3d39e1a873823556330e398b",
       "installedAt": "2026-04-13T21:41:26.530Z",
-      "updatedAt": "2026-04-13T21:41:26.530Z"
+      "updatedAt": "2026-08-16T07:59:37.826Z"
     },
     "herdr": {
       "source": "ogulcancelik/herdr",
@@ -24,9 +24,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/shadcn/ui.git",
       "skillPath": "skills/shadcn/SKILL.md",
-      "skillFolderHash": "962eb7ef77f17e0bce530153d4fec2136c5fa061",
+      "skillFolderHash": "0a31c3c2535a62b22bf23a1b10a142178a6b7dbf",
       "installedAt": "2026-07-12T08:47:22.170Z",
-      "updatedAt": "2026-07-12T08:47:22.170Z"
+      "updatedAt": "2026-08-16T07:59:43.699Z"
     },
     "cmux": {
       "source": "manaflow-ai/cmux",
