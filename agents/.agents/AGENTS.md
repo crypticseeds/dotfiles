@@ -67,9 +67,26 @@ Markdown files are for agent reference only. Anything saved for the user to read
 
 - zsh: never variable `status`.
 - zsh multi-item loop: array. Scalar string does not word-split like bash.
-- Secrets: never normal-shell `env`, `set`, `export -p`, broad secret regex dump. Query exact name only; redact value.
+- Secrets: never normal-shell `env`, `set`, `export -p`, `printenv`, broad secret regex dump. Query exact name only; redact value.
 - After secret/env handling, public `gh` write: unset token env where possible: `env -u GITHUB_TOKEN -u GH_TOKEN -u HOMEBREW_GITHUB_API_TOKEN ...`.
-- Secrets/API keys/live creds: `$doppler`
+- Secrets/API keys/live creds: `$doppler`. Never `doppler secrets`, `doppler configure`, or `--plain` — use `doppler run --only-secrets NAME -- <cmd>` and reference the variable *name*, never the value (argv is world-readable).
+
+## Secrets: hard no-go list (read `secret-hygiene` skill for detail)
+
+Never read, copy, export, query, or `sqlite3` these — not even when asked. If a
+task appears to need it, stop and ask me to do that step myself.
+
+- **Keychain** (`security find-*`, `dump-keychain`, `~/Library/Keychains/`), **Passwords app**, **Proton Pass**, 1Password/Bitwarden/LastPass and their CLIs
+- **iMessage** (`~/Library/Messages/chat.db*`), **Mail** (`~/Library/Mail/`), Signal/WhatsApp/Telegram DBs — these carry one-time codes
+- **Wallet/Passes**, crypto wallet files and keystores; never read, repeat, or store a seed phrase
+- Browser **cookies and saved logins** (Chrome `Login Data`/`Cookies`, Safari, Firefox `logins.json`) — cookies are live sessions
+- `~/.ssh/id_*`, `~/.gnupg/`, `~/.aws/credentials`, `~/.kube/config`, `~/.npmrc`, `~/.netrc`, `~/.git-credentials`, `~/.config/gh/hosts.yml`, any `.env`/`*.pem`/`*.key`
+- **Clipboard** (`pbpaste`) and **shell history** (`~/.zsh_history`) — ambient credential capture
+- **Never echo a secret, not even to test it.** Only `[ -n "$VAR" ] && echo present` and `echo "${#VAR}"` may touch a secret variable. `${VAR:-x}` PRINTS THE VALUE when set (`:-` substitutes only when UNSET) — it is not a presence check. No prefixes, no `${VAR:0:4}`.
+- Also: `curl -v` prints `Authorization` headers; `set -x` echoes secrets; never write a secret into a file you create; inspect `git diff --staged` before committing.
+
+Leaks are usually accidental and broad — the rule is to never go near the store.
+If something does leak, say so immediately and rotate; deletion does not undo exposure.
 
 ## Git and repo hygiene
 
