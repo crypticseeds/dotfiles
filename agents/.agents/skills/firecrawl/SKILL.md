@@ -51,5 +51,6 @@ research only - stay inside that scope:
   tools unless the user explicitly asks. They are the expensive ones.
 - Do not attach `scrapeOptions` to searches; scrape only the one result you
   actually need.
-- For ordinary non-GitHub, non-docs pages, keep using the normal webfetch
-  tool. Firecrawl is reserved for the two jobs above.
+- For ordinary non-GitHub, non-docs pages, use tinyfish `fetch_content` (or
+  the normal webfetch tool where tinyfish is unavailable). Firecrawl is
+  reserved for the two jobs above.

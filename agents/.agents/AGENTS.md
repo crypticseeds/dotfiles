@@ -63,6 +63,12 @@ Markdown files are for agent reference only. Anything saved for the user to read
 - Add interactivity when it helps the user respond: checkboxes to approve/reject items, collapsible sections for detail. Feedback captured this way (e.g. checked boxes the user reports back, or state the agent can re-read) should map to clear next actions.
 - Include architectural drawings when they aid understanding, as inline SVG or simple HTML/CSS diagrams inside the same file.
 
+## Web retrieval routing
+
+- Search, research, and current-info tasks: prefer tinyfish `search` and `fetch_content` (free, better results) over the harness's builtin websearch/webfetch, whenever the tinyfish MCP is available.
+- Docs, GitHub issues/PRs, and developer research: prefer firecrawl - load the `firecrawl` skill for the tool table, workflow, and cost rules.
+- Never retrieve the same page through more than one provider (webfetch, tinyfish, firecrawl) unless the first attempt failed or independent verification genuinely matters.
+
 ## Runtime Safety
 
 - zsh: never variable `status`.
