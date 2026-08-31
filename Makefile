@@ -11,6 +11,7 @@
 COMMON  := zsh nvim tmux starship
 TOOLS   := claude codex cursor opencode pi herdr
 MACONLY := wezterm hammerspoon aerospace sketchybar
+MINIMAL := zsh starship
 
 UNAME := $(shell uname -s)
 STOW  := stow -v -t $(HOME)
@@ -20,7 +21,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: install mac linux restow restow-mac restow-linux delete skills doctor
+.PHONY: install mac linux minimal restow restow-mac restow-linux delete skills doctor
 
 install:
 ifeq ($(UNAME),Darwin)
@@ -42,6 +43,12 @@ linux:
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
 	$(MAKE) doctor
+
+# Headless servers (the DNS Pi and friends): shell + prompt, nothing else.
+# Deliberately skips agents, TOOLS and doctor - doctor only validates AI harness
+# links, which these hosts are not meant to have. -R so it is safe to re-run.
+minimal:
+	$(STOW) -R $(MINIMAL)
 
 restow:
 ifeq ($(UNAME),Darwin)
