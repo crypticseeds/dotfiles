@@ -1,4 +1,6 @@
-# Dotfiles deployment. `make install` auto-detects the OS.
+# Dotfiles deployment. `make install` auto-detects the OS and stows everything.
+# `make setup` (= shell + nvim) installs dependencies too: use it on a fresh
+# machine where you want a working shell and editor, not the whole toolbox.
 #
 # ORDER IS LOAD-BEARING: `agents` must stow before the tool packages and
 # `skills` - the per-tool shim layer resolves through ~/.agents.
@@ -21,7 +23,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: install mac linux minimal restow restow-mac restow-linux delete skills doctor
+.PHONY: install mac linux minimal restow restow-mac restow-linux delete skills doctor setup shell nvim
 
 install:
 ifeq ($(UNAME),Darwin)
@@ -87,3 +89,27 @@ skills:
 
 doctor:
 	@sh scripts/doctor.sh
+
+# Working environment on any machine: shell + Neovim with every dependency
+# they need to function. `make setup` is the one-command version.
+setup: shell nvim
+
+# Shell: zsh, starship, plugins and the tools behind the aliases (eza, zoxide,
+# fzf, bat, direnv, tmux), then stow zsh + starship. A pre-existing plain
+# ~/.zshrc is kept as ~/.zshrc.pre-dotfiles so stow does not fail on it.
+shell:
+	sh scripts/shell.sh
+	@if [ -f $(HOME)/.zshrc ] && [ ! -L $(HOME)/.zshrc ]; then mv $(HOME)/.zshrc $(HOME)/.zshrc.pre-dotfiles; echo "moved ~/.zshrc to ~/.zshrc.pre-dotfiles"; fi
+	$(STOW) -R zsh starship
+	@printf '\nShell ready. Run "exec zsh" to load it.\n'
+
+# Neovim, end to end: OS dependencies (nvim 0.12+, tree-sitter-cli, ripgrep,
+# go, node, lazygit), stow the config, download plugins. LSP servers and
+# parsers install themselves on the first interactive launch (Mason).
+# PATH: the script may have just installed nvim into ~/.local/bin.
+nvim: export PATH := $(HOME)/.local/bin:$(PATH)
+nvim:
+	sh scripts/nvim.sh
+	$(STOW) -R nvim
+	nvim --headless "+Lazy! sync" +qa
+	@printf '\nNeovim ready. First launch installs LSP servers and parsers (about a minute); :checkhealth to verify.\n'
