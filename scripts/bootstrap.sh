@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Fresh machine bootstrap: detect OS -> install packages -> install harnesses
-# -> back up conflicting defaults -> deploy with stow -> verify.
+# Fresh machine bootstrap: detect OS -> install packages -> shell + nvim deps
+# -> install harnesses -> back up conflicting defaults -> deploy with stow -> verify.
 # Idempotent: safe to rerun any time.
 set -eu
 cd "$(dirname "$0")/.."
@@ -28,18 +28,25 @@ case "$(uname -s)" in
   *) echo "unsupported OS" >&2; exit 1 ;;
 esac
 
-# 2. AI harnesses (guarded installers, skip anything already present)
+# 2. Shell + Neovim dependencies the distros ship too old or not at all
+#    (neovim 0.12+, starship, go, node, tree-sitter-cli, lazygit). Idempotent.
+#    Before the harnesses: codex and pi need the npm this provides on Linux.
+sh scripts/shell.sh
+sh scripts/nvim.sh
+
+# 3. AI harnesses (guarded installers, skip anything already present)
 sh packages/harnesses.sh
 
-# 3. Back up conflicting distro defaults instead of failing the stow
+# 4. Back up conflicting distro defaults instead of failing the stow
 for f in "$HOME/.zshrc" "$HOME/.bashrc"; do
   if [ -f "$f" ] && [ ! -L "$f" ]; then mv "$f" "$f.pre-dotfiles"; fi
 done
 
-# 4. Deploy + verify (make install auto-detects OS and ends with make doctor)
+# 5. Deploy + verify (make install auto-detects OS and ends with make doctor).
+#    Neovim installs its plugins, servers and parsers on first launch.
 make install
 
-# 5. tmux plugin manager (plugins dir is gitignored; tpm bootstraps the rest)
+# 6. tmux plugin manager (plugins dir is gitignored; tpm bootstraps the rest)
 tpm_dir="$HOME/.config/tmux/plugins/tpm"
 if [ ! -d "$tpm_dir" ]; then
   git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
