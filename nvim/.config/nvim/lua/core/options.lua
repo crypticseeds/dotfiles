@@ -30,9 +30,9 @@ vim.o.updatetime = 250
 vim.o.confirm = true
 vim.o.title = true
 
--- Tabs left invisible on purpose (Go)
+-- Show trailing spaces; tabs render as plain blanks (omitting `tab` would show ^I)
 vim.o.list = true
-vim.opt.listchars = { trail = "·", nbsp = "␣" }
+vim.opt.listchars = { tab = "  ", trail = "·", nbsp = "␣" }
 
 vim.o.foldlevel = 99
 vim.o.foldlevelstart = 99
