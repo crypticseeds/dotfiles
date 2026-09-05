@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # Installs everything zsh/.zshrc and zsh/.config/zsh/aliases.zsh need to
 # function: the prompt, plugins, and the tools behind the core aliases
-# (ls -> eza, cd -> zoxide, cat -> bat, fzf, direnv, tmux). Per OS.
-# Idempotent. Work tools referenced by aliases (kubectl, doppler, gt, pnpm,
-# uv, ruff, docker, ...) are deliberately not installed here.
+# (ls -> eza, cd -> zoxide, cat -> bat, fzf, direnv, tmux), plus uv and ruff
+# for Python work (rc/rcf/rf aliases). Per OS. Idempotent.
+# Other work tools referenced by aliases (kubectl, doppler, gt, pnpm, docker,
+# ...) are deliberately not installed here.
 set -eu
 
 STARSHIP_MIN=1.23 # first release with the [cpp] module used in starship.toml
@@ -55,8 +56,17 @@ case "$(uname -s)" in
   *) echo "unsupported OS: $(uname -s)" >&2; exit 1 ;;
 esac
 
+# Python tooling, same on every OS: uv from its official installer into
+# ~/.local/bin (brew has no bottle for every Mac and builds from source), ruff
+# as a uv tool. nvim has its own ruff via Mason. PATH comes from the zshrc.
+if ! have uv; then
+  say "uv: installing to ~/.local/bin"
+  curl -fsSL https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$BIN" UV_NO_MODIFY_PATH=1 sh
+fi
+have ruff || { say "ruff: uv tool install ruff"; uv tool install ruff; }
+
 say "versions"
-for t in zsh starship eza zoxide fzf bat batcat direnv tmux git; do
+for t in zsh starship eza zoxide fzf bat batcat direnv tmux git uv ruff; do
   if have "$t"; then printf '  %-12s %s\n' "$t" "$("$t" --version 2>/dev/null | head -1)"; fi
 done
 have bat || have batcat || echo "  bat          MISSING"
