@@ -32,6 +32,8 @@ brew "git-delta"
 brew "glow"
 # GNU Privacy Guard (OpenPGP)
 brew "gnupg"
+# Open source programming language to build simple/reliable/efficient software
+brew "go"
 # Live reload for Go apps
 brew "go-air"
 # Kubernetes package manager
@@ -56,12 +58,16 @@ brew "node@24"
 brew "pnpm"
 # Interpreted, interactive, object-oriented programming language
 brew "python@3.13"
+# Search tool like grep and The Silver Searcher
+brew "ripgrep"
 # Cross-shell prompt for astronauts
 brew "starship"
 # Organize software neatly under a single directory tree (e.g. /usr/local)
 brew "stow"
 # Terminal multiplexer
 brew "tmux"
+# Parser generator tool (nvim treesitter parsers)
+brew "tree-sitter-cli"
 # Shell extension to navigate your filesystem faster
 brew "zoxide"
 # Fish-like fast/unobtrusive autosuggestions for zsh
