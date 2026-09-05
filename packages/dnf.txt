@@ -6,7 +6,6 @@ stow
 make
 curl
 unzip
-neovim
 tmux
 fzf
 bat
@@ -16,7 +15,6 @@ direnv
 jq
 gh
 btop
-starship
 git-delta
 lazygit
 glow
