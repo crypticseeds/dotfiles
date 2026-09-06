@@ -65,7 +65,7 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"
 command -v direnv   >/dev/null && eval "$(direnv hook zsh)"
 command -v starship >/dev/null && eval "$(starship init zsh)"
-command -v fzf      >/dev/null && source <(fzf --zsh)
+command -v fzf      >/dev/null && source <(fzf --zsh)  # options: see the fzf block below
 command -v uv       >/dev/null && eval "$(uv generate-shell-completion zsh)"
 command -v uvx      >/dev/null && eval "$(uvx --generate-shell-completion zsh)"
 
@@ -106,6 +106,12 @@ elif command -v batcat >/dev/null; then
   BAT=batcat
   alias bat=batcat
 fi
+
+# fzf. After $BAT so the preview can use it; fzf reads these at run time,
+# so they may come after `fzf --zsh`.
+export FZF_DEFAULT_OPTS='--style=full'  # every fzf: aliases, Ctrl-T, Ctrl-R, **<Tab>
+# Ctrl-T file picker: preview files with bat, directories with ls
+[ -n "${BAT:-}" ] && export FZF_CTRL_T_OPTS="--preview '[ -d {} ] && ls -1 {} || $BAT --color=always --style=numbers {}'"
 
 # ----------------------------------------------------------------------------
 # Aliases - see ~/.config/zsh/aliases.zsh (stow package: zsh)

@@ -18,7 +18,9 @@ alias nv='nvim'
 # bat / fzf previews
 if [ -n "${BAT:-}" ]; then
   alias cat="$BAT"
-  alias f="fzf --preview=\"$BAT --color=always --style=numbers {}\""
+  # f: fuzzy-find files with a preview; Enter opens the selection in nvim
+  # (Tab marks several, Esc cancels). Filenames are quoted by fzf.
+  alias f="fzf -m --preview=\"$BAT --color=always --style=numbers {}\" --bind 'enter:become(nvim {+})'"
   alias fnv="nvim \$(fzf -m --preview=\"$BAT --color=always --style=numbers {}\")"
   alias fv="vim \$(fzf -m --preview=\"$BAT --color=always --style=numbers {}\")"
 fi
