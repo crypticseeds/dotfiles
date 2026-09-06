@@ -99,6 +99,14 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
   }
 fi
 
+# bun (its installer appends absolute paths to .zshrc; this guarded block
+# replaces them, so `git restore zsh/.zshrc` after installing bun)
+if [ -d "$HOME/.bun" ]; then
+  export BUN_INSTALL="$HOME/.bun"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+  [ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"  # completions, needs compinit above
+fi
+
 # bat is `batcat` on Ubuntu
 if command -v bat >/dev/null; then
   BAT=bat
