@@ -14,9 +14,11 @@ for f in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" \
   if [ "$got" = "$want" ]; then echo "OK    $f"; else echo "FAIL  $f -> ${got:-missing}"; fail=1; fi
 done
 
-# 2. ~/.agents must route into the repo
-got=$(readlink -f "$HOME/.agents" 2>/dev/null || true)
-if [ "$got" = "$repo/agents/.agents" ]; then echo "OK    ~/.agents"; else echo "FAIL  ~/.agents -> ${got:-missing}"; fail=1; fi
+# 2. ~/.agents must route into the repo. Stow links the directory itself when
+#    ~/.agents did not pre-exist, or its contents when it did; both are valid,
+#    so check the canonical file rather than the directory.
+got=$(readlink -f "$HOME/.agents/AGENTS.md" 2>/dev/null || true)
+if [ "$got" = "$want" ]; then echo "OK    ~/.agents"; else echo "FAIL  ~/.agents/AGENTS.md -> ${got:-missing}"; fail=1; fi
 
 # 3. No dangling links in the skill farms
 for d in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills"; do
