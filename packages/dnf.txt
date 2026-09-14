@@ -15,6 +15,8 @@ jq
 gh
 btop
 git-delta
+# lazygit is not in the official fedora repos: it comes from the dejan/lazygit
+# COPR (lazygit README's documented fedora path), enabled by bootstrap.sh
 lazygit
 glow
 zsh-autosuggestions

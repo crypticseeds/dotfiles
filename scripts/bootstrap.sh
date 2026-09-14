@@ -21,11 +21,13 @@ case "$(uname -s)" in
         ;;
       fedora)
         # COPRs first: hyprland's official Fedora package is orphaned (wiki
-        # points at lionheartp/Hyprland), and wezterm's documented Fedora
-        # path is the author's nightly COPR. Both are idempotent.
+        # points at lionheartp/Hyprland), wezterm's documented Fedora path
+        # is the author's nightly COPR, and lazygit has never been in the
+        # official repos (its README points at dejan/lazygit). Idempotent.
         sudo dnf install -y dnf5-plugins
         sudo dnf -y copr enable lionheartp/Hyprland
         sudo dnf -y copr enable wezfurlong/wezterm-nightly
+        sudo dnf -y copr enable dejan/lazygit
         grep -vE '^\s*(#|$)' packages/dnf.txt | xargs sudo dnf install -y
         ;;
       *) echo "unsupported distro: $ID" >&2; exit 1 ;;

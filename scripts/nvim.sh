@@ -93,8 +93,8 @@ case "$(uname -s)" in
         sudo apt-get install -y git curl tar gzip unzip build-essential stow ripgrep nodejs npm
         ;;
       fedora)
-        say "dnf: build tools, stow, ripgrep, node, lazygit"
-        sudo dnf install -y git curl tar gzip unzip gcc make stow ripgrep nodejs npm lazygit
+        say "dnf: build tools, stow, ripgrep, node"
+        sudo dnf install -y git curl tar gzip unzip gcc make stow ripgrep nodejs npm
         ;;
       *) echo "unsupported distro: $ID (add it to scripts/nvim.sh)" >&2; exit 1 ;;
     esac
