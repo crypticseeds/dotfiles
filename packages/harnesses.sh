@@ -13,13 +13,16 @@ have opencode || curl -fsSL https://opencode.ai/install | bash
 have claude || curl -fsSL https://claude.ai/install.sh | bash
 
 # Codex CLI (needs node/npm; Brewfile installs node@24 + npm section on macOS)
-if ! have codex && have npm; then npm install -g @openai/codex; fi
+# npm_config_prefix: distro npm defaults its global prefix to /usr/local
+# (root-owned); install into ~/.local instead - its bin is on PATH via the
+# stowed zshrc.
+if ! have codex && have npm; then npm_config_prefix="$HOME/.local" npm install -g @openai/codex; fi
 
 # Cursor CLI
 have cursor-agent || curl -fsS https://cursor.com/install | bash
 
 # pi coding agent
-if ! have pi && have npm; then npm install -g --ignore-scripts @earendil-works/pi-coding-agent; fi
+if ! have pi && have npm; then npm_config_prefix="$HOME/.local" npm install -g --ignore-scripts @earendil-works/pi-coding-agent; fi
 
 # herdr (terminal multiplexer / agent runtime) - https://herdr.dev
 # On macOS the Brewfile installs it; this guard covers Linux and skips if present.
