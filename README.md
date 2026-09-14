@@ -51,8 +51,9 @@ Each top-level directory is a stow package mirroring `$HOME`:
 |---|---|---|
 | `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
 | `claude/` `codex/` `cursor/` `opencode/` `pi/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
-| `zsh/` `nvim/` `tmux/` `starship/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
-| `wezterm/` `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
+| `zsh/` `nvim/` `tmux/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
+| `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
+| `hyprland/` `niri/` | `~/.config/hypr` `~/.config/niri` | Linux only (Wayland compositors) |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
 | `docs/` | not stowed | Reference notes, e.g. [local Kubernetes](docs/kubernetes/README.md) |
 | `cursor-themes/` `zed/` | not stowed | Reference copies |
@@ -83,10 +84,12 @@ harness reads it through symlinks committed to this repo:
 ## Adding things
 
 - **An app config**: create `<pkg>/.config/<app>/...`, add `<pkg>` to the
-  right group in the `Makefile` (`COMMON`, `TOOLS`, or `MACONLY`), run
-  `make restow`.
+  right group in the `Makefile` (`COMMON`, `TOOLS`, `MACONLY`, or
+  `LINUXONLY`), run `make restow`.
 - **A macOS app**: add a line to `packages/Brewfile`.
 - **A Linux package**: add a line to `packages/apt.txt` / `packages/dnf.txt`.
+  Fedora packages from a COPR also need the repo enabled in
+  `scripts/bootstrap.sh` (hyprland and wezterm already do this).
 - **A file to an existing package**: just add it, then `make restow`.
 
 ## Harness: Claude Code with Moonshot Kimi

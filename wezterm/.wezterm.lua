@@ -10,8 +10,11 @@ local config = wezterm.config_builder()
 config.initial_cols = 100
 config.initial_rows = 30
 
--- Set Defualt Working Directory
-config.default_cwd = wezterm.home_dir .. '/MEGA'
+-- Set Default Working Directory (MEGA only exists on the Macs;
+-- Linux keeps wezterm's default of $HOME)
+if wezterm.target_triple:find('apple%-darwin') then
+  config.default_cwd = wezterm.home_dir .. '/MEGA'
+end
 
 -- Appearance
 config.font = wezterm.font 'JetBrainsMono Nerd Font'

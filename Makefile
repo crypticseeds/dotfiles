@@ -10,10 +10,11 @@
 # etc. and never enters the repo. `agents` deliberately folds so new skills
 # installed into ~/.agents/skills land directly in the repo.
 
-COMMON  := zsh nvim tmux starship
-TOOLS   := claude codex cursor opencode pi herdr
-MACONLY := wezterm hammerspoon aerospace sketchybar
-MINIMAL := zsh starship
+COMMON    := zsh nvim tmux starship wezterm
+TOOLS     := claude codex cursor opencode pi herdr
+MACONLY   := hammerspoon aerospace sketchybar
+LINUXONLY := hyprland niri
+MINIMAL   := zsh starship
 
 UNAME := $(shell uname -s)
 STOW  := stow -v -t $(HOME)
@@ -41,7 +42,7 @@ mac:
 
 linux:
 	$(STOW) agents
-	$(STOW) $(COMMON)
+	$(STOW) $(COMMON) $(LINUXONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
 	$(MAKE) doctor
@@ -66,13 +67,13 @@ restow-mac:
 	@$(reload-hint)
 
 restow-linux:
-	$(STOW) -R agents $(COMMON)
+	$(STOW) -R agents $(COMMON) $(LINUXONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
 	@$(reload-hint)
 
 delete:
-	$(STOW) -D agents $(COMMON) $(MACONLY) $(TOOLS)
+	$(STOW) -D agents $(COMMON) $(MACONLY) $(LINUXONLY) $(TOOLS)
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
 # pi and opencode read it natively and need nothing here. Absolute links are

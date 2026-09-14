@@ -20,6 +20,12 @@ case "$(uname -s)" in
         grep -vE '^\s*(#|$)' packages/apt.txt | xargs sudo apt-get install -y
         ;;
       fedora)
+        # COPRs first: hyprland's official Fedora package is orphaned (wiki
+        # points at lionheartp/Hyprland), and wezterm's documented Fedora
+        # path is the author's nightly COPR. Both are idempotent.
+        sudo dnf install -y dnf5-plugins
+        sudo dnf -y copr enable lionheartp/Hyprland
+        sudo dnf -y copr enable wezfurlong/wezterm-nightly
         grep -vE '^\s*(#|$)' packages/dnf.txt | xargs sudo dnf install -y
         ;;
       *) echo "unsupported distro: $ID" >&2; exit 1 ;;

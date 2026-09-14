@@ -20,3 +20,29 @@ lazygit
 glow
 zsh-autosuggestions
 zsh-syntax-highlighting
+
+# Wayland compositors. hyprland + hypr* come from the lionheartp/Hyprland COPR
+# and wezterm from wezfurlong/wezterm-nightly (both enabled by bootstrap.sh);
+# niri and everything else below are official Fedora packages.
+hyprland
+xdg-desktop-portal-hyprland
+hyprpolkitagent
+hyprlauncher
+niri
+xdg-desktop-portal-gtk
+xdg-desktop-portal-gnome
+gnome-keyring
+xwayland-satellite
+wezterm
+
+# Shared desktop pieces the default configs reference
+waybar
+fuzzel
+mako
+swaylock
+nautilus
+qt5-qtwayland
+qt6-qtwayland
+brightnessctl
+playerctl
+wl-clipboard
