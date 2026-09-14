@@ -6,7 +6,6 @@ stow
 make
 curl
 unzip
-tmux
 fzf
 bat
 eza

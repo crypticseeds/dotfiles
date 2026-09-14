@@ -19,10 +19,9 @@ cd ~/dotfiles && sh scripts/bootstrap.sh
 ```
 
 `bootstrap.sh` detects the OS, installs packages (`packages/Brewfile` on
-macOS, `packages/apt.txt` / `packages/dnf.txt` on Linux), installs any missing
-AI harnesses (`packages/harnesses.sh`), backs up conflicting distro defaults,
-runs `make install`, and clones TPM (tmux plugins themselves are gitignored -
-press `prefix + I` inside tmux once to install them).
+macOS, `packages/apt.txt` / `packages/dnf.txt` on Linux), installs herdr and
+any missing AI harnesses (`packages/harnesses.sh`), backs up conflicting
+distro defaults, and runs `make install`.
 
 If stow hits a conflict it aborts safely without changing anything: move the
 conflicting file out of the way and rerun `make install`.
@@ -51,11 +50,12 @@ Each top-level directory is a stow package mirroring `$HOME`:
 |---|---|---|
 | `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
 | `claude/` `codex/` `cursor/` `opencode/` `pi/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
-| `zsh/` `nvim/` `tmux/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
+| `zsh/` `nvim/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
 | `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
 | `hyprland/` `niri/` | `~/.config/hypr` `~/.config/niri` | Linux only (Wayland compositors) |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
 | `docs/` | not stowed | Reference notes, e.g. [local Kubernetes](docs/kubernetes/README.md) |
+| `tmux/` | `~/.config/tmux` | Opt-in, not stowed by default: `make tmux-on` / `make tmux-off` (herdr is the daily multiplexer) |
 | `cursor-themes/` `zed/` | not stowed | Reference copies |
 
 ## AI harness config (one source of truth)

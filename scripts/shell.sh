@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Installs everything zsh/.zshrc and zsh/.config/zsh/aliases.zsh need to
 # function: the prompt, plugins, and the tools behind the core aliases
-# (ls -> eza, cd -> zoxide, cat -> bat, fzf, direnv, tmux), plus uv and ruff
+# (ls -> eza, cd -> zoxide, cat -> bat, fzf, direnv), plus uv and ruff
 # for Python work (rc/rcf/rf aliases). Per OS. Idempotent.
 # Other work tools referenced by aliases (kubectl, doppler, gt, pnpm, docker,
 # ...) are deliberately not installed here.
@@ -22,21 +22,21 @@ starship_ok() {
 case "$(uname -s)" in
   Darwin)
     have brew || { echo "Homebrew required: https://brew.sh" >&2; exit 1; }
-    say "brew: starship eza zoxide fzf bat direnv tmux zsh plugins"
-    brew install starship eza zoxide fzf bat direnv tmux zsh-autosuggestions zsh-syntax-highlighting
+    say "brew: starship eza zoxide fzf bat direnv zsh plugins"
+    brew install starship eza zoxide fzf bat direnv zsh-autosuggestions zsh-syntax-highlighting
     ;;
   Linux)
     . /etc/os-release
     case "$ID" in
       ubuntu|debian)
-        say "apt: zsh eza zoxide fzf bat direnv tmux git zsh plugins"
+        say "apt: zsh eza zoxide fzf bat direnv git zsh plugins"
         sudo apt-get update -qq
-        sudo apt-get install -y zsh eza zoxide fzf bat direnv tmux git \
+        sudo apt-get install -y zsh eza zoxide fzf bat direnv git \
           zsh-autosuggestions zsh-syntax-highlighting
         ;;
       fedora)
-        say "dnf: zsh eza zoxide fzf bat direnv tmux git zsh plugins"
-        sudo dnf install -y zsh eza zoxide fzf bat direnv tmux git \
+        say "dnf: zsh eza zoxide fzf bat direnv git zsh plugins"
+        sudo dnf install -y zsh eza zoxide fzf bat direnv git \
           zsh-autosuggestions zsh-syntax-highlighting
         ;;
       *) echo "unsupported distro: $ID (add it to scripts/shell.sh)" >&2; exit 1 ;;
@@ -66,7 +66,7 @@ fi
 have ruff || { say "ruff: uv tool install ruff"; uv tool install ruff; }
 
 say "versions"
-for t in zsh starship eza zoxide fzf bat batcat direnv tmux git uv ruff; do
+for t in zsh starship eza zoxide fzf bat batcat direnv git uv ruff; do
   if have "$t"; then printf '  %-12s %s\n' "$t" "$("$t" --version 2>/dev/null | head -1)"; fi
 done
 have bat || have batcat || echo "  bat          MISSING"

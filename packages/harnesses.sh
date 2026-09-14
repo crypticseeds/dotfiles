@@ -21,8 +21,9 @@ have cursor-agent || curl -fsS https://cursor.com/install | bash
 # pi coding agent
 if ! have pi && have npm; then npm install -g --ignore-scripts @earendil-works/pi-coding-agent; fi
 
-# herdr - no public one-line installer; install manually if missing
-have herdr || echo "NOTE: herdr not installed - install it manually (https://github.com/ogulcancelik/herdr)"
+# herdr (terminal multiplexer / agent runtime) - https://herdr.dev
+# On macOS the Brewfile installs it; this guard covers Linux and skips if present.
+have herdr || curl -fsSL https://herdr.dev/install.sh | sh
 
 # herdr agent integrations (hook scripts + wiring; versioned and updated by herdr)
 if have herdr; then

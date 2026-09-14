@@ -25,7 +25,7 @@ if [ -n "${BAT:-}" ]; then
   alias fv="vim \$(fzf -m --preview=\"$BAT --color=always --style=numbers {}\")"
 fi
 
-# Tmux
+# Tmux (kept although herdr is the daily multiplexer - see `make tmux-on`)
 alias tn='tmux new-session -s'
 alias ta='tmux attach-session'
 alias tl='tmux list-sessions'

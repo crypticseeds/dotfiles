@@ -10,7 +10,7 @@
 # etc. and never enters the repo. `agents` deliberately folds so new skills
 # installed into ~/.agents/skills land directly in the repo.
 
-COMMON    := zsh nvim tmux starship wezterm
+COMMON    := zsh nvim starship wezterm
 TOOLS     := claude codex cursor opencode pi herdr
 MACONLY   := hammerspoon aerospace sketchybar
 LINUXONLY := hyprland niri
@@ -24,7 +24,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: install mac linux minimal restow restow-mac restow-linux delete skills doctor setup shell nvim
+.PHONY: install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills doctor setup shell nvim
 
 install:
 ifeq ($(UNAME),Darwin)
@@ -73,7 +73,19 @@ restow-linux:
 	@$(reload-hint)
 
 delete:
-	$(STOW) -D agents $(COMMON) $(MACONLY) $(LINUXONLY) $(TOOLS)
+	$(STOW) -D agents $(COMMON) $(MACONLY) $(LINUXONLY) $(TOOLS) tmux
+
+# tmux is opt-in, not default (herdr is the daily multiplexer). The config,
+# keybindings and plugins stay in the repo; these targets flip deployment.
+# The binary is not auto-installed: brew install tmux / sudo dnf install tmux.
+tmux-on:
+	$(STOW) tmux
+	@[ -d tmux/.config/tmux/plugins/tpm ] || git clone --depth 1 https://github.com/tmux-plugins/tpm tmux/.config/tmux/plugins/tpm
+	@command -v tmux >/dev/null || printf 'NOTE: tmux binary not installed (brew install tmux / sudo dnf install tmux)\n'
+	@printf 'tmux config deployed. prefix + I inside tmux installs any missing plugins.\n'
+
+tmux-off:
+	$(STOW) -D tmux
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
 # pi and opencode read it natively and need nothing here. Absolute links are
@@ -96,7 +108,7 @@ doctor:
 setup: shell nvim
 
 # Shell: zsh, starship, plugins and the tools behind the aliases (eza, zoxide,
-# fzf, bat, direnv, tmux), then stow zsh + starship. A pre-existing plain
+# fzf, bat, direnv), then stow zsh + starship. A pre-existing plain
 # ~/.zshrc is kept as ~/.zshrc.pre-dotfiles so stow does not fail on it.
 shell:
 	sh scripts/shell.sh

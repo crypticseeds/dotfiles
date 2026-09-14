@@ -38,6 +38,8 @@ brew "go"
 brew "go-air"
 # Kubernetes package manager
 brew "helm"
+# Terminal multiplexer / agent runtime (replaces tmux here)
+brew "herdr"
 # Lightweight and flexible command-line JSON processor
 brew "jq"
 # Modern load testing tool, using Go and JavaScript
@@ -64,8 +66,6 @@ brew "ripgrep"
 brew "starship"
 # Organize software neatly under a single directory tree (e.g. /usr/local)
 brew "stow"
-# Terminal multiplexer
-brew "tmux"
 # Parser generator tool (nvim treesitter parsers)
 brew "tree-sitter-cli"
 # Shell extension to navigate your filesystem faster

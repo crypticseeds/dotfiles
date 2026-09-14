@@ -51,10 +51,3 @@ done
 # 5. Deploy + verify (make install auto-detects OS and ends with make doctor).
 #    Neovim installs its plugins, servers and parsers on first launch.
 make install
-
-# 6. tmux plugin manager (plugins dir is gitignored; tpm bootstraps the rest)
-tpm_dir="$HOME/.config/tmux/plugins/tpm"
-if [ ! -d "$tpm_dir" ]; then
-  git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
-  echo "NOTE: launch tmux and press prefix + I to install tmux plugins"
-fi
