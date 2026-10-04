@@ -113,6 +113,35 @@ alias kctx='kubectl config use-context'
 alias kctxl='kubectl config get-contexts'
 alias kns='kubectl config set-context --current --namespace'
 
+# AWS SSO (profiles: platform-admin = owner, agent-readonly = AI agent)
+# The agent login never opens a browser: open the printed link in a PRIVATE
+# window signed in as seeds-agent, so it can't pick up the admin session.
+alias aws-admin-login='aws sso login --profile platform-admin --color on'
+alias aws-agent-login='aws sso login --profile agent-readonly --no-browser --color on'
+alias aws-admin-identity='aws sts get-caller-identity --profile platform-admin'
+alias aws-agent-identity='aws sts get-caller-identity --profile agent-readonly'
+alias aws-checkip='curl -s https://checkip.amazonaws.com'   # public IP AWS sees (for IP allowlists)
+# Log out the admin only. `aws sso logout` clears every SSO session (agent
+# too), so this removes just the seeds-admin token (cache file = sha1 of the
+# sso-session name) plus derived role credentials, which the agent's still
+# valid session re-creates on demand.
+aws-admin-logout() {
+  rm -f "$HOME/.aws/sso/cache/$(printf seeds-admin | shasum | cut -d' ' -f1).json"
+  rm -f "$HOME"/.aws/cli/cache/*.json(N)
+  unset AWS_PROFILE
+  echo "platform-admin logged out (agent session untouched)"
+}
+
+# Terraform (no destroy alias on purpose: type it in full)
+alias tf='terraform'
+alias tfi='terraform init'
+alias tfv='terraform validate'
+alias tff='terraform fmt -recursive'
+alias tfp='terraform plan'
+alias tfa='terraform apply'
+alias tfo='terraform output'
+alias tfsl='terraform state list'
+
 # Kind - local clusters (never alias `kind` itself; it shadows the binary)
 alias kindc='kind create cluster'
 alias kindd='kind delete cluster'

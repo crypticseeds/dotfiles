@@ -12,6 +12,8 @@ brew "bash-completion@2"
 brew "bat"
 # Resource monitor. C++ version and continuation of bashtop and bpytop
 brew "btop"
+# Incredibly fast JavaScript runtime, bundler, test runner, and package manager
+brew "bun"
 # Load/unload environment variables based on $PWD
 brew "direnv"
 # Container runtime for macOS - replaces Docker Desktop, backs kind

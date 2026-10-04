@@ -200,6 +200,10 @@ symbol = " "
 [swift]
 symbol = " "
 
+[terraform]
+symbol = "󱁢 "
+detect_extensions = ["tf", "tfplan", "tfstate", "hcl"]
+
 [xmake]
 symbol = " "
 
