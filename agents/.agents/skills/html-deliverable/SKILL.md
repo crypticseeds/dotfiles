@@ -1,6 +1,6 @@
 ---
 name: html-deliverable
-description: Use whenever you hand the user something to read, review, or decide on rather than just saying it in chat - reports, findings, research summaries, plans, proposals, architecture or refactor options, comparisons, post-mortems, handoffs, and any answer that needs in-depth reasoning, technical detail, or several decisions at once. Produces one self-contained HTML file, either a read-only report or an interactive page the user ticks and exports as plain text to paste back. This is the default for anything the user asked to have written up and for anything visual they must judge; use it instead of a markdown document or a long list of chat questions. Not for a single yes/no question, and not for code review verdicts - that is the code-reviewer agent.
+description: Use when a deliverable must be SEEN, not just read - architecture or flow diagrams the user must judge, visual designs or UI previews, or rich comparisons needing interactivity and quoted-text feedback. Produces one self-contained HTML file, either a read-only report or an interactive page the user ticks and exports as plain text to paste back. Specs, plans, research notes and handoffs without diagrams or previews stay as markdown docs (docs/specs, docs/plans). Not for simple replies or decisions an inline question prompt can collect, and not for code review verdicts - that is the code-reviewer agent.
 ---
 
 # HTML Deliverable
@@ -11,20 +11,32 @@ artefact takes: a **report** they read, and a **feedback page** they answer.
 
 ## When to use it
 
-Reach for this without being asked when:
+Markdown docs (`docs/specs/`, `docs/plans/`) are the default written output.
+Reach for HTML only when markdown cannot convey the content:
 
-- The user says "write this up", "give me a report", "document this", "plan this"
-- You have findings, a comparison, or a recommendation with real reasoning behind it
-- You are about to explain something long enough that chat would bury it
-- You need several decisions at once, or a "which of these do you prefer"
-- You are handing off state at the end of a session, or after repeated failures
+- An architecture, flow, topology or sequence diagram the user must judge
+- A visual design, layout or UI preview
+- A comparison or decision that needs interactive controls, tradeoff tables
+  alongside diagrams, or quoted-text feedback on specific passages
+- A handoff or report whose substance is mostly diagrams or previews
 
 ## When NOT to use it
 
-- A single yes/no question - just ask it
-- One obvious answer - do it and say what you did
-- A quick factual lookup
+Chat is the default, then markdown. A document costs a browser tab, a full
+read, and an export round-trip. HTML has to earn that. Do not use it for:
+
+- A simple message, status, or progress update
+- Explanations, recommendations, or findings that fit in chat
+- Specs, plans, research notes, or handoffs with no diagram or preview -
+  write markdown
+- Questions the inline question tool can collect (AskUserQuestion in Claude
+  Code, the annotation/question tool in opencode), even several decisions at
+  once
+- A single yes/no question, one obvious answer, or a quick lookup
 - Code review verdicts - that is the `code-reviewer` agent
+
+Rough test: if markdown or chat carries it without losing meaning, it is not
+an HTML deliverable.
 
 ## The two modes
 

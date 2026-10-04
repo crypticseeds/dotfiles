@@ -1,6 +1,6 @@
 ---
 name: delegate-visibly
-description: Use when delegating a task to another agent that is likely to block on permission approvals or clarifying questions, or that runs long (test suites, builds, scanners, servers, implementation work). Spawns the agent in a visible herdr pane via "opencode --agent" so the user can watch and unblock it, monitors its status, collects its report, and closes the pane on success. Requires HERDR_ENV=1. Do NOT use for quick read-only lookups, scans, or web research - keep those inline via the normal task tool.
+description: Use when delegating a task to another agent that is likely to block on permission approvals or clarifying questions, or that runs long (test suites, builds, scanners, servers, implementation work). Spawns the agent in a visible herdr pane via "claude --agent" (or "opencode --agent" when running in opencode) so the user can watch and unblock it, monitors its status, collects its report, and closes the pane on success. Requires HERDR_ENV=1. Do NOT use for quick read-only lookups, scans, or web research - keep those inline via the normal task tool.
 ---
 
 # delegate-visibly
@@ -25,7 +25,7 @@ Keep inline (NO pane): quick/medium read-only codebase research, inspect-only re
 
 ## Spawn
 
-1. Find your own pane id:
+1. Find your own pane id (ids look like `w7:p1` in herdr 0.9, not `1-1`; take the pane marked `focused`):
 
        herdr pane list
 
@@ -55,6 +55,9 @@ Keep inline (NO pane): quick/medium read-only codebase research, inspect-only re
 
        NEW=$(herdr pane split <source-pane-id> --direction <right|down> --no-focus \
          | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
+       # Claude Code (default permissions, so the user can approve in the pane):
+       herdr pane run "$NEW" "claude --agent <agent-name> \"\$(cat /tmp/agent-prompts/<slug>.md)\""
+       # opencode:
        herdr pane run "$NEW" "opencode --agent <agent-name> --prompt \"\$(cat /tmp/agent-prompts/<slug>.md)\""
 
    The main pane gives up width once (H1) and is never split again. Track which slots you opened; when a helper pane closes, ids can shift and slots free up - re-run `herdr pane list` before every split and fill the freed slot using the same sequence logic.
@@ -111,4 +114,4 @@ Pane ids can shift when panes close: re-read ids from `herdr pane list` rather t
 - Always split with `--no-focus`; never steal the user's focus.
 - Close only panes you spawned; never close or write to panes that are not yours.
 - One agent per pane; one writer per worktree; never more than 4 helper panes open at once.
-- If `opencode` fails to start in the pane (read the pane to check), report the error to the user; do not silently fall back.
+- If the agent CLI fails to start in the pane (read the pane to check), report the error to the user; do not silently fall back.

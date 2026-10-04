@@ -52,16 +52,14 @@ Define success criteria. Loop until verified. Evidence, not assertion.
 - Prioritize being correct over agreeing with the user. Push back with reasons when warranted.
 - Never use the em dash "—". Use a plain dash "-" instead.
 
-## User-facing documents: HTML, not markdown
+## User-facing documents: markdown by default, HTML when it must be seen
 
-Markdown files are for agent reference only. Anything saved for the user to read or review is delivered as HTML.
+Pick the lightest format that carries the content.
 
-- **Load the `html-deliverable` skill** whenever you write something up for the user - reports, findings, plans, proposals, reviews, comparisons, handoffs - or whenever you need decisions, several answers at once, or in-depth reasoning that chat would bury. It is the default path for this, not an option. Do not hand over a markdown document or a long list of chat questions instead.
-- When saving an artifact the user is meant to read or review (reports, plans, reviews, summaries, handoffs), write it as a single self-contained HTML file and share the path.
-- Markdown files are reserved for the agent's own working notes and internal reference. Never hand one to the user as the deliverable.
-- Keep the HTML clean and simple: inline CSS, no external dependencies, readable when opened directly in a browser.
-- Add interactivity when it helps the user respond: checkboxes to approve/reject items, collapsible sections for detail. Feedback captured this way (e.g. checked boxes the user reports back, or state the agent can re-read) should map to clear next actions.
-- Include architectural drawings when they aid understanding, as inline SVG or simple HTML/CSS diagrams inside the same file.
+- **Chat and the inline question tool come first.** Questions are asked inline (AskUserQuestion in Claude Code, the annotation/question tool in opencode), not in a document. Do not write a document for what chat can carry.
+- **Markdown docs are the default for specs, plans, research and handoffs** - `docs/specs/` and `docs/plans/` in the repo, readable by the user and by agents. Every plan task states its acceptance criteria (what "done" means and how it is verified).
+- **HTML only when markdown cannot convey it**: architecture or flow diagrams the user must judge, visual designs or UI previews, or rich comparisons that need interactivity. Load the `html-deliverable` skill; write one self-contained file (inline CSS, inline SVG, no external dependencies) and share the path.
+- When HTML is warranted, add interactivity only where it helps the user respond (checkboxes, collapsible detail) and make feedback map to clear next actions.
 
 ## Web retrieval routing
 
