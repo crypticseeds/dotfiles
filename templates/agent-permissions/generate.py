@@ -460,8 +460,22 @@ AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in (
     ".claude/agents", ".claude/commands", ".claude/workflows", ".claude/scheduled_tasks.json",
     ".mcp.json", "opencode.json", ".omp", ".envrc", ".git/hooks", ".git/config",
 )]
-AGENT_HOST_ALLOW_BASH = ["git push", "gh pr create", "gh pr edit", "gh pr comment", "gh pr diff"]
-AGENT_HOST_DENY_BASH = ["gh pr merge", "gh repo delete"]  # merging stays with the human
+AGENT_HOST_ALLOW_BASH = ["git push", "gh pr create", "gh pr edit", "gh pr comment", "gh pr diff",
+                         # Doppler: list projects, configs and environments (names, never values)
+                         "doppler projects", "doppler configs", "doppler environments"]
+AGENT_HOST_DENY_BASH = [
+    "gh pr merge", "gh repo delete",  # merging stays with the human
+    "terraform apply",  # nobody is there to approve it, so deny instead of a prompt that stalls
+    # The Doppler list commands above must not reach their token-minting, mutating, log or
+    # config-printing forms, nor a flag that sends the token to another host.
+    "doppler *tokens*", "doppler *--print-config*", "doppler *--api-host*", "doppler *--dashboard-host*",
+    "doppler *--no-verify-tls*", "doppler *dns-resolver*",
+] + ["doppler %s *%s*" % (sub, verb) for sub in ("projects", "configs", "environments")
+     for verb in ("create", "delete", "update", "rename", "clone", "lock", "unlock", "logs")]
+# kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from the
+# sandbox, so on the agent host they run outside it like terraform and aws. The rules above still
+# deny secret reads (`kubectl get secret`, `helm get values`).
+AGENT_HOST_SANDBOX_EXCLUDED = ["kubectl *", "helm *"]
 
 WRAP_TOOLS = ("terraform", "tofu", "aws", "ansible", "kubectl", "k3s", "helm", "packer", "sops", "vault")
 
@@ -534,9 +548,9 @@ def expand_all(cmds):
 def bash_rules(profile, agent_host=False):
     deny_src, ask_src, allow = twins(DENY_BASH), twins(ASK_BASH), twins(ALLOW_OFFLINE) + ALLOW_SSO_LOGIN
     if agent_host:
-        moved = AGENT_HOST_ALLOW_BASH + AGENT_HOST_DENY_BASH
+        moved = twins(AGENT_HOST_ALLOW_BASH + AGENT_HOST_DENY_BASH)
         ask_src = [c for c in ask_src if c not in moved]
-        deny_src += AGENT_HOST_DENY_BASH
+        deny_src += twins(AGENT_HOST_DENY_BASH)
         allow += AGENT_HOST_ALLOW_BASH
     deny = deny_src + wrap(deny_src, allow=False)
     ask = ask_src + wrap(ask_src, allow=False)
@@ -611,7 +625,7 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "autoAllowBashIfSandboxed": False,
             "filesystem": {"allowWrite": write, "denyWrite": deny_write, "allowRead": SANDBOX_ALLOW_READ},
             "network": {"allowedDomains": ALLOWED_DOMAINS},
-            "excludedCommands": SANDBOX_EXCLUDED,
+            "excludedCommands": SANDBOX_EXCLUDED + (AGENT_HOST_SANDBOX_EXCLUDED if agent_host else []),
         },
     }
     if not sandbox:
@@ -1088,8 +1102,24 @@ def check():
                       ("git push --force origin main", "deny"), ("gh pr create --fill", "allow"),
                       ("gh pr comment 3 --body x", "allow"), ("gh pr merge 3", "deny"),
                       ("gh repo delete x", "deny"), ("gh api repos/x", "ask"),
-                      ("gh auth token", "deny"), ("terraform destroy", "deny"), ("env", "deny")):
+                      ("gh auth token", "deny"), ("terraform destroy", "deny"), ("env", "deny"),
+                      ("terraform apply", "deny"), ("terraform apply -auto-approve", "deny"),
+                      ("tofu apply", "deny"), ("doppler run --only-secrets X -- terraform apply", "deny"),
+                      ("terraform plan -out x", "allow"), ("terraform init", "allow"),
+                      ("kubectl get pods -A", "allow"), ("kubectl describe pod x", "allow"),
+                      ("kubectl get secret x -o yaml", "deny"), ("kubectl get --raw /api/v1/secrets", "deny"),
+                      ("helm list", "allow"), ("helm get values x", "deny"),
+                      ("doppler projects", "allow"), ("doppler configs", "allow"),
+                      ("doppler configs -p x", "allow"), ("doppler environments", "allow"),
+                      ("doppler configs tokens create x", "deny"), ("doppler configs -p x tokens", "deny"),
+                      ("doppler configs --print-config", "deny"), ("doppler projects --api-host https://x", "deny"),
+                      ("doppler configs logs", "deny"), ("doppler projects delete x", "deny"),
+                      ("doppler secrets", "deny"), ("doppler configure", "deny"),
+                      ("doppler configure get token", "deny"), ("doppler run -- printenv", "deny"),
+                      ("cat ~/.doppler/.doppler.yaml", "deny")):
         expect("[agent-host] %s" % cmd, want, decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
+    for tool in ("kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
+        expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in host["sandbox"]["excludedCommands"])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
     expect("[agent-host] no secret store re-opened", [], fs["allowRead"])
     for path in ("~/REPOS/*/.claude/settings.json", "~/REPOS/*/.git/hooks", "~/REPOS/*/.git/config",
@@ -1107,6 +1137,9 @@ def check():
     # without the flag nothing changes: push still prompts, merge is not denied, ~/REPOS is not writable
     plain = load_claude(claude_file("standard", "linux"))
     expect("[default] git push still asks", "ask", decide_claude("git push origin x", plain["deny"], plain["ask"], plain["allow"]))
+    expect("[default] terraform apply still asks", "ask", decide_claude("terraform apply", plain["deny"], plain["ask"], plain["allow"]))
+    expect("[default] kubectl stays in the sandbox", False,
+           "kubectl *" in json.loads(claude_file("standard", "linux").read_text())["sandbox"]["excludedCommands"])
     expect("[default] ~/REPOS not writable", False,
            "~/REPOS" in json.loads(claude_file("standard", "linux").read_text())["sandbox"]["filesystem"]["allowWrite"])
 

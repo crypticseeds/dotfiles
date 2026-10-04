@@ -94,6 +94,15 @@ For a box where agents work unattended (the Pi). Pass it with `--claude-out` or 
 
 - `git push` and `gh pr create/edit/comment/diff` run without a prompt; `gh pr merge` and
   `gh repo delete` are denied (the human reviews and merges); force push stays denied.
+- `terraform apply` (and `tofu apply`, plain or Doppler-wrapped, with or without `-auto-approve`)
+  is denied rather than asked: nobody is there to answer the prompt. `plan` and `init` stay allowed.
+- `kubectl` and `helm` run outside the sandbox, like `terraform` and `aws`: they need `~/.kube` and
+  the AWS SSO cache for EKS tokens. Their secret reads stay denied by rule (`kubectl get secret`,
+  `helm get values`), so the agent's EKS RBAC should not grant secret reads either.
+- `doppler projects`, `doppler configs` and `doppler environments` are allowed (names, no values),
+  so an agent can see what is set up. Their `tokens`, `logs`, `--print-config`, mutating forms and
+  `--api-host`-style flags are denied. `doppler configure` (it can print the token), `doppler
+  secrets`, `--plain` and `doppler run -- printenv` stay denied.
 - `~/REPOS` is writable (`AGENT_HOST_WRITE`), so agents can work across repos.
 - Sibling repos' agent config stays write-denied (`AGENT_HOST_DENY_WRITE`): `.claude` settings,
   hooks, skills, agents, commands, workflows, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`,
