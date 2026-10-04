@@ -96,6 +96,7 @@
       "Bash(gh repo view *)",
       "Bash(gh repo list)",
       "Bash(gh repo list *)",
+      "Bash(git pull --rebase --autostash)",
       "Bash(tofu fmt)",
       "Bash(tofu fmt *)",
       "Bash(tofu validate)",
@@ -1366,7 +1367,8 @@
       "gh repo view",
       "gh repo view *",
       "gh repo list",
-      "gh repo list *"
+      "gh repo list *",
+      "git pull --rebase --autostash"
     ]
   }
 }

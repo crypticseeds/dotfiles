@@ -1894,6 +1894,8 @@ bash:
       approval: allow
     - match: "gh repo list *"
       approval: allow
+    - match: "git pull --rebase --autostash"
+      approval: allow
     - match: "tofu fmt"
       approval: allow
     - match: "tofu fmt *"

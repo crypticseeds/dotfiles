@@ -240,8 +240,11 @@ GH_READ = [
     "gh pr view", "gh pr list", "gh pr status", "gh pr checks", "gh issue view",
     "gh issue list", "gh run view", "gh run list", "gh repo view", "gh repo list",
 ]
+# The pre-edit sync every agent runs (AGENTS.md): exact form only, no other `git pull`. Outside the
+# sandbox for the same reason as gh: the credentials (doppler helper, SSH keys) are hidden in it.
+GIT_SYNC = "git pull --rebase --autostash"
 SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"] + \
-    [p for c in GH_READ for p in (c, c + " *")]
+    [p for c in GH_READ for p in (c, c + " *")] + [GIT_SYNC]
 
 # --------------------------------------------------------------------------
 # Shell commands: deny
@@ -433,7 +436,7 @@ ALLOW_OFFLINE = [
     "gitleaks detect *--redact*", "gitleaks git *--redact*", "gitleaks dir *--redact*",
     "gitleaks protect *--redact*",
     "=aws --version", "=doppler --version", "docker ps", "docker images", "docker version",
-] + GH_READ
+] + GH_READ + ["=" + GIT_SYNC]
 
 # Read-only calls that reach live AWS or a live cluster. Standard profile only.
 ALLOW_LIVE = [
@@ -874,6 +877,8 @@ SAMPLES = [
     ("helm list -A", "allow", "ask"), ("helm get values x", "deny", "deny"),
     ("helm upgrade --install x .", "ask", "ask"),
     ("git status", "allow", "allow"), ("git diff --staged", "allow", "allow"),
+    ("git pull --rebase --autostash", "allow", "allow"), ("git pull", "ask", "ask"),
+    ("git pull origin main", "ask", "ask"), ("git pull --rebase --autostash x main", "ask", "ask"),
     ("git push origin main", "ask", "ask"), ("git push --force origin main", "deny", "deny"),
     ("git push origin main -f", "deny", "deny"), ("git reset --hard HEAD~1", "deny", "deny"),
     ("gitleaks detect --redact", "allow", "allow"), ("gitleaks detect", "ask", "ask"),
@@ -1066,6 +1071,10 @@ def check():
             for c in GH_READ:
                 for pat in (c, c + " *"):
                     expect("[%s %s] %s runs outside the sandbox" % (profile, os_name, pat), True, pat in excluded)
+            expect("[%s %s] pre-edit git sync runs outside the sandbox" % (profile, os_name), True,
+                   GIT_SYNC in excluded)
+            expect("[%s %s] only the exact git sync is excluded" % (profile, os_name), [GIT_SYNC],
+                   [e for e in excluded if e.startswith("git pull")])
             for pat in ("gh *", "gh pr create", "gh api", "git push"):
                 expect("[%s %s] %s stays sandboxed" % (profile, os_name, pat), False,
                        any(e.startswith(pat) for e in excluded))

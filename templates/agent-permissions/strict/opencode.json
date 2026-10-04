@@ -97,6 +97,7 @@
       "gh repo view *": "allow",
       "gh repo list": "allow",
       "gh repo list *": "allow",
+      "git pull --rebase --autostash": "allow",
       "tofu fmt": "allow",
       "tofu fmt *": "allow",
       "tofu validate": "allow",
