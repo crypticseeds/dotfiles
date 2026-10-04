@@ -24,7 +24,13 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills doctor setup shell nvim
+.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills doctor setup shell nvim
+
+# Mac and the Pi share this repo: rebase onto upstream before deploying or rewriting tracked
+# files (nvim's Lazy sync rewrites lazy-lock.json), so no machine works from a stale checkout.
+# --autostash keeps local edits; a failed pull stops the target.
+pull:
+	git pull --rebase --autostash
 
 install:
 ifeq ($(UNAME),Darwin)
@@ -33,14 +39,14 @@ else
 	$(MAKE) linux
 endif
 
-mac:
+mac: pull
 	$(STOW) agents
 	$(STOW) $(COMMON) $(MACONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
 	$(MAKE) doctor
 
-linux:
+linux: pull
 	$(STOW) agents
 	$(STOW) $(COMMON) $(LINUXONLY)
 	$(STOW) --no-folding $(TOOLS)
@@ -50,7 +56,7 @@ linux:
 # Headless servers (the DNS Pi and friends): shell + prompt, nothing else.
 # Deliberately skips agents, TOOLS and doctor - doctor only validates AI harness
 # links, which these hosts are not meant to have. -R so it is safe to re-run.
-minimal:
+minimal: pull
 	$(STOW) -R $(MINIMAL)
 
 restow:
@@ -60,13 +66,13 @@ else
 	$(MAKE) restow-linux
 endif
 
-restow-mac:
+restow-mac: pull
 	$(STOW) -R agents $(COMMON) $(MACONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
 	@$(reload-hint)
 
-restow-linux:
+restow-linux: pull
 	$(STOW) -R agents $(COMMON) $(LINUXONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
@@ -110,7 +116,7 @@ setup: shell nvim
 # Shell: zsh, starship, plugins and the tools behind the aliases (eza, zoxide,
 # fzf, bat, direnv), then stow zsh + starship. A pre-existing plain
 # ~/.zshrc is kept as ~/.zshrc.pre-dotfiles so stow does not fail on it.
-shell:
+shell: pull
 	sh scripts/shell.sh
 	@if [ -f $(HOME)/.zshrc ] && [ ! -L $(HOME)/.zshrc ]; then mv $(HOME)/.zshrc $(HOME)/.zshrc.pre-dotfiles; echo "moved ~/.zshrc to ~/.zshrc.pre-dotfiles"; fi
 	$(STOW) -R zsh starship
@@ -121,7 +127,7 @@ shell:
 # parsers install themselves on the first interactive launch (Mason).
 # PATH: the script may have just installed nvim into ~/.local/bin.
 nvim: export PATH := $(HOME)/.local/bin:$(PATH)
-nvim:
+nvim: pull
 	sh scripts/nvim.sh
 	$(STOW) -R nvim
 	nvim --headless "+Lazy! sync" +qa

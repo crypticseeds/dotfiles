@@ -49,6 +49,7 @@ How the write boundary is enforced, per agent:
 """
 import argparse
 import json
+import os
 import pathlib
 import platform
 import re
@@ -724,6 +725,24 @@ def omp_config(profile, agent_host=False):
     return "\n".join(lines) + "\n"
 
 
+def pull_upstream():
+    """Rebase onto upstream before rewriting the tracked bundles (Mac and the Pi share this repo).
+
+    If the pull moved HEAD, generate.py itself may have changed, so re-run the fresh copy rather
+    than write bundles from the stale code already loaded. AGENT_PERMS_PULLED skips a second pull.
+    """
+    if os.environ.get("AGENT_PERMS_PULLED"):
+        return
+    head = lambda: subprocess.run(["git", "-C", str(HERE), "rev-parse", "HEAD"],
+                                  capture_output=True, text=True).stdout
+    before = head()
+    if subprocess.run(["git", "-C", str(HERE), "pull", "--rebase", "--autostash"]).returncode:
+        sys.exit("generate.py: git pull --rebase failed; resolve it, then re-run")
+    os.environ["AGENT_PERMS_PULLED"] = "1"
+    if head() != before:
+        os.execv(sys.executable, [sys.executable, __file__] + sys.argv[1:])
+
+
 def write(path, text):
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1190,6 +1209,7 @@ def main():
         install(args.install, args.profile, args.os_name, not args.no_sandbox, args.force,
                 args.extra_claude_deny, args.agent_host)
         return 0
+    pull_upstream()
     for profile in PROFILES:
         for os_name in OSES:
             write(claude_file(profile, os_name), dump(claude_settings(profile, os_name)))

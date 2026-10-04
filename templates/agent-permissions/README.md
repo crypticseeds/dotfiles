@@ -119,7 +119,8 @@ For a box where agents work unattended (the Pi). Pass it with `--claude-out` or 
   no deletion), because a glob cannot stop a plain `git push` made while on main, and a
   fine-grained, repo-scoped `GH_TOKEN` with no admin rights.
 - On the Pi, `~/REPOS/aws-platform/.claude/settings.local.json` must only ever be regenerated with
-  `bash regen-agent-host.sh`. It runs `--check` first (and stops if it fails), then writes the file
+  `bash regen-agent-host.sh`. It runs `git pull --rebase --autostash` on the dotfiles, then `--check`
+  (and stops if either fails), then writes the file
   with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
   `generate.py --claude-out` without those flags silently drops the host rules and
   `enabledMcpjsonServers`. An optional argument writes elsewhere, for a dry run.
@@ -217,5 +218,5 @@ files back. As a template it is sound; what it does not do yet:
 
 ## Regenerate and test
 
-    python3 generate.py              # writes standard/ and strict/
+    python3 generate.py              # git pull --rebase, then writes standard/ and strict/
     python3 generate.py --check      # reads the files back, tests commands and paths

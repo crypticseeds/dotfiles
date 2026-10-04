@@ -95,6 +95,7 @@ If something does leak, say so immediately and rotate; deletion does not undo ex
 ## Git and repo hygiene
 
 - Never commit, push, or open a PR unless explicitly asked.
+- Before editing tracked files, sync with upstream: if the branch has one (`git rev-parse @{u}`), run `git pull --rebase --autostash`. Repos are shared between machines (Mac and the Pi), so a stale checkout means conflicts or overwriting newer work. If the pull conflicts or fails, stop and report; never force, reset, or skip it.
 - No repo-wide search/replace scripts. Small reviewable edits.
 - Never add AI attribution: no agent name as co-author, no "Generated with" lines in commits or PRs.
 - Never hand-edit generated files (CHANGELOG.md, lockfiles, generated code). Change the source that generates them.
