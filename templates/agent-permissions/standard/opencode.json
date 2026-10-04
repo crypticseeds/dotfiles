@@ -95,6 +95,8 @@
       "gh run list *": "allow",
       "gh repo view": "allow",
       "gh repo view *": "allow",
+      "gh repo list": "allow",
+      "gh repo list *": "allow",
       "tofu fmt": "allow",
       "tofu fmt *": "allow",
       "tofu validate": "allow",

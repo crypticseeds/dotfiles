@@ -213,8 +213,7 @@ LOCAL_SKILL_DIRS = ["~/dotfiles/agents/.agents/**", "~/dotfiles/claude/.claude/a
 # Nothing is re-opened: any sandboxed script could read what is listed here, so a tool that needs a
 # credential store runs OUTSIDE the sandbox instead (see SANDBOX_EXCLUDED). That covers the AWS SSO
 # cache (admin and agent sessions share ~/.aws/sso/cache) and doppler's token (macOS Keychain, or
-# the ~/.doppler file on Linux, which reaches every Doppler project). git and gh authenticate from
-# GH_TOKEN in the agent's environment, so they need no store. `--check` keeps this list empty.
+# the ~/.doppler file on Linux, which reaches every Doppler project). `--check` keeps this list empty.
 SANDBOX_ALLOW_READ = []
 # Hosts sandboxed commands may reach without a prompt. Anything else prompts the first time.
 ALLOWED_DOMAINS = [
@@ -234,7 +233,14 @@ ALLOWED_DOMAINS = [
 #    `terraform plan` would fail and force an approval prompt, which defeats an agentic workflow.
 # The cost: these commands lose the OS-level write boundary (the rules still apply). Note the
 # admin-profile deny covers command lines only, not a `profile =` line in Terraform code.
-SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"]
+# Read-only gh: the ~/.local/bin/gh wrapper fetches GH_TOKEN from doppler, so these run outside the
+# sandbox too. Only these subcommands: gh writes (pr create, push...) stay sandboxed and fail.
+GH_READ = [
+    "gh pr view", "gh pr list", "gh pr status", "gh pr checks", "gh issue view",
+    "gh issue list", "gh run view", "gh run list", "gh repo view", "gh repo list",
+]
+SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"] + \
+    [p for c in GH_READ for p in (c, c + " *")]
 
 # --------------------------------------------------------------------------
 # Shell commands: deny
@@ -426,9 +432,7 @@ ALLOW_OFFLINE = [
     "gitleaks detect *--redact*", "gitleaks git *--redact*", "gitleaks dir *--redact*",
     "gitleaks protect *--redact*",
     "=aws --version", "=doppler --version", "docker ps", "docker images", "docker version",
-    "gh pr view", "gh pr list", "gh pr status", "gh pr checks", "gh issue view",
-    "gh issue list", "gh run view", "gh run list", "gh repo view",
-]
+] + GH_READ
 
 # Read-only calls that reach live AWS or a live cluster. Standard profile only.
 ALLOW_LIVE = [
@@ -449,9 +453,18 @@ ALLOW_LIVE = [
 
 # Agents there work unattended: they push branches and open PRs, the human reviews and merges.
 # The real guard on `main` is GitHub branch protection (PR required, no force push): a glob cannot
-# stop a plain `git push` made while on main. git and gh authenticate from GH_TOKEN, a fine-grained
-# repo-scoped token in the agent's environment, so both work inside the sandbox.
+# stop a plain `git push` made while on main. git (credential helper) and gh (~/.local/bin wrapper)
+# fetch a fine-grained, repo-scoped GH_TOKEN from doppler per call, so they run outside the sandbox
+# like doppler itself; the permission rules still apply to them.
+AGENT_HOST_EXCLUDED = [
+    "git push *", "gh *",
+    # kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from
+    # the sandbox. The rules still deny their secret reads (`kubectl get secret`, `helm get values`).
+    "kubectl *", "helm *",
+]
 AGENT_HOST_WRITE = ["~/REPOS"]
+# NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
+# the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these
 # would let an agent loosen the next session in another repo or plant a git hook that runs
 # unsandboxed. `.claude` itself stays writable: worktrees live in `.claude/worktrees`.
@@ -472,10 +485,6 @@ AGENT_HOST_DENY_BASH = [
     "doppler *--no-verify-tls*", "doppler *dns-resolver*",
 ] + ["doppler %s *%s*" % (sub, verb) for sub in ("projects", "configs", "environments")
      for verb in ("create", "delete", "update", "rename", "clone", "lock", "unlock", "logs")]
-# kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from the
-# sandbox, so on the agent host they run outside it like terraform and aws. The rules above still
-# deny secret reads (`kubectl get secret`, `helm get values`).
-AGENT_HOST_SANDBOX_EXCLUDED = ["kubectl *", "helm *"]
 
 WRAP_TOOLS = ("terraform", "tofu", "aws", "ansible", "kubectl", "k3s", "helm", "packer", "sops", "vault")
 
@@ -625,7 +634,7 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "autoAllowBashIfSandboxed": False,
             "filesystem": {"allowWrite": write, "denyWrite": deny_write, "allowRead": SANDBOX_ALLOW_READ},
             "network": {"allowedDomains": ALLOWED_DOMAINS},
-            "excludedCommands": SANDBOX_EXCLUDED + (AGENT_HOST_SANDBOX_EXCLUDED if agent_host else []),
+            "excludedCommands": SANDBOX_EXCLUDED + (AGENT_HOST_EXCLUDED if agent_host else []),
         },
     }
     if not sandbox:
@@ -1032,6 +1041,15 @@ def check():
         expect("[%s] no secret store re-opened to the sandbox" % os_name, [], sb["filesystem"]["allowRead"])
         for tool in ("terraform *", "aws *", "doppler *"):
             expect("[%s] %s runs outside the sandbox" % (os_name, tool), True, tool in sb["excludedCommands"])
+        # read-only gh runs outside (its wrapper needs doppler); gh writes and git push stay inside
+        for profile in PROFILES:
+            excluded = json.loads(claude_file(profile, os_name).read_text())["sandbox"]["excludedCommands"]
+            for c in GH_READ:
+                for pat in (c, c + " *"):
+                    expect("[%s %s] %s runs outside the sandbox" % (profile, os_name, pat), True, pat in excluded)
+            for pat in ("gh *", "gh pr create", "gh api", "git push"):
+                expect("[%s %s] %s stays sandboxed" % (profile, os_name, pat), False,
+                       any(e.startswith(pat) for e in excluded))
         # the SSO login hook: run the real script on sample commands
         hook = settings["hooks"]["PreToolUse"][0]["hooks"][0]
         for cmd, blocked in (
@@ -1118,12 +1136,11 @@ def check():
                       ("doppler configure get token", "deny"), ("doppler run -- printenv", "deny"),
                       ("cat ~/.doppler/.doppler.yaml", "deny")):
         expect("[agent-host] %s" % cmd, want, decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
-    for tool in ("kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
+    for tool in ("gh *", "git push *", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in host["sandbox"]["excludedCommands"])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
     expect("[agent-host] no secret store re-opened", [], fs["allowRead"])
-    for path in ("~/REPOS/*/.claude/settings.json", "~/REPOS/*/.git/hooks", "~/REPOS/*/.git/config",
-                 "~/REPOS/*/.mcp.json"):
+    for path in AGENT_HOST_DENY_WRITE:
         expect("[agent-host] sandbox denies writing %s" % path, True, path in fs["denyWrite"])
         expect("[agent-host] Edit tool denied %s" % path, True, "Edit(%s)" % path in p["deny"])
     expect("[agent-host] no enabledMcpjsonServers unless asked", False, "enabledMcpjsonServers" in host)

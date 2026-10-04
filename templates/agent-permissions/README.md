@@ -74,8 +74,7 @@ Claude sandbox details (`sandbox` block in the Claude file):
   rather than turning the sandbox off.
 - Claude folds every `Read(...)` deny rule into the sandbox's read-deny, and nothing is re-opened
   (`SANDBOX_ALLOW_READ` is empty, `--check` enforces it): any sandboxed script could read a
-  re-opened store. A tool that needs a credential store runs outside the sandbox instead. git and
-  gh authenticate from `GH_TOKEN` in the agent's environment, so they work inside it.
+  re-opened store. A tool that needs a credential store runs outside the sandbox instead.
 - **`~/.aws/sso` stays unreadable to sandboxed commands on purpose.** Admin and agent SSO sessions
   cache in the same directory, so a sandboxed process able to read it could read the admin
   token. That is why `aws` and `terraform` run outside the sandbox (above): only they read it.
@@ -103,7 +102,12 @@ For a box where agents work unattended (the Pi). Pass it with `--claude-out` or 
   so an agent can see what is set up. Their `tokens`, `logs`, `--print-config`, mutating forms and
   `--api-host`-style flags are denied. `doppler configure` (it can print the token), `doppler
   secrets`, `--plain` and `doppler run -- printenv` stay denied.
+- `git push *` and `gh *` also run outside the sandbox (`AGENT_HOST_EXCLUDED`): the git credential
+  helper and the `~/.local/bin/gh` wrapper fetch `GH_TOKEN` from doppler per call, and `~/.doppler`
+  stays unreadable to sandboxed code. The permission rules above still apply to both.
 - `~/REPOS` is writable (`AGENT_HOST_WRITE`), so agents can work across repos.
+- **Linux ignores wildcard `denyWrite`** (verified live 2026-10-04), so on the Pi the next item is
+  enforced for the Edit tool only; sandboxed scripts can write sibling repos' config.
 - Sibling repos' agent config stays write-denied (`AGENT_HOST_DENY_WRITE`): `.claude` settings,
   hooks, skills, agents, commands, workflows, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`,
   `.git/hooks`, `.git/config`. Claude protects these only in the project it runs in; writable, they
