@@ -368,6 +368,14 @@ bash:
       approval: deny
     - match: "kubectl describe *secret*"
       approval: deny
+    - match: "kubectl get *Secret*"
+      approval: deny
+    - match: "kubectl describe *Secret*"
+      approval: deny
+    - match: "kubectl get *SECRET*"
+      approval: deny
+    - match: "kubectl describe *SECRET*"
+      approval: deny
     - match: "kubectl config view *--raw*"
       approval: deny
     - match: "kubectl delete namespace*"
@@ -608,6 +616,16 @@ bash:
       approval: deny
     - match: "*AWS_PROFILE=*ADMIN*"
       approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*platform-admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*seeds-admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*Admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*ADMIN*"
+      approval: deny
     - match: "aws sso login"
       approval: deny
     - match: "aws sso login --sso-session seeds-agent"
@@ -683,6 +701,14 @@ bash:
     - match: "k3s kubectl get *secret*"
       approval: deny
     - match: "k3s kubectl describe *secret*"
+      approval: deny
+    - match: "k3s kubectl get *Secret*"
+      approval: deny
+    - match: "k3s kubectl describe *Secret*"
+      approval: deny
+    - match: "k3s kubectl get *SECRET*"
+      approval: deny
+    - match: "k3s kubectl describe *SECRET*"
       approval: deny
     - match: "k3s kubectl config view *--raw*"
       approval: deny
@@ -802,6 +828,14 @@ bash:
       approval: deny
     - match: "doppler run * -- kubectl describe *secret*"
       approval: deny
+    - match: "doppler run * -- kubectl get *Secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl describe *Secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl get *SECRET*"
+      approval: deny
+    - match: "doppler run * -- kubectl describe *SECRET*"
+      approval: deny
     - match: "doppler run * -- kubectl config view *--raw*"
       approval: deny
     - match: "doppler run * -- kubectl delete namespace*"
@@ -877,6 +911,14 @@ bash:
     - match: "doppler run * -- k3s kubectl get *secret*"
       approval: deny
     - match: "doppler run * -- k3s kubectl describe *secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl get *Secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl describe *Secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl get *SECRET*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl describe *SECRET*"
       approval: deny
     - match: "doppler run * -- k3s kubectl config view *--raw*"
       approval: deny

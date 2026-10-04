@@ -285,7 +285,11 @@ DENY_BASH = [
     "ansible-vault view", "ansible-vault decrypt", "ansible-vault edit",
     "ansible-vault rekey", "ansible-vault encrypt_string", "ansible* *-vvv*",
     # --- Kubernetes / Helm / k3s ---
-    "kubectl get *secret*", "kubectl describe *secret*", "kubectl config view *--raw*",
+    # kubectl accepts mixed-case resource names (Secret, SECRETS), so cover the common spellings
+    "kubectl get *secret*", "kubectl describe *secret*",
+    "kubectl get *Secret*", "kubectl describe *Secret*",
+    "kubectl get *SECRET*", "kubectl describe *SECRET*",
+    "kubectl config view *--raw*",
     "kubectl delete namespace*", "kubectl delete ns*", "kubectl delete *--all*",
     "kubectl delete *-A*", "helm get values", "helm get all", "helm get manifest",
     "k3s token",
@@ -319,6 +323,8 @@ DENY_BASH += (
     ["aws *--profile*%s*" % n for n in ADMIN_AWS_PROFILES]
     + ["aws *--sso-session*%s*" % n for n in ADMIN_AWS_PROFILES]
     + ["*AWS_PROFILE=*%s*" % n for n in ADMIN_AWS_PROFILES]
+    # botocore (AWS CLI) also honours the legacy AWS_DEFAULT_PROFILE variable
+    + ["*AWS_DEFAULT_PROFILE=*%s*" % n for n in ADMIN_AWS_PROFILES]
 )
 
 # SSO login. A plain `aws sso login` opens the default browser, which may be signed in as the
@@ -808,6 +814,10 @@ SAMPLES = [
     ("aws sso login --profile platform-admin", "deny", "deny"),
     ("aws sso login --sso-session admin-session", "deny", "deny"),
     ("AWS_PROFILE=admin terraform plan", "deny", "deny"),
+    ("AWS_DEFAULT_PROFILE=platform-admin aws s3 ls", "deny", "deny"),
+    ("export AWS_DEFAULT_PROFILE=platform-admin", "deny", "deny"),
+    ("kubectl get Secret -A", "deny", "deny"),
+    ("kubectl describe SECRETS db-creds", "deny", "deny"),
     ("doppler run --only-secrets X -- aws --profile admin sts get-caller-identity", "deny", "deny"),
     ("aws sso login --sso-session seeds-admin", "deny", "deny"),
     ("aws sso login --sso-session=seeds-admin", "deny", "deny"),
