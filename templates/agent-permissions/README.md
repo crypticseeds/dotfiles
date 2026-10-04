@@ -72,18 +72,44 @@ Claude sandbox details (`sandbox` block in the Claude file):
 - Tools that cache outside the project (helm repos, tflint plugins, npm/uv/go caches)
   may fail inside the sandbox. Add that cache directory to `filesystem.allowWrite`
   rather than turning the sandbox off.
-- Claude folds every `Read(...)` deny rule into the sandbox's read-deny. `SANDBOX_ALLOW_READ`
-  re-opens only the stores tools need (kube, docker, gh, ssh, netrc, npmrc, `~/.doppler`).
+- Claude folds every `Read(...)` deny rule into the sandbox's read-deny, and nothing is re-opened
+  (`SANDBOX_ALLOW_READ` is empty, `--check` enforces it): any sandboxed script could read a
+  re-opened store. A tool that needs a credential store runs outside the sandbox instead. git and
+  gh authenticate from `GH_TOKEN` in the agent's environment, so they work inside it.
 - **`~/.aws/sso` stays unreadable to sandboxed commands on purpose.** Admin and agent SSO sessions
   cache in the same directory, so a sandboxed process able to read it could read the admin
   token. That is why `aws` and `terraform` run outside the sandbox (above): only they read it.
 - **Doppler keeps its token in the macOS Keychain, which the sandbox blocks** (verified:
   `doppler me` fails inside, succeeds outside), hence `doppler *` is excluded too. On Linux the
-  token is a file in `~/.doppler`, which is re-allowed.
+  token is a file in `~/.doppler` that reaches every Doppler project; it stays blocked as well.
 - The admin-profile deny covers command lines only. It cannot see a `profile = "..."` line the
   agent writes into Terraform code. Keep the admin login off any machine agents run on.
 - A nested `claude -p` cannot log in inside the sandbox (credential store blocked). Run
   nested tests from a normal terminal.
+
+## Agent host (`--agent-host`): a machine used only by agents
+
+For a box where agents work unattended (the Pi). Pass it with `--claude-out` or `--install`; the
+`standard/` and `strict/` bundles are unchanged by it.
+
+- `git push` and `gh pr create/edit/comment/diff` run without a prompt; `gh pr merge` and
+  `gh repo delete` are denied (the human reviews and merges); force push stays denied.
+- `~/REPOS` is writable (`AGENT_HOST_WRITE`), so agents can work across repos.
+- Sibling repos' agent config stays write-denied (`AGENT_HOST_DENY_WRITE`): `.claude` settings,
+  hooks, skills, agents, commands, workflows, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`,
+  `.git/hooks`, `.git/config`. Claude protects these only in the project it runs in; writable, they
+  would let an agent loosen another repo's next session or plant a hook that runs unsandboxed.
+  `.claude/worktrees` stays writable.
+- `~/.local/bin`, shell rc files and `~/dotfiles` stay outside the write boundary: anything there
+  runs outside the sandbox.
+- Required alongside, outside this file: branch protection on `main` (PR required, no force push,
+  no deletion), because a glob cannot stop a plain `git push` made while on main, and a
+  fine-grained, repo-scoped `GH_TOKEN` with no admin rights.
+- On the Pi, `~/REPOS/aws-platform/.claude/settings.local.json` must only ever be regenerated with
+  `bash regen-agent-host.sh`. It runs `--check` first (and stops if it fails), then writes the file
+  with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
+  `generate.py --claude-out` without those flags silently drops the host rules and
+  `enabledMcpjsonServers`. An optional argument writes elsewhere, for a dry run.
 
 ## SSO login: `--no-browser` only
 
@@ -140,8 +166,8 @@ hook all stay; only the OS-level write boundary for shell commands goes (Write/E
 prompt outside the project). Fix the sandbox later and re-run without the flag.
 
 Verified vs not: the command and path rules for Linux are tested offline (`--check`, 1200+
-cases). **Not tested on Linux itself**: that the bubblewrap sandbox starts with this config, that
-Doppler's `~/.doppler` token works inside it, and Claude's own handling of the Linux paths. Do
+cases). **Not tested on Linux itself**: that the bubblewrap sandbox starts with this config, and
+Claude's own handling of the Linux paths. Do
 the first live run in the VM with the check list in the preflight script and a few canary reads.
 
 ## Known gaps (do not rely on these files for more than they do)

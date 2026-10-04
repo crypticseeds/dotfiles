@@ -210,16 +210,12 @@ LOCAL_SKILL_DIRS = ["~/dotfiles/agents/.agents/**", "~/dotfiles/claude/.claude/a
 # sandbox's read-deny, so the secret stores are unreadable to shell commands too (a `python -c`
 # that opens a secret file is blocked by the OS, not just by command matching).
 #
-# That also hides the stores some tools legitimately need, so re-open exactly those. Deliberately
-# NOT listed: ~/.aws. The SSO token cache lives in ~/.aws/sso/cache, and the admin and agent SSO
-# sessions both cache there, so a sandboxed process able to read it could read the admin token.
-# Sandboxed commands therefore cannot use AWS credentials, and on macOS doppler's Keychain token
-# is blocked too: those tools run OUTSIDE the sandbox instead (see SANDBOX_EXCLUDED).
-# `~/.doppler` is re-allowed for Linux, where the token is a plain file.
-SANDBOX_ALLOW_READ = [
-    "~/.doppler", "~/.kube", "~/.docker", "~/.config/gh", "~/.ssh",
-    "~/.netrc", "~/.git-credentials", "~/.npmrc",
-]
+# Nothing is re-opened: any sandboxed script could read what is listed here, so a tool that needs a
+# credential store runs OUTSIDE the sandbox instead (see SANDBOX_EXCLUDED). That covers the AWS SSO
+# cache (admin and agent sessions share ~/.aws/sso/cache) and doppler's token (macOS Keychain, or
+# the ~/.doppler file on Linux, which reaches every Doppler project). git and gh authenticate from
+# GH_TOKEN in the agent's environment, so they need no store. `--check` keeps this list empty.
+SANDBOX_ALLOW_READ = []
 # Hosts sandboxed commands may reach without a prompt. Anything else prompts the first time.
 ALLOWED_DOMAINS = [
     "github.com", "*.github.com", "*.githubusercontent.com", "ghcr.io",
@@ -447,6 +443,26 @@ ALLOW_LIVE = [
     "helm list", "helm status", "helm history",
 ]
 
+# --------------------------------------------------------------------------
+# Agent host (--agent-host): a machine used only for agent work (the Pi)
+# --------------------------------------------------------------------------
+
+# Agents there work unattended: they push branches and open PRs, the human reviews and merges.
+# The real guard on `main` is GitHub branch protection (PR required, no force push): a glob cannot
+# stop a plain `git push` made while on main. git and gh authenticate from GH_TOKEN, a fine-grained
+# repo-scoped token in the agent's environment, so both work inside the sandbox.
+AGENT_HOST_WRITE = ["~/REPOS"]
+# Claude protects the config of the project it runs in, not of sibling repos. Writable, these
+# would let an agent loosen the next session in another repo or plant a git hook that runs
+# unsandboxed. `.claude` itself stays writable: worktrees live in `.claude/worktrees`.
+AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in (
+    ".claude/settings.json", ".claude/settings.local.json", ".claude/hooks", ".claude/skills",
+    ".claude/agents", ".claude/commands", ".claude/workflows", ".claude/scheduled_tasks.json",
+    ".mcp.json", "opencode.json", ".omp", ".envrc", ".git/hooks", ".git/config",
+)]
+AGENT_HOST_ALLOW_BASH = ["git push", "gh pr create", "gh pr edit", "gh pr comment", "gh pr diff"]
+AGENT_HOST_DENY_BASH = ["gh pr merge", "gh repo delete"]  # merging stays with the human
+
 WRAP_TOOLS = ("terraform", "tofu", "aws", "ansible", "kubectl", "k3s", "helm", "packer", "sops", "vault")
 
 # --------------------------------------------------------------------------
@@ -515,11 +531,15 @@ def expand_all(cmds):
     return uniq(p for c in cmds for p in expand(c))
 
 
-def bash_rules(profile):
-    deny_src, ask_src = twins(DENY_BASH), twins(ASK_BASH)
+def bash_rules(profile, agent_host=False):
+    deny_src, ask_src, allow = twins(DENY_BASH), twins(ASK_BASH), twins(ALLOW_OFFLINE) + ALLOW_SSO_LOGIN
+    if agent_host:
+        moved = AGENT_HOST_ALLOW_BASH + AGENT_HOST_DENY_BASH
+        ask_src = [c for c in ask_src if c not in moved]
+        deny_src += AGENT_HOST_DENY_BASH
+        allow += AGENT_HOST_ALLOW_BASH
     deny = deny_src + wrap(deny_src, allow=False)
     ask = ask_src + wrap(ask_src, allow=False)
-    allow = twins(ALLOW_OFFLINE) + ALLOW_SSO_LOGIN
     if profile == "standard":
         live = twins(ALLOW_LIVE)
         allow += live + wrap(live, allow=True)
@@ -560,16 +580,20 @@ def claude_secret_paths(os_name):
     return home_paths(os_name) + [abs_claude(p) for p in abs_paths(os_name)] + any_paths
 
 
-def claude_settings(profile, os_name, extra_deny=(), sandbox=True):
-    r = bash_rules(profile)
+def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=False, mcpjson_servers=()):
+    r = bash_rules(profile, agent_host)
     paths = claude_secret_paths(os_name)
     tmp = TMP_DIRS_BY_OS[os_name]
+    write = tmp + (AGENT_HOST_WRITE if agent_host else [])
+    deny_write = AGENT_HOST_DENY_WRITE if agent_host else []
     deny = ["Read(%s)" % p for p in paths] + ["Edit(%s)" % p for p in paths]
+    deny += ["Edit(%s)" % p for p in deny_write] + ["Edit(%s/**)" % p for p in deny_write]
     deny += ["Bash(%s)" % p for p in r["deny"]] + list(extra_deny)
     allow = ["Bash(%s)" % p for p in r["allow"]]
     allow += ["Read(%s)" % p for p in SKILL_DIRS + LOCAL_SKILL_DIRS]
-    for d in tmp:
-        allow += ["Read(%s/**)" % abs_claude(d), "Edit(%s/**)" % abs_claude(d)]
+    for d in write:
+        d = abs_claude(d) if d.startswith("/") else d
+        allow += ["Read(%s/**)" % d, "Edit(%s/**)" % d]
     settings = {
         "$schema": "https://json.schemastore.org/claude-code-settings.json",
         "permissions": {
@@ -585,13 +609,15 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True):
             "failIfUnavailable": True,
             # keep the prompts above in force instead of auto-approving sandboxed commands
             "autoAllowBashIfSandboxed": False,
-            "filesystem": {"allowWrite": tmp, "allowRead": SANDBOX_ALLOW_READ},
+            "filesystem": {"allowWrite": write, "denyWrite": deny_write, "allowRead": SANDBOX_ALLOW_READ},
             "network": {"allowedDomains": ALLOWED_DOMAINS},
             "excludedCommands": SANDBOX_EXCLUDED,
         },
     }
     if not sandbox:
         del settings["sandbox"]
+    if mcpjson_servers:
+        settings["enabledMcpjsonServers"] = list(mcpjson_servers)
     return settings
 
 
@@ -602,8 +628,8 @@ def oc_path(p):
     return p.replace("**", "*")
 
 
-def opencode_config(profile):
-    r = bash_rules(profile)
+def opencode_config(profile, agent_host=False):
+    r = bash_rules(profile, agent_host)
     bash = {"*": "ask"}
     for tier in ("allow", "ask", "deny"):  # last match wins
         for p in r[tier]:
@@ -626,6 +652,11 @@ def opencode_config(profile):
     # Outside the project: ask, except /tmp and skills; secrets stay denied (listed last).
     external = {"*": "ask"}
     external.update({p: "allow" for p in tmp + skills})
+    if agent_host:
+        external.update({p + "/*": "allow" for p in AGENT_HOST_WRITE})
+        protected = [p for d in AGENT_HOST_DENY_WRITE for p in (d, d + "/*")]
+        edit.update({p: "deny" for p in protected})
+        external.update({p: "deny" for p in protected})
     external.update({p: "deny" for p in secret if p.startswith(("~/", "/"))})
     return {
         "$schema": "https://opencode.ai/config.json",
@@ -635,8 +666,8 @@ def opencode_config(profile):
     }
 
 
-def omp_config(profile):
-    r = bash_rules(profile)
+def omp_config(profile, agent_host=False):
+    r = bash_rules(profile, agent_host)
     lines = [
         "# omp (oh-my-pi) approval policy generated from the secret-hygiene policy.",
         "# Install: ~/.omp/agent/config.yml (global) or <project>/.omp/config.yml (project)",
@@ -685,14 +716,14 @@ def claude_file(profile, os_name):
     return HERE / profile / ("claude-settings.%s.json" % os_name)
 
 
-def install(project, profile, os_name, sandbox=True, force=False, extra_deny=()):
+def install(project, profile, os_name, sandbox=True, force=False, extra_deny=(), agent_host=False):
     """Drop the files for this host into a project. Existing files are left alone unless force."""
     project = pathlib.Path(project)
     files = {
         project / ".claude" / "settings.json":
-            dump(claude_settings(profile, os_name, extra_deny, sandbox)),
-        project / "opencode.json": dump(opencode_config(profile)),
-        project / ".omp" / "config.yml": omp_config(profile),
+            dump(claude_settings(profile, os_name, extra_deny, sandbox, agent_host)),
+        project / "opencode.json": dump(opencode_config(profile, agent_host)),
+        project / ".omp" / "config.yml": omp_config(profile, agent_host),
     }
     for path, text in files.items():
         if path.exists() and not force:
@@ -984,8 +1015,7 @@ def check():
         expect("[%s] sandbox keeps prompts" % os_name, False, sb["autoAllowBashIfSandboxed"])
         expect("[%s] write boundary is tmp only" % os_name, sorted(TMP_DIRS_BY_OS[os_name]),
                sorted(sb["filesystem"]["allowWrite"]))
-        expect("[%s] ~/.aws not re-opened to the sandbox" % os_name, False,
-               any(p.startswith("~/.aws") for p in sb["filesystem"]["allowRead"]))
+        expect("[%s] no secret store re-opened to the sandbox" % os_name, [], sb["filesystem"]["allowRead"])
         for tool in ("terraform *", "aws *", "doppler *"):
             expect("[%s] %s runs outside the sandbox" % (os_name, tool), True, tool in sb["excludedCommands"])
         # the SSO login hook: run the real script on sample commands
@@ -1049,6 +1079,37 @@ def check():
         expect("--no-sandbox keeps the permission rules", True, len(nosb["permissions"]["deny"]) > 100)
         expect("--no-sandbox keeps the SSO login hook", True, "hooks" in nosb)
 
+    # --agent-host: unattended push and PRs, ~/REPOS writable, sibling repos' agent config is not
+    host = claude_settings("standard", "linux", agent_host=True)
+    p, fs = host["permissions"], host["sandbox"]["filesystem"]
+    tiers = {t: [re.fullmatch(r"Bash\((.*)\)", e, re.S).group(1) for e in p[t] if e.startswith("Bash(")]
+             for t in ("deny", "ask", "allow")}
+    for cmd, want in (("git push -u origin feat/x", "allow"), ("git push origin main", "allow"),
+                      ("git push --force origin main", "deny"), ("gh pr create --fill", "allow"),
+                      ("gh pr comment 3 --body x", "allow"), ("gh pr merge 3", "deny"),
+                      ("gh repo delete x", "deny"), ("gh api repos/x", "ask"),
+                      ("gh auth token", "deny"), ("terraform destroy", "deny"), ("env", "deny")):
+        expect("[agent-host] %s" % cmd, want, decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
+    expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
+    expect("[agent-host] no secret store re-opened", [], fs["allowRead"])
+    for path in ("~/REPOS/*/.claude/settings.json", "~/REPOS/*/.git/hooks", "~/REPOS/*/.git/config",
+                 "~/REPOS/*/.mcp.json"):
+        expect("[agent-host] sandbox denies writing %s" % path, True, path in fs["denyWrite"])
+        expect("[agent-host] Edit tool denied %s" % path, True, "Edit(%s)" % path in p["deny"])
+    expect("[agent-host] no enabledMcpjsonServers unless asked", False, "enabledMcpjsonServers" in host)
+    mcp = claude_settings("standard", "linux", agent_host=True, mcpjson_servers=["aws", "eks"])
+    expect("[--mcpjson-server] enabledMcpjsonServers written", ["aws", "eks"], mcp.get("enabledMcpjsonServers"))
+    expect("[agent-host] worktrees stay writable", False, "~/REPOS/*/.claude" in fs["denyWrite"])
+    oc_host = opencode_config("standard", agent_host=True)["permission"]
+    for path, want in (("/h/REPOS/x/main.tf", "allow"), ("/h/REPOS/x/.git/hooks/pre-commit", "deny"),
+                       ("/h/REPOS/x/.claude/settings.local.json", "deny"), ("/h/.local/bin/git", "ask")):
+        expect("[agent-host opencode external] " + path, want, oc_decide(oc_host["external_directory"], path, "ask"))
+    # without the flag nothing changes: push still prompts, merge is not denied, ~/REPOS is not writable
+    plain = load_claude(claude_file("standard", "linux"))
+    expect("[default] git push still asks", "ask", decide_claude("git push origin x", plain["deny"], plain["ask"], plain["allow"]))
+    expect("[default] ~/REPOS not writable", False,
+           "~/REPOS" in json.loads(claude_file("standard", "linux").read_text())["sandbox"]["filesystem"]["allowWrite"])
+
     print("%d checks, %d failures" % (total, failures))
     return 1 if failures else 0
 
@@ -1067,13 +1128,17 @@ def main():
     ap.add_argument("--no-sandbox", action="store_true",
                     help="omit the Claude sandbox block (fallback if the sandbox will not start)")
     ap.add_argument("--force", action="store_true", help="with --install: overwrite existing files")
+    ap.add_argument("--agent-host", action="store_true",
+                    help="with --claude-out/--install: machine used only by agents (push + PRs, ~/REPOS writable)")
+    ap.add_argument("--mcpjson-server", action="append", default=[], metavar="NAME",
+                    help="with --claude-out: enable this project .mcp.json server (enabledMcpjsonServers)")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     if args.check:
         return check()
     if args.install:
         install(args.install, args.profile, args.os_name, not args.no_sandbox, args.force,
-                args.extra_claude_deny)
+                args.extra_claude_deny, args.agent_host)
         return 0
     for profile in PROFILES:
         for os_name in OSES:
@@ -1083,7 +1148,7 @@ def main():
     if args.claude_out:
         write(args.claude_out,
               dump(claude_settings(args.profile, args.os_name, args.extra_claude_deny,
-                                   not args.no_sandbox)))
+                                   not args.no_sandbox, args.agent_host, args.mcpjson_server)))
     return 0
 
 

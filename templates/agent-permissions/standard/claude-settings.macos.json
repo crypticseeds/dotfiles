@@ -1257,16 +1257,8 @@
         "/tmp",
         "/private/tmp"
       ],
-      "allowRead": [
-        "~/.doppler",
-        "~/.kube",
-        "~/.docker",
-        "~/.config/gh",
-        "~/.ssh",
-        "~/.netrc",
-        "~/.git-credentials",
-        "~/.npmrc"
-      ]
+      "denyWrite": [],
+      "allowRead": []
     },
     "network": {
       "allowedDomains": [
