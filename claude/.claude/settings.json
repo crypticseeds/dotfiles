@@ -1,36 +1,48 @@
 {
-  "autoCompactEnabled": false,
+  "model": "opus",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/.claude/hooks/herdr-agent-state.sh\"; [ -f \"$f\" ] && bash \"$f\" session || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
   "enabledPlugins": {
     "coderabbit@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "linear@claude-plugins-official": true,
     "sentry@claude-plugins-official": true,
-    "warp@claude-code-warp": true
+    "warp@claude-code-warp": true,
+    "superpowers@claude-plugins-official": true,
+    "aws-core@claude-plugins-official": true,
+    "terraform-skill@antonbabenko": true
   },
   "extraKnownMarketplaces": {
     "claude-code-warp": {
       "source": {
-        "repo": "warpdotdev/claude-code-warp",
-        "source": "github"
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    },
+    "antonbabenko": {
+      "source": {
+        "source": "github",
+        "repo": "antonbabenko/agent-plugins"
       }
     }
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "f=\"$HOME/.claude/hooks/herdr-agent-state.sh\"; [ -f \"$f\" ] && bash \"$f\" session || true",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "*"
-      }
-    ]
-  },
-  "statusLine": {
-    "command": "bash ~/.claude/statusline-command.sh",
-    "type": "command"
-  }
+  "autoCompactEnabled": false,
+  "autoContinueAtUsageLimit": false,
+  "inputNeededNotifEnabled": true
 }
