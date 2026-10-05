@@ -1028,10 +1028,10 @@
       "/etc/kubernetes/admin.conf": "deny",
       "/etc/kubernetes/pki/*": "deny",
       "/var/lib/kubelet/*": "deny",
+      "/mnt/hgfs/*": "deny",
       "/proc/*/environ": "deny",
       "/proc/*/cmdline": "deny",
       "/proc/*/mem": "deny",
-      "/mnt/hgfs/*": "deny",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.pem": "deny",
@@ -1129,10 +1129,10 @@
       "/etc/kubernetes/admin.conf": "deny",
       "/etc/kubernetes/pki/*": "deny",
       "/var/lib/kubelet/*": "deny",
+      "/mnt/hgfs/*": "deny",
       "/proc/*/environ": "deny",
       "/proc/*/cmdline": "deny",
       "/proc/*/mem": "deny",
-      "/mnt/hgfs/*": "deny",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.pem": "deny",
@@ -1258,10 +1258,10 @@
       "/etc/kubernetes/admin.conf": "deny",
       "/etc/kubernetes/pki/*": "deny",
       "/var/lib/kubelet/*": "deny",
+      "/mnt/hgfs/*": "deny",
       "/proc/*/environ": "deny",
       "/proc/*/cmdline": "deny",
-      "/proc/*/mem": "deny",
-      "/mnt/hgfs/*": "deny"
+      "/proc/*/mem": "deny"
     }
   }
 }

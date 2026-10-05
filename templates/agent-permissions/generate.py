@@ -110,9 +110,14 @@ SECRET_PATHS_ABS_LINUX = [
     "/etc/NetworkManager/system-connections/**",    # saved WiFi / VPN passwords
     "/etc/wireguard/**", "/etc/kubernetes/admin.conf", "/etc/kubernetes/pki/**",
     "/var/lib/kubelet/**",
-    "/proc/*/environ", "/proc/*/cmdline", "/proc/*/mem",
     "/mnt/hgfs/**",                          # VMware Fusion shared folders = the Mac's files
 ]
+# Other processes' environment and memory. NOT a Claude Read/Edit deny: Claude folds those into the
+# sandbox read-deny, and bubblewrap then fails to start (`Can't mkdir parents for /proc/<pid>/mem`,
+# verified live on the Pi 2026-10-05) because the sandbox mounts its own /proc. Inside the sandbox
+# only its own processes are visible anyway. Claude's file tools get PROC_READ_HOOK instead; shell
+# commands that name these paths are denied by PATH_MENTIONS. opencode denies them as paths.
+PROC_SECRET_PATHS = ["/proc/*/environ", "/proc/*/cmdline", "/proc/*/mem"]
 
 SECRET_PATHS_ANY = [
     "**/.env", "**/.env.*",
@@ -375,6 +380,20 @@ SSO_LOGIN_HOOK = {
     }],
 }
 
+# Linux only: Claude's file tools may not read PROC_SECRET_PATHS (see there for why this is a hook).
+_PROC_HOOK_CODE = (
+    "import json, os, re, sys\n"
+    "t = json.load(sys.stdin).get('tool_input', {})\n"
+    "for p in (t.get('file_path'), t.get('path')):\n"
+    "    if p and re.fullmatch(r'/proc/[^/]+/(environ|cmdline|mem)', os.path.normpath(p)):\n"
+    "        print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse',\n"
+    "            'permissionDecision': 'deny', 'permissionDecisionReason': 'process environment and memory are secret'}}))\n"
+    "        break\n")
+PROC_READ_HOOK = {
+    "matcher": "Read|Edit|Write|Grep|Glob",
+    "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(_PROC_HOOK_CODE), "timeout": 10}],
+}
+
 # --------------------------------------------------------------------------
 # Shell commands: always prompt (matters where a broader allow would otherwise win)
 # --------------------------------------------------------------------------
@@ -460,8 +479,11 @@ ALLOW_LIVE = [
 # stop a plain `git push` made while on main. git (credential helper) and gh (~/.local/bin wrapper)
 # fetch a fine-grained, repo-scoped GH_TOKEN from doppler per call, so they run outside the sandbox
 # like doppler itself; the permission rules still apply to them.
+# The hooks-off forms run outside too: in a repo with push/pull hooks (husky) the guard requires them,
+# because a hook is a file the agent can edit and would run unsandboxed.
+GIT_NOHOOKS = "git -c core.hooksPath=/dev/null "
 AGENT_HOST_EXCLUDED = [
-    "git push *", "gh *",
+    "git push *", "gh *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + GIT_SYNC[len("git "):],
     # kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from
     # the sandbox. The rules still deny their secret reads (`kubectl get secret`, `helm get values`).
     "kubectl *", "helm *",
@@ -488,7 +510,70 @@ AGENT_HOST_DENY_BASH = [
     "doppler *tokens*", "doppler *--print-config*", "doppler *--api-host*", "doppler *--dashboard-host*",
     "doppler *--no-verify-tls*", "doppler *dns-resolver*",
 ] + ["doppler %s *%s*" % (sub, verb) for sub in ("projects", "configs", "environments")
-     for verb in ("create", "delete", "update", "rename", "clone", "lock", "unlock", "logs")]
+     for verb in ("create", "delete", "update", "rename", "clone", "lock", "unlock", "logs")] + [
+    # --- live infrastructure: read only, no mutations ---
+    "terraform import", "terraform taint", "terraform untaint", "terraform state mv",
+    "terraform init *-migrate-state*", "terraform refresh", "terraform login",
+    "terraform show", "terraform output",  # print state values
+    "aws * delete-*", "aws * terminate-*", "aws * put-*", "aws * create-*", "aws * update-*",
+    "aws * modify-*", "aws iam attach-*", "aws iam detach-*", "aws iam add-*", "aws s3 rm",
+    "aws s3 mv", "aws s3 cp", "aws s3 presign", "aws s3 sync", "aws cloudformation deploy",
+    "aws ssm start-session", "aws ssm send-command", "aws ecs execute-command", "aws lambda invoke",
+    "=aws configure", "aws configure set", "aws configure import", "aws configure sso*",
+    # AWS reads that return secrets (env vars, user data)
+    "aws lambda list-functions", "aws lambda get-function*", "aws ecs describe-task-definition",
+    "aws ecs describe-tasks", "aws batch describe-job-definitions", "aws apprunner describe-service",
+    "aws elasticbeanstalk describe-configuration-settings", "aws ec2 describe-instance-attribute",
+    "aws ec2 describe-launch-template-versions", "aws codebuild batch-get-projects",
+    "ansible", "ansible-inventory",  # ansible-playbook: the guard allows only --check / list modes
+    "kubectl delete", "kubectl apply", "kubectl create", "kubectl patch", "kubectl replace",
+    "kubectl scale", "kubectl edit", "kubectl exec", "kubectl cp", "kubectl rollout restart",
+    "kubectl rollout undo", "kubectl rollout pause", "kubectl rollout resume", "kubectl label",
+    "kubectl annotate", "kubectl set", "kubectl taint", "kubectl cordon", "kubectl uncordon",
+    "kubectl drain", "kubectl autoscale", "kubectl expose", "kubectl run", "kubectl debug",
+    "kubectl attach", "kubectl certificate",
+    # kubectl and helm run outside the sandbox: a kubeconfig the agent writes could carry an
+    # `exec:` credential plugin that runs any program unsandboxed
+    "kubectl *--kubeconfig*", "helm *--kubeconfig*", "*KUBECONFIG=*",
+    "helm install", "helm upgrade", "helm uninstall", "helm rollback", "helm test",
+    "k3s secrets-encrypt", "k3s etcd-snapshot",
+    # --- docker is root-equivalent and runs outside the sandbox: a container can mount ~ ---
+    "docker run", "docker create", "docker exec", "docker cp", "docker build", "docker buildx",
+    "docker compose config", "docker-compose", "docker service",  # docker compose: guard allows reads "docker stack", "docker plugin",
+    "docker login",
+    # --- GitHub: gh runs outside the sandbox with a token; only reads, pushes and PRs ---
+    "gh api *-X*", "gh api *--method*", "gh api *-f *", "gh api *-F *", "gh api *--field*",
+    "gh api *--raw-field*", "gh api *--input*", "gh extension", "gh alias", "gh auth",
+    "gh secret", "gh variable", "gh ssh-key", "gh gpg-key", "gh repo create", "gh repo edit",
+    "gh repo archive", "gh repo rename", "gh release delete", "gh run cancel", "gh run delete",
+    "gh workflow", "gh cache delete", "gh issue delete", "gh label delete",
+    # --- remote branches: delete, mirror or force by refspec (the guard also checks these for Claude) ---
+    "git push *--delete*", "git push * -d *", "git push * :*", "git push * +*", "git push *--mirror*",
+    "git push *--prune*",
+    # --- local work that cannot be recovered ---
+    "git checkout -- *", "git stash drop", "git stash clear",  # git restore: guard allows --staged
+    # --- credentials, logs, host administration ---
+    "doppler login", "doppler setup", "journalctl",
+    "firewall-cmd", "semanage", "setsebool", "restorecon",
+]
+# Claude only (opencode and omp have no sandbox or guard hook, so they keep prompting): every Bash
+# command not denied runs. Nobody is there to answer a prompt. The deny rules still win, the
+# sandbox read-deny still hides the secret stores, and the guard hook below covers what globs cannot.
+AGENT_HOST_CLAUDE_ALLOW = ["Bash(*)"]
+# `WebFetch(domain:*)` also opens every host to sandboxed commands (the sandbox honours bare `*`
+# in WebFetch domain rules, Claude Code 2.1.186+). Secret files stay unreadable inside it.
+AGENT_HOST_ALLOW_TOOLS = ["WebFetch(domain:*)", "WebSearch"]
+# Every ASK_BASH entry must be decided for the agent host (denied above, also by a deny prefix such
+# as `gh auth` for `gh auth status`, or allowed here): an unattended agent cannot answer a prompt.
+# bash_rules() exits if one is missing.
+AGENT_HOST_ALLOW_FROM_ASK = [
+    "terraform init *-reconfigure*", "aws configure list", "ansible-galaxy install",
+    "ansible-galaxy collection install", "kubectl rollout", "kubectl port-forward",
+    "git push", "git rebase", "git restore",
+    # interpreters run inside the sandbox, which hides the secret stores at the OS level
+    "bash -*c *", "sh -*c *", "zsh -*c *", "python -c", "python3 -c", "node -e", "ruby -e",
+    "perl -e", "eval", "osascript",
+]
 
 WRAP_TOOLS = ("terraform", "tofu", "aws", "ansible", "kubectl", "k3s", "helm", "packer", "sops", "vault")
 
@@ -558,13 +643,29 @@ def expand_all(cmds):
     return uniq(p for c in cmds for p in expand(c))
 
 
-def bash_rules(profile, agent_host=False):
+def nohooks(cmds):
+    """Every `git push ...` rule gets a `git -c core.hooksPath=/dev/null push ...` twin."""
+    return _twin(cmds, ("git push",), lambda b: GIT_NOHOOKS + b[len("git "):])
+
+
+def bash_rules(profile, agent_host=False, guarded=False):
+    """guarded: Claude, with its sandbox and guard hook. opencode and omp run every command unsandboxed,
+    so on the agent host they get only the hooks-off git push/pull (a repo hook is agent-editable code)."""
     deny_src, ask_src, allow = twins(DENY_BASH), twins(ASK_BASH), twins(ALLOW_OFFLINE) + ALLOW_SSO_LOGIN
     if agent_host:
-        moved = twins(AGENT_HOST_ALLOW_BASH + AGENT_HOST_DENY_BASH)
-        ask_src = [c for c in ask_src if c not in moved]
-        deny_src += twins(AGENT_HOST_DENY_BASH)
-        allow += AGENT_HOST_ALLOW_BASH
+        bare = [d.lstrip("=") for d in AGENT_HOST_DENY_BASH]
+        undecided = [a for a in ASK_BASH if a not in AGENT_HOST_ALLOW_FROM_ASK
+                     and not any(a == d or a.startswith(d + " ") for d in bare)]
+        if undecided:
+            sys.exit("agent host: decide allow or deny for ASK_BASH entries %s" % undecided)
+        ask_src = []  # Claude: allowed by `Bash(*)` unless denied; opencode/omp: unmatched still prompts
+        deny_src = nohooks(deny_src + twins(AGENT_HOST_DENY_BASH))
+        hookless = [GIT_NOHOOKS + "push", "=" + GIT_NOHOOKS + GIT_SYNC[len("git "):]]
+        if guarded:
+            allow += AGENT_HOST_ALLOW_BASH + hookless
+        else:
+            allow = [c for c in allow if c != "=" + GIT_SYNC]
+            allow += [c for c in AGENT_HOST_ALLOW_BASH if c != "git push"] + hookless
     deny = deny_src + wrap(deny_src, allow=False)
     ask = ask_src + wrap(ask_src, allow=False)
     if profile == "standard":
@@ -607,8 +708,19 @@ def claude_secret_paths(os_name):
     return home_paths(os_name) + [abs_claude(p) for p in abs_paths(os_name)] + any_paths
 
 
+def agent_host_guard_hook(os_name):
+    """agent_host_guard.py with this policy's secret paths and write roots, embedded inline so the
+    root-owned managed settings file is self-contained (no script an agent could edit)."""
+    src = (HERE / "agent_host_guard.py").read_text()
+    globs = home_paths(os_name) + abs_paths(os_name) + PROC_SECRET_PATHS + SECRET_PATHS_ANY
+    src = src.replace("SECRET_GLOBS = []", "SECRET_GLOBS = %r" % globs, 1)
+    src = src.replace("WRITABLE = []", "WRITABLE = %r" % (TMP_DIRS_BY_OS[os_name] + AGENT_HOST_WRITE), 1)
+    return {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(src),
+                                          "timeout": 30}]}
+
+
 def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=False, mcpjson_servers=()):
-    r = bash_rules(profile, agent_host)
+    r = bash_rules(profile, agent_host, guarded=True)
     paths = claude_secret_paths(os_name)
     tmp = TMP_DIRS_BY_OS[os_name]
     write = tmp + (AGENT_HOST_WRITE if agent_host else [])
@@ -628,7 +740,7 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "ask": ["Bash(%s)" % p for p in r["ask"]],
             "deny": uniq(deny),
         },
-        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK]},
+        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK] + ([PROC_READ_HOOK] if os_name == "linux" else [])},
         "sandbox": {
             "enabled": True,
             # Linux needs bubblewrap + socat. Without this, a missing dependency means a warning
@@ -641,6 +753,18 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "excludedCommands": SANDBOX_EXCLUDED + (AGENT_HOST_EXCLUDED if agent_host else []),
         },
     }
+    if agent_host:
+        # Unattended and default-allow: web access never prompts, and the sandbox (not the
+        # command rules) is what keeps secret files unreadable, so nothing may leave it except
+        # excludedCommands. An allowed unsandboxed retry would run with no OS read-deny at all.
+        settings["permissions"]["allow"] += AGENT_HOST_CLAUDE_ALLOW + AGENT_HOST_ALLOW_TOOLS
+        settings["hooks"]["PreToolUse"].append(agent_host_guard_hook(os_name))
+        settings["sandbox"]["allowUnsandboxedCommands"] = False
+        # Meant for /etc/claude-code/managed-settings.json: repo settings cannot add prompts that
+        # stall an unattended run, nor loosen these rules. (Has no effect in a project file.)
+        settings["allowManagedPermissionRulesOnly"] = True
+        if not sandbox:
+            sys.exit("--agent-host needs the sandbox: its default-allow relies on the OS read-deny")
     if not sandbox:
         del settings["sandbox"]
     if mcpjson_servers:
@@ -664,7 +788,7 @@ def opencode_config(profile, agent_host=False):
     # opencode is OS-independent: deny both OSes' paths (globs for absent paths are harmless)
     secret = uniq(oc_path(p) for p in (
         SECRET_PATHS_HOME + SECRET_PATHS_HOME_MACOS + SECRET_PATHS_HOME_LINUX
-        + SECRET_PATHS_ABS + SECRET_PATHS_ABS_LINUX + SECRET_PATHS_ANY))
+        + SECRET_PATHS_ABS + SECRET_PATHS_ABS_LINUX + PROC_SECRET_PATHS + SECRET_PATHS_ANY))
     skills = [oc_path(p) for p in SKILL_DIRS + LOCAL_SKILL_DIRS]
     tmp = uniq(d + "/*" for dirs in TMP_DIRS_BY_OS.values() for d in dirs)
     carve = oc_path("**/.env.example")  # last match wins, so a plain allow after the deny works
@@ -974,7 +1098,7 @@ LINUX_PATH_SAMPLES = [
     ("/etc/shadow", "deny"), ("/etc/sudoers.d/90-x", "deny"), ("/etc/ssh/ssh_host_ed25519_key", "deny"),
     ("/etc/NetworkManager/system-connections/home.nmconnection", "deny"),
     ("/etc/pki/tls/private/server.key", "deny"), ("/etc/wireguard/wg0.conf", "deny"),
-    ("/etc/kubernetes/admin.conf", "deny"), ("/proc/1234/environ", "deny"),
+    ("/etc/kubernetes/admin.conf", "deny"),
     ("/mnt/hgfs/Documents/notes.txt", "deny"),
     ("/etc/os-release", "ok"), ("/etc/hosts", "ok"), ("/etc/ssh/ssh_config", "ok"),
     ("/proc/cpuinfo", "ok"), ("/h/.config/nvim/init.lua", "ok"),
@@ -1100,6 +1224,19 @@ def check():
         deny = json.loads(claude_file("standard", os_name).read_text())["permissions"]["deny"]
         return [e for e in deny if e.startswith(("Read(", "Edit("))]
     mac, lin = path_rules("macos"), path_rules("linux")
+    # /proc: never a Read/Edit deny on Linux (it breaks bubblewrap); the hook blocks the file tools
+    expect("Linux file has no /proc path rules", False, any("/proc/" in e for e in lin))
+    linux_hooks = json.loads(claude_file("standard", "linux").read_text())["hooks"]["PreToolUse"]
+    expect("Linux file has the /proc hook", True, PROC_READ_HOOK in linux_hooks)
+    expect("macOS file has no /proc hook", False,
+           PROC_READ_HOOK in json.loads(claude_file("standard", "macos").read_text())["hooks"]["PreToolUse"])
+    for tool_input, blocked in (({"file_path": "/proc/1234/environ"}, True), ({"file_path": "/proc/self/environ"}, True),
+                                ({"file_path": "/proc//1/./cmdline"}, True), ({"path": "/proc/1/mem"}, True),
+                                ({"file_path": "/proc/cpuinfo"}, False), ({"file_path": "/p/main.tf"}, False),
+                                ({"path": "/proc"}, False), ({}, False)):
+        out = subprocess.run(["sh", "-c", PROC_READ_HOOK["hooks"][0]["command"]],
+                             input=json.dumps({"tool_input": tool_input}), capture_output=True, text=True).stdout
+        expect("[proc hook] %s" % tool_input, blocked, '"permissionDecision": "deny"' in out)
     expect("macOS file has no Linux-only paths", False, any("keyrings" in e or "/proc/" in e for e in mac))
     expect("Linux file has no macOS-only paths", False, any("Library/" in e for e in lin))
 
@@ -1144,27 +1281,190 @@ def check():
     p, fs = host["permissions"], host["sandbox"]["filesystem"]
     tiers = {t: [re.fullmatch(r"Bash\((.*)\)", e, re.S).group(1) for e in p[t] if e.startswith("Bash(")]
              for t in ("deny", "ask", "allow")}
-    for cmd, want in (("git push -u origin feat/x", "allow"), ("git push origin main", "allow"),
-                      ("git push --force origin main", "deny"), ("gh pr create --fill", "allow"),
-                      ("gh pr comment 3 --body x", "allow"), ("gh pr merge 3", "deny"),
-                      ("gh repo delete x", "deny"), ("gh api repos/x", "ask"),
-                      ("gh auth token", "deny"), ("terraform destroy", "deny"), ("env", "deny"),
-                      ("terraform apply", "deny"), ("terraform apply -auto-approve", "deny"),
-                      ("tofu apply", "deny"), ("doppler run --only-secrets X -- terraform apply", "deny"),
-                      ("terraform plan -out x", "allow"), ("terraform init", "allow"),
-                      ("kubectl get pods -A", "allow"), ("kubectl describe pod x", "allow"),
-                      ("kubectl get secret x -o yaml", "deny"), ("kubectl get --raw /api/v1/secrets", "deny"),
-                      ("helm list", "allow"), ("helm get values x", "deny"),
-                      ("doppler projects", "allow"), ("doppler configs", "allow"),
-                      ("doppler configs -p x", "allow"), ("doppler environments", "allow"),
-                      ("doppler configs tokens create x", "deny"), ("doppler configs -p x tokens", "deny"),
-                      ("doppler configs --print-config", "deny"), ("doppler projects --api-host https://x", "deny"),
-                      ("doppler configs logs", "deny"), ("doppler projects delete x", "deny"),
-                      ("doppler secrets", "deny"), ("doppler configure", "deny"),
-                      ("doppler configure get token", "deny"), ("doppler run -- printenv", "deny"),
-                      ("cat ~/.doppler/.doppler.yaml", "deny")):
-        expect("[agent-host] %s" % cmd, want, decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
-    for tool in ("gh *", "git push *", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
+    guard = host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"]
+
+    def guard_denies(cmd, cwd):
+        out = subprocess.run(["sh", "-c", guard], input=json.dumps({"tool_input": {"command": cmd}, "cwd": cwd}),
+                             capture_output=True, text=True)
+        if out.returncode:
+            expect("[guard] runs cleanly on %s" % cmd, "", out.stderr)
+        return '"permissionDecision": "deny"' in out.stdout
+
+    import shutil
+    import tempfile
+    made = []
+
+    def repo(name, files=(), cfg=(), link=None, hook=None):
+        # each under its own /tmp top dir (a write root): the guard scans that dir, like ~/REPOS/<repo>
+        d = pathlib.Path(tempfile.mkdtemp(prefix="guard-%s-" % name, dir="/tmp"))
+        made.append(d)
+        subprocess.run(["git", "init", "-q", str(d)], check=True)
+        subprocess.run(["git", "-C", str(d), "remote", "add", "origin", "https://github.com/x/y.git"], check=True)
+        for k, v in cfg:
+            subprocess.run(["git", "-C", str(d), "config", k, v], check=True)
+        for fname, text in files:
+            (d / fname).write_text(text)
+        if link:
+            (d / "values.yaml").symlink_to(os.path.expanduser(link))
+        if hook:
+            (d / ".git" / "hooks" / hook).write_text("#!/bin/sh\n")
+        return str(d)
+    eks = 'provider "kubernetes" {\n  exec {\n    api_version = "x"\n    command = "aws"\n  }\n}\n'
+    fixtures = {
+        "clean": repo("clean", files=[("main.tf", eks)]),
+        "symlink": repo("symlink", link="~/.doppler/.doppler.yaml"),
+        "homelink": repo("homelink", link="~"),
+        "hook": repo("hook", hook="pre-push"),
+        "sshcmd": repo("sshcmd", cfg=[("core.sshCommand", "sh -c x")]),
+        "husky": repo("husky", cfg=[("core.hooksPath", ".husky/_")]),
+        "localremote": repo("localremote", cfg=[("remote.origin.pushurl", "/tmp/other.git")]),
+        "tfext": repo("tfext", files=[("main.tf", 'data "external" "x" {\n  program = ["sh"]\n}\n')]),
+        "tfexec": repo("tfexec", files=[("main.tf", eks.replace('"aws"', '"sh"'))]),
+        "tfprov": repo("tfprov", files=[("main.tf", 'terraform {\n  required_providers {\n    x = {\n'
+                                         '      source = "evil.example.com/a/b"\n    }\n  }\n}\n')]),
+        "tfendpoint": repo("tfendpoint", files=[("main.tf", 'provider "aws" {\n  endpoints {\n    sts = "https://x"\n  }\n}\n')]),
+    }
+    for cmd, want, *where in (
+            ("git push -u origin feat/x", "allow"), ("git push origin main", "allow"),
+            ("git push --force origin main", "deny"), ("gh pr create --fill", "allow"),
+            ("gh pr comment 3 --body x", "allow"), ("gh pr merge 3", "deny"),
+            ("gh repo delete x", "deny"), ("gh api repos/x", "allow"),
+            ("gh auth token", "deny"), ("terraform destroy", "deny"), ("env", "deny"),
+            ("terraform apply", "deny"), ("terraform apply -auto-approve", "deny"),
+            ("tofu apply", "deny"), ("doppler run --only-secrets X -- terraform apply", "deny"),
+            ("terraform plan -out x", "allow"), ("terraform init", "allow"),
+            ("kubectl get pods -A", "allow"), ("kubectl describe pod x", "allow"),
+            ("kubectl get secret x -o yaml", "deny"), ("kubectl get --raw /api/v1/secrets", "deny"),
+            ("helm list", "allow"), ("helm get values x", "deny"),
+            ("doppler projects", "allow"), ("doppler configs", "allow"),
+            ("doppler configs -p x", "allow"), ("doppler environments", "allow"),
+            ("doppler configs tokens create x", "deny"), ("doppler configs -p x tokens", "deny"),
+            ("doppler configs --print-config", "deny"), ("doppler projects --api-host https://x", "deny"),
+            ("doppler configs logs", "deny"), ("doppler projects delete x", "deny"),
+            ("doppler secrets", "deny"), ("doppler configure", "deny"),
+            ("doppler configure get token", "deny"), ("doppler run -- printenv", "deny"),
+            ("cat ~/.doppler/.doppler.yaml", "deny"),
+            # default-allow: ordinary work never prompts
+            ("ls -la", "allow"), ("npm test", "allow"), ("make build", "allow"),
+            ("mkdir -p out && cp a out/", "allow"), ("python3 -c 'print(1)'", "allow"),
+            ("bash -c 'make test'", "allow"), ("curl -sSL https://example.com", "allow"),
+            ("git commit -m 'rm -r is mentioned; fine'", "allow"), ("git rebase main", "allow"),
+            ("git restore --staged a.txt", "allow"), ("git checkout -b feat/x", "allow"),
+            ("rm build.log", "allow"), ("rm -f my-report.txt", "allow"),
+            ("docker ps", "allow"), ("docker pull alpine", "allow"), ("docker compose -f x.yml ps", "allow"),
+            ("kubectl rollout status deploy/x", "allow"), ("kubectl port-forward svc/x 8080", "allow"),
+            ("kubectl -n prod get pods", "allow"), ("kubectl logs -f pod/x", "allow"),
+            ("aws s3 ls", "allow"), ("aws configure list", "allow"), ("aws --version", "allow"),
+            ("aws --profile agent-readonly --region eu-west-2 ec2 describe-instances", "allow"),
+            ("AWS_PROFILE=agent-readonly terraform plan", "allow"),
+            ("terraform -chdir=. plan -out=tfplan", "allow"), ("terraform workspace select dev", "allow"),
+            ("helm template x ./chart -f values.yaml", "allow"), ("helm repo update", "allow"),
+            ("gh run list", "allow"), ("gh --version", "allow"),
+            ("doppler run --only-secrets TF_TOKEN -- terraform plan", "allow"),
+            ("ansible-playbook site.yml --check", "allow"), ("ansible-playbook -C site.yml --diff", "allow"),
+            ("ansible-playbook site.yml --syntax-check", "allow"),
+            # secrets stay denied
+            ("printenv", "deny"), ("cat .env", "deny"), ("terraform output", "deny"),
+            ("terraform show", "deny"), ("aws lambda get-function --function-name x", "deny"),
+            ("docker compose config", "deny"), ("journalctl -u x", "deny"),
+            ("gh auth status", "deny"), ("doppler login", "deny"),
+            ("aws secretsmanager " + "get-secret-value --secret-id x", "deny"),
+            ("doppler run -- python3 x.py", "deny"), ("doppler run --command 'env'", "deny"),
+            ("doppler run --only-secrets X -- bash -c env", "deny"), ("doppler run --fallback ./f -- aws s3 ls", "deny"),
+            ("helm template x . --post-renderer ./r.sh", "deny"), ("aws s3 ls --endpoint-url https://x", "deny"),
+            ("kubectl get pods -s https://x", "deny"), ("TF_CLI_CONFIG_FILE=./rc terraform init", "deny"),
+            ("terraform init -plugin-dir=./p", "deny"), ("docker --config ./d ps", "deny"),
+            ("helm template x . -f values.yaml", "deny", "symlink"),
+            ("kubectl get pods", "deny", "symlink"), ("terraform plan", "deny", "homelink"),
+            ("terraform plan", "deny", "tfext"), ("terraform plan", "deny", "tfexec"),
+            ("terraform plan", "deny", "tfprov"), ("terraform plan", "deny", "tfendpoint"),
+            ("terraform plan", "allow", "clean"),
+            ("git push origin feat/x", "deny", "hook"), ("git push origin feat/x", "deny", "sshcmd"),
+            ("git push origin feat/x", "deny", "localremote"), ("git pull --rebase --autostash", "deny", "hook"),
+            ("gh pr create --fill", "allow", "hook"), ("gh pr list", "allow", "hook"),
+            ("gh pr checkout 3", "deny"),
+            # repos with push/pull hooks (husky): only the hooks-off form, which keeps every other check
+            ("git push origin feat/x", "deny", "husky"),
+            ("git -c core.hooksPath=/dev/null push -u origin feat/x", "allow", "husky"),
+            ("git -c core.hooksPath=/dev/null push -u origin feat/x", "allow", "hook"),
+            ("git -c core.hooksPath=/dev/null pull --rebase --autostash", "allow", "husky"),
+            ("git -c core.hooksPath=/dev/null push --force origin main", "deny", "husky"),
+            ("git -c core.hooksPath=/dev/null push origin :feat/x", "deny", "husky"),
+            ("git -c core.hooksPath=/dev/null push origin feat/x", "deny", "sshcmd"),
+            ("git -c core.hooksPath=/dev/null -c core.sshCommand=x push origin feat/x", "allow", "husky"),
+            # live mutations, root-equivalent docker, destruction: denied, never prompt
+            ("aws ec2 terminate-instances --instance-ids i", "deny"),
+            ("aws s3 cp s3://b/k .", "deny"), ("aws iam create-user --user-name x", "deny"),
+            ("aws ec2 stop-instances --instance-ids i", "deny"), ("aws sqs purge-queue --queue-url x", "deny"),
+            ("aws eks update-kubeconfig --name c", "deny"), ("aws lambda invoke --function-name x o", "deny"),
+            ("kubectl apply -f x.yaml", "deny"), ("kubectl delete pod x", "deny"),
+            ("kubectl rollout restart deploy/x", "deny"), ("kubectl exec -it p -- sh", "deny"),
+            ("kubectl -n prod delete pod x", "deny"), ("kubectl config use-context x", "deny"),
+            ("kubectl myplugin", "deny"), ("kubectl get pods --kubeconfig ./k", "deny"),
+            ("KUBECONFIG=./k kubectl get pods", "deny"),
+            ("helm upgrade --install x .", "deny"), ("helm --namespace x uninstall y", "deny"),
+            ("terraform import a.b id", "deny"), ("terraform test", "deny"), ("terraform workspace new x", "deny"),
+            ("ansible-playbook site.yml", "deny"), ("ansible all -m ping", "deny"),
+            ("docker run -v /home/ai:/h alpine ls", "deny"), ("docker compose up -d", "deny"),
+            ("docker build .", "deny"), ("podman run alpine", "deny"), ("docker rm x", "deny"),
+            ("docker stop x", "deny"), ("docker image prune -a", "deny"),
+            ("gh api -X DELETE repos/x", "deny"), ("gh api repos/x -f a=b", "deny"),
+            ("gh extension install x/y", "deny"), ("gh secret list", "deny"), ("gh pr close 3", "deny"),
+            ("gh release delete v1", "deny"), ("gh repo edit --visibility public", "deny"),
+            ("git restore .", "deny"), ("git stash drop", "deny"), ("rm -rf build", "deny"),
+            ("rm -Rf build", "deny"), ("rm -fr build", "deny"), ("rm --recursive build", "deny"),
+            ("rm -v -r build", "deny"), ("find . -name x | xargs rm -rf", "deny"),
+            ("git -C x reset --hard", "deny"), ("git reset -q --hard HEAD~1", "deny"),
+            ("git clean -fdx", "deny"), ("git checkout -- .", "deny"), ("git checkout .", "deny"),
+            ("git -C x branch -D feat", "deny"), ("git push origin --delete feat/x", "deny"),
+            ("git push origin :feat/x", "deny"), ("git push origin +main", "deny"),
+            ("git push --mirror origin", "deny"), ("git push -uf origin main", "deny"),
+            ("git push /tmp/other.git main", "deny"), ("sudo ls", "deny"),
+            ("cat > f.py <<'EOF'\nx = 'it''s; a git \"rm -rf\" note'\nEOF", "allow"),
+            ("python3 - <<'EOF'\nprint(\"git reset --hard\")\nEOF", "allow"),
+            ("git commit -F - <<EOF\nfix: don't rm -r things\nEOF", "allow"),
+            ("bash <<'EOF'\nrm -rf build\nEOF", "deny"), ("ls\nrm -Rf build", "deny"),
+            ("echo a \\\n  b", "allow"), ("cat <<<'git reset --hard'", "allow")):
+        where = where[0] if where else "clean"
+        got = "deny" if guard_denies(cmd, fixtures[where]) else decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"])
+        expect("[agent-host] %s (%s)" % (cmd, where), want, got)
+    for d in made:
+        shutil.rmtree(d)
+    oc_host_bash = list(load_opencode(HERE / "agent-host/opencode.json")["bash"].items())
+    omp_host = load_omp(HERE / "agent-host/omp-config.yml")
+    for cmd, want in (
+            ("git -c core.hooksPath=/dev/null push -u origin feat/x", "allow"),
+            ("git -c core.hooksPath=/dev/null pull --rebase --autostash", "allow"),
+            ("gh pr create --fill", "allow"), ("terraform plan", "allow"), ("kubectl get pods -A", "allow"),
+            ("git status", "allow"), ("doppler projects", "allow"),
+            ("git push origin feat/x", "ask"), ("git pull --rebase --autostash", "ask"),
+            ("python3 -c 'print(1)'", "ask"), ("ls -la", "ask"), ("npm test", "ask"),
+            ("ansible-playbook site.yml", "ask"), ("ansible-playbook site.yml --check", "allow"),
+            ("git -c core.hooksPath=/dev/null push --force origin main", "deny"),
+            ("git -c core.hooksPath=/dev/null push origin :feat/x", "deny"),
+            ("git -c core.hooksPath=/dev/null push origin +main", "deny"),
+            ("git -c core.hooksPath=/dev/null push origin --delete feat/x", "deny"),
+            ("git push origin --delete feat/x", "deny"), ("git push --mirror origin", "deny"),
+            ("terraform apply", "deny"), ("kubectl delete pod x", "deny"), ("helm uninstall x", "deny"),
+            ("aws ec2 terminate-instances --instance-ids i", "deny"), ("docker run alpine", "deny"),
+            ("cat ~/.doppler/.doppler.yaml", "deny"), ("printenv", "deny"), ("doppler secrets", "deny"),
+            ("doppler run -- printenv", "deny"), ("gh pr merge 3", "deny"), ("gh auth token", "deny"),
+            ("rm -rf build", "deny"), ("git reset --hard", "deny"), ("terraform output -json", "deny")):
+        expect("[agent-host opencode] %s" % cmd, want, decide_ordered(cmd, oc_host_bash, True))
+        expect("[agent-host omp] %s" % cmd, want, decide_ordered(cmd, omp_host, False))
+    expect("[agent-host opencode] no default allow", "ask", dict(oc_host_bash)["*"])
+    expect("[agent-host] nothing prompts", [], p["ask"])
+    expect("[agent-host] no unsandboxed retry", False, host["sandbox"]["allowUnsandboxedCommands"])
+    expect("[agent-host] repo settings cannot add rules", True, host["allowManagedPermissionRulesOnly"])
+    for rule in AGENT_HOST_ALLOW_TOOLS:
+        expect("[agent-host] %s allowed" % rule, True, rule in p["allow"])
+    try:
+        claude_settings("standard", "linux", sandbox=False, agent_host=True)
+        refused = False
+    except SystemExit:
+        refused = True
+    expect("[agent-host] refuses --no-sandbox", True, refused)
+    for tool in ("gh *", "git push *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + "pull --rebase --autostash", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in host["sandbox"]["excludedCommands"])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
     expect("[agent-host] no secret store re-opened", [], fs["allowRead"])
@@ -1224,6 +1524,9 @@ def main():
             write(claude_file(profile, os_name), dump(claude_settings(profile, os_name)))
         write(HERE / profile / "opencode.json", dump(opencode_config(profile)))
         write(HERE / profile / "omp-config.yml", omp_config(profile))
+    # the agent host's opencode and omp files (its Claude file is written by regen-agent-host.sh)
+    write(HERE / "agent-host" / "opencode.json", dump(opencode_config("standard", agent_host=True)))
+    write(HERE / "agent-host" / "omp-config.yml", omp_config("standard", agent_host=True))
     if args.claude_out:
         write(args.claude_out,
               dump(claude_settings(args.profile, args.os_name, args.extra_claude_deny,

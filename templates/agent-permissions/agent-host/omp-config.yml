@@ -1,0 +1,2558 @@
+# omp (oh-my-pi) approval policy generated from the secret-hygiene policy.
+# Install: ~/.omp/agent/config.yml (global) or <project>/.omp/config.yml (project)
+#
+# What this covers: shell commands (bash.patterns, first match wins, so deny
+# comes first). Unmatched commands prompt because approvalMode is `write`.
+# omp's default approvalMode is `yolo`, which prompts for nothing.
+#
+# What it does NOT cover:
+#  - Per-path rules. omp has no read/edit deny, so .env, *.tfstate or
+#    ~/.aws/credentials can still be opened with omp's own read tool.
+#  - A write boundary. I found no setting that confines edits to the project
+#    directory, and in `write` mode file edits are auto-approved. For a hard
+#    boundary run omp as a separate user / in a VM, or use approvalMode:
+#    always-ask (prompts on every edit and command).
+# Subagents run headless in yolo mode; the deny patterns below still bind them.
+tools:
+  approvalMode: write
+
+secrets:
+  enabled: true
+
+bash:
+  patterns:
+    # --- deny ---
+    - match: "env"
+      approval: deny
+    - match: "printenv"
+      approval: deny
+    - match: "printenv *"
+      approval: deny
+    - match: "export -p"
+      approval: deny
+    - match: "ps e*"
+      approval: deny
+    - match: "history"
+      approval: deny
+    - match: "history *"
+      approval: deny
+    - match: "set"
+      approval: deny
+    - match: "declare -p"
+      approval: deny
+    - match: "declare -p *"
+      approval: deny
+    - match: "declare -x"
+      approval: deny
+    - match: "declare -x *"
+      approval: deny
+    - match: "typeset -x"
+      approval: deny
+    - match: "typeset -x *"
+      approval: deny
+    - match: "cat /proc/*/environ*"
+      approval: deny
+    - match: "gh auth token"
+      approval: deny
+    - match: "gh auth token *"
+      approval: deny
+    - match: "gh auth status *-t*"
+      approval: deny
+    - match: "gh auth status *--show-token*"
+      approval: deny
+    - match: "doppler secrets"
+      approval: deny
+    - match: "doppler secrets *"
+      approval: deny
+    - match: "doppler configure"
+      approval: deny
+    - match: "doppler configure *"
+      approval: deny
+    - match: "doppler *--plain*"
+      approval: deny
+    - match: "doppler run *-- env"
+      approval: deny
+    - match: "doppler run *-- env *"
+      approval: deny
+    - match: "doppler run *-- printenv*"
+      approval: deny
+    - match: "doppler run *-- export*"
+      approval: deny
+    - match: "docker inspect"
+      approval: deny
+    - match: "docker inspect *"
+      approval: deny
+    - match: "docker exec * env*"
+      approval: deny
+    - match: "systemctl show"
+      approval: deny
+    - match: "systemctl show *"
+      approval: deny
+    - match: "systemctl cat"
+      approval: deny
+    - match: "systemctl cat *"
+      approval: deny
+    - match: "security"
+      approval: deny
+    - match: "security *"
+      approval: deny
+    - match: "secret-tool"
+      approval: deny
+    - match: "secret-tool *"
+      approval: deny
+    - match: "op"
+      approval: deny
+    - match: "op *"
+      approval: deny
+    - match: "bw"
+      approval: deny
+    - match: "bw *"
+      approval: deny
+    - match: "lpass"
+      approval: deny
+    - match: "lpass *"
+      approval: deny
+    - match: "pass show"
+      approval: deny
+    - match: "pass show *"
+      approval: deny
+    - match: "keepassxc-cli"
+      approval: deny
+    - match: "keepassxc-cli *"
+      approval: deny
+    - match: "pbpaste"
+      approval: deny
+    - match: "pbpaste *"
+      approval: deny
+    - match: "xclip -o"
+      approval: deny
+    - match: "xclip -o *"
+      approval: deny
+    - match: "xsel -o"
+      approval: deny
+    - match: "xsel -o *"
+      approval: deny
+    - match: "wl-paste"
+      approval: deny
+    - match: "wl-paste *"
+      approval: deny
+    - match: "defaults read"
+      approval: deny
+    - match: "defaults read *"
+      approval: deny
+    - match: "log show"
+      approval: deny
+    - match: "log show *"
+      approval: deny
+    - match: "keyctl read"
+      approval: deny
+    - match: "keyctl read *"
+      approval: deny
+    - match: "keyctl print"
+      approval: deny
+    - match: "keyctl print *"
+      approval: deny
+    - match: "keyctl pipe"
+      approval: deny
+    - match: "keyctl pipe *"
+      approval: deny
+    - match: "systemd-creds decrypt"
+      approval: deny
+    - match: "systemd-creds decrypt *"
+      approval: deny
+    - match: "systemd-creds cat"
+      approval: deny
+    - match: "systemd-creds cat *"
+      approval: deny
+    - match: "gdbus *secrets*"
+      approval: deny
+    - match: "busctl *secrets*"
+      approval: deny
+    - match: "dbus-send *secrets*"
+      approval: deny
+    - match: "nmcli *--show-secrets*"
+      approval: deny
+    - match: "nmcli *-s *"
+      approval: deny
+    - match: "wg showconf"
+      approval: deny
+    - match: "wg showconf *"
+      approval: deny
+    - match: "wg show *private*"
+      approval: deny
+    - match: "podman secret inspect *--showsecret*"
+      approval: deny
+    - match: "aws configure get"
+      approval: deny
+    - match: "aws configure get *"
+      approval: deny
+    - match: "aws configure export-credentials"
+      approval: deny
+    - match: "aws configure export-credentials *"
+      approval: deny
+    - match: "aws sts get-session-token"
+      approval: deny
+    - match: "aws sts get-session-token *"
+      approval: deny
+    - match: "aws sts assume-role*"
+      approval: deny
+    - match: "aws sts get-federation-token"
+      approval: deny
+    - match: "aws sts get-federation-token *"
+      approval: deny
+    - match: "aws sso get-role-credentials"
+      approval: deny
+    - match: "aws sso get-role-credentials *"
+      approval: deny
+    - match: "aws secretsmanager *get-secret-value*"
+      approval: deny
+    - match: "aws ssm get-parameter*"
+      approval: deny
+    - match: "aws kms decrypt"
+      approval: deny
+    - match: "aws kms decrypt *"
+      approval: deny
+    - match: "aws kms generate-data-key*"
+      approval: deny
+    - match: "aws ec2 get-password-data"
+      approval: deny
+    - match: "aws ec2 get-password-data *"
+      approval: deny
+    - match: "aws ec2 create-key-pair"
+      approval: deny
+    - match: "aws ec2 create-key-pair *"
+      approval: deny
+    - match: "aws iam create-access-key"
+      approval: deny
+    - match: "aws iam create-access-key *"
+      approval: deny
+    - match: "aws iam create-login-profile"
+      approval: deny
+    - match: "aws iam create-login-profile *"
+      approval: deny
+    - match: "aws iam update-login-profile"
+      approval: deny
+    - match: "aws iam update-login-profile *"
+      approval: deny
+    - match: "aws iam create-service-specific-credential"
+      approval: deny
+    - match: "aws iam create-service-specific-credential *"
+      approval: deny
+    - match: "aws iam reset-service-specific-credential"
+      approval: deny
+    - match: "aws iam reset-service-specific-credential *"
+      approval: deny
+    - match: "aws ecr get-login-password"
+      approval: deny
+    - match: "aws ecr get-login-password *"
+      approval: deny
+    - match: "aws ecr get-authorization-token"
+      approval: deny
+    - match: "aws ecr get-authorization-token *"
+      approval: deny
+    - match: "aws eks get-token"
+      approval: deny
+    - match: "aws eks get-token *"
+      approval: deny
+    - match: "aws codeartifact get-authorization-token"
+      approval: deny
+    - match: "aws codeartifact get-authorization-token *"
+      approval: deny
+    - match: "aws rds generate-db-auth-token"
+      approval: deny
+    - match: "aws rds generate-db-auth-token *"
+      approval: deny
+    - match: "aws s3 rb"
+      approval: deny
+    - match: "aws s3 rb *"
+      approval: deny
+    - match: "aws s3 rm *--recursive*"
+      approval: deny
+    - match: "aws organizations"
+      approval: deny
+    - match: "aws organizations *"
+      approval: deny
+    - match: "aws iam delete-*"
+      approval: deny
+    - match: "aws kms schedule-key-deletion"
+      approval: deny
+    - match: "aws kms schedule-key-deletion *"
+      approval: deny
+    - match: "aws kms disable-key"
+      approval: deny
+    - match: "aws kms disable-key *"
+      approval: deny
+    - match: "aws ec2 terminate-instances"
+      approval: deny
+    - match: "aws ec2 terminate-instances *"
+      approval: deny
+    - match: "aws rds delete-db-*"
+      approval: deny
+    - match: "aws cloudformation delete-stack"
+      approval: deny
+    - match: "aws cloudformation delete-stack *"
+      approval: deny
+    - match: "aws dynamodb delete-table"
+      approval: deny
+    - match: "aws dynamodb delete-table *"
+      approval: deny
+    - match: "aws s3api delete-bucket*"
+      approval: deny
+    - match: "aws eks delete-cluster"
+      approval: deny
+    - match: "aws eks delete-cluster *"
+      approval: deny
+    - match: "terraform destroy"
+      approval: deny
+    - match: "terraform destroy *"
+      approval: deny
+    - match: "terraform apply *-destroy*"
+      approval: deny
+    - match: "terraform force-unlock"
+      approval: deny
+    - match: "terraform force-unlock *"
+      approval: deny
+    - match: "terraform state rm"
+      approval: deny
+    - match: "terraform state rm *"
+      approval: deny
+    - match: "terraform state push"
+      approval: deny
+    - match: "terraform state push *"
+      approval: deny
+    - match: "terraform state pull"
+      approval: deny
+    - match: "terraform state pull *"
+      approval: deny
+    - match: "terraform state show"
+      approval: deny
+    - match: "terraform state show *"
+      approval: deny
+    - match: "terraform console"
+      approval: deny
+    - match: "terraform console *"
+      approval: deny
+    - match: "terraform workspace delete"
+      approval: deny
+    - match: "terraform workspace delete *"
+      approval: deny
+    - match: "terraform show *-json*"
+      approval: deny
+    - match: "terraform output *-json*"
+      approval: deny
+    - match: "terraform output *-raw*"
+      approval: deny
+    - match: "ansible-vault view"
+      approval: deny
+    - match: "ansible-vault view *"
+      approval: deny
+    - match: "ansible-vault decrypt"
+      approval: deny
+    - match: "ansible-vault decrypt *"
+      approval: deny
+    - match: "ansible-vault edit"
+      approval: deny
+    - match: "ansible-vault edit *"
+      approval: deny
+    - match: "ansible-vault rekey"
+      approval: deny
+    - match: "ansible-vault rekey *"
+      approval: deny
+    - match: "ansible-vault encrypt_string"
+      approval: deny
+    - match: "ansible-vault encrypt_string *"
+      approval: deny
+    - match: "ansible* *-vvv*"
+      approval: deny
+    - match: "kubectl get *secret*"
+      approval: deny
+    - match: "kubectl describe *secret*"
+      approval: deny
+    - match: "kubectl get *Secret*"
+      approval: deny
+    - match: "kubectl describe *Secret*"
+      approval: deny
+    - match: "kubectl get *SECRET*"
+      approval: deny
+    - match: "kubectl describe *SECRET*"
+      approval: deny
+    - match: "kubectl config view *--raw*"
+      approval: deny
+    - match: "kubectl delete namespace*"
+      approval: deny
+    - match: "kubectl delete ns*"
+      approval: deny
+    - match: "kubectl delete *--all*"
+      approval: deny
+    - match: "kubectl delete *-A*"
+      approval: deny
+    - match: "helm get values"
+      approval: deny
+    - match: "helm get values *"
+      approval: deny
+    - match: "helm get all"
+      approval: deny
+    - match: "helm get all *"
+      approval: deny
+    - match: "helm get manifest"
+      approval: deny
+    - match: "helm get manifest *"
+      approval: deny
+    - match: "k3s token"
+      approval: deny
+    - match: "k3s token *"
+      approval: deny
+    - match: "rm -rf"
+      approval: deny
+    - match: "rm -rf *"
+      approval: deny
+    - match: "rm -fr"
+      approval: deny
+    - match: "rm -fr *"
+      approval: deny
+    - match: "rm -r"
+      approval: deny
+    - match: "rm -r *"
+      approval: deny
+    - match: "rm -R"
+      approval: deny
+    - match: "rm -R *"
+      approval: deny
+    - match: "shred"
+      approval: deny
+    - match: "shred *"
+      approval: deny
+    - match: "truncate"
+      approval: deny
+    - match: "truncate *"
+      approval: deny
+    - match: "mkfs"
+      approval: deny
+    - match: "mkfs *"
+      approval: deny
+    - match: "fdisk"
+      approval: deny
+    - match: "fdisk *"
+      approval: deny
+    - match: "parted"
+      approval: deny
+    - match: "parted *"
+      approval: deny
+    - match: "dd if=*of=/dev/*"
+      approval: deny
+    - match: "find *-delete*"
+      approval: deny
+    - match: "find *-exec rm*"
+      approval: deny
+    - match: "chown -R"
+      approval: deny
+    - match: "chown -R *"
+      approval: deny
+    - match: "chmod 777"
+      approval: deny
+    - match: "chmod 777 *"
+      approval: deny
+    - match: "chmod -R 777"
+      approval: deny
+    - match: "chmod -R 777 *"
+      approval: deny
+    - match: "docker system prune"
+      approval: deny
+    - match: "docker system prune *"
+      approval: deny
+    - match: "docker volume rm"
+      approval: deny
+    - match: "docker volume rm *"
+      approval: deny
+    - match: "docker rm -f"
+      approval: deny
+    - match: "docker rm -f *"
+      approval: deny
+    - match: "docker compose down *-v*"
+      approval: deny
+    - match: "docker-compose down *-v*"
+      approval: deny
+    - match: "crontab -r"
+      approval: deny
+    - match: "crontab -r *"
+      approval: deny
+    - match: "git reset --hard"
+      approval: deny
+    - match: "git reset --hard *"
+      approval: deny
+    - match: "git clean -f"
+      approval: deny
+    - match: "git clean -f *"
+      approval: deny
+    - match: "git branch -D"
+      approval: deny
+    - match: "git branch -D *"
+      approval: deny
+    - match: "git push --force*"
+      approval: deny
+    - match: "git push -f*"
+      approval: deny
+    - match: "git push *--force*"
+      approval: deny
+    - match: "git push *-f"
+      approval: deny
+    - match: "git filter-branch"
+      approval: deny
+    - match: "git filter-branch *"
+      approval: deny
+    - match: "git filter-repo"
+      approval: deny
+    - match: "git filter-repo *"
+      approval: deny
+    - match: "sudo"
+      approval: deny
+    - match: "sudo *"
+      approval: deny
+    - match: "su"
+      approval: deny
+    - match: "su *"
+      approval: deny
+    - match: "doas"
+      approval: deny
+    - match: "doas *"
+      approval: deny
+    - match: "pkexec"
+      approval: deny
+    - match: "pkexec *"
+      approval: deny
+    - match: "run0"
+      approval: deny
+    - match: "run0 *"
+      approval: deny
+    - match: "visudo"
+      approval: deny
+    - match: "visudo *"
+      approval: deny
+    - match: "setenforce"
+      approval: deny
+    - match: "setenforce *"
+      approval: deny
+    - match: "pkill"
+      approval: deny
+    - match: "pkill *"
+      approval: deny
+    - match: "killall"
+      approval: deny
+    - match: "killall *"
+      approval: deny
+    - match: "systemctl stop"
+      approval: deny
+    - match: "systemctl stop *"
+      approval: deny
+    - match: "systemctl disable"
+      approval: deny
+    - match: "systemctl disable *"
+      approval: deny
+    - match: "systemctl mask"
+      approval: deny
+    - match: "systemctl mask *"
+      approval: deny
+    - match: "ufw disable"
+      approval: deny
+    - match: "ufw disable *"
+      approval: deny
+    - match: "iptables"
+      approval: deny
+    - match: "iptables *"
+      approval: deny
+    - match: "nft"
+      approval: deny
+    - match: "nft *"
+      approval: deny
+    - match: "tailscale down"
+      approval: deny
+    - match: "tailscale down *"
+      approval: deny
+    - match: "tailscale logout"
+      approval: deny
+    - match: "tailscale logout *"
+      approval: deny
+    - match: "apt purge"
+      approval: deny
+    - match: "apt purge *"
+      approval: deny
+    - match: "apt-get purge"
+      approval: deny
+    - match: "apt-get purge *"
+      approval: deny
+    - match: "sh"
+      approval: deny
+    - match: "bash"
+      approval: deny
+    - match: "zsh"
+      approval: deny
+    - match: "aws *--profile*platform-admin*"
+      approval: deny
+    - match: "aws *--profile*seeds-admin*"
+      approval: deny
+    - match: "aws *--profile*admin*"
+      approval: deny
+    - match: "aws *--profile*Admin*"
+      approval: deny
+    - match: "aws *--profile*ADMIN*"
+      approval: deny
+    - match: "aws *--sso-session*platform-admin*"
+      approval: deny
+    - match: "aws *--sso-session*seeds-admin*"
+      approval: deny
+    - match: "aws *--sso-session*admin*"
+      approval: deny
+    - match: "aws *--sso-session*Admin*"
+      approval: deny
+    - match: "aws *--sso-session*ADMIN*"
+      approval: deny
+    - match: "*AWS_PROFILE=*platform-admin*"
+      approval: deny
+    - match: "*AWS_PROFILE=*seeds-admin*"
+      approval: deny
+    - match: "*AWS_PROFILE=*admin*"
+      approval: deny
+    - match: "*AWS_PROFILE=*Admin*"
+      approval: deny
+    - match: "*AWS_PROFILE=*ADMIN*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*platform-admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*seeds-admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*Admin*"
+      approval: deny
+    - match: "*AWS_DEFAULT_PROFILE=*ADMIN*"
+      approval: deny
+    - match: "aws sso login"
+      approval: deny
+    - match: "aws sso login --sso-session seeds-agent"
+      approval: deny
+    - match: "aws sso login --sso-session=seeds-agent"
+      approval: deny
+    - match: "aws sso login --profile agent-readonly"
+      approval: deny
+    - match: "aws sso login --profile=agent-readonly"
+      approval: deny
+    - match: "tofu destroy"
+      approval: deny
+    - match: "tofu destroy *"
+      approval: deny
+    - match: "tofu apply *-destroy*"
+      approval: deny
+    - match: "tofu force-unlock"
+      approval: deny
+    - match: "tofu force-unlock *"
+      approval: deny
+    - match: "tofu state rm"
+      approval: deny
+    - match: "tofu state rm *"
+      approval: deny
+    - match: "tofu state push"
+      approval: deny
+    - match: "tofu state push *"
+      approval: deny
+    - match: "tofu state pull"
+      approval: deny
+    - match: "tofu state pull *"
+      approval: deny
+    - match: "tofu state show"
+      approval: deny
+    - match: "tofu state show *"
+      approval: deny
+    - match: "tofu console"
+      approval: deny
+    - match: "tofu console *"
+      approval: deny
+    - match: "tofu workspace delete"
+      approval: deny
+    - match: "tofu workspace delete *"
+      approval: deny
+    - match: "tofu show *-json*"
+      approval: deny
+    - match: "tofu output *-json*"
+      approval: deny
+    - match: "tofu output *-raw*"
+      approval: deny
+    - match: "podman-compose down *-v*"
+      approval: deny
+    - match: "podman inspect"
+      approval: deny
+    - match: "podman inspect *"
+      approval: deny
+    - match: "podman exec * env*"
+      approval: deny
+    - match: "podman system prune"
+      approval: deny
+    - match: "podman system prune *"
+      approval: deny
+    - match: "podman volume rm"
+      approval: deny
+    - match: "podman volume rm *"
+      approval: deny
+    - match: "podman rm -f"
+      approval: deny
+    - match: "podman rm -f *"
+      approval: deny
+    - match: "podman compose down *-v*"
+      approval: deny
+    - match: "k3s kubectl get *secret*"
+      approval: deny
+    - match: "k3s kubectl describe *secret*"
+      approval: deny
+    - match: "k3s kubectl get *Secret*"
+      approval: deny
+    - match: "k3s kubectl describe *Secret*"
+      approval: deny
+    - match: "k3s kubectl get *SECRET*"
+      approval: deny
+    - match: "k3s kubectl describe *SECRET*"
+      approval: deny
+    - match: "k3s kubectl config view *--raw*"
+      approval: deny
+    - match: "k3s kubectl delete namespace*"
+      approval: deny
+    - match: "k3s kubectl delete ns*"
+      approval: deny
+    - match: "k3s kubectl delete *--all*"
+      approval: deny
+    - match: "k3s kubectl delete *-A*"
+      approval: deny
+    - match: "gh pr merge"
+      approval: deny
+    - match: "gh pr merge *"
+      approval: deny
+    - match: "gh repo delete"
+      approval: deny
+    - match: "gh repo delete *"
+      approval: deny
+    - match: "terraform apply"
+      approval: deny
+    - match: "terraform apply *"
+      approval: deny
+    - match: "doppler *tokens*"
+      approval: deny
+    - match: "doppler *--print-config*"
+      approval: deny
+    - match: "doppler *--api-host*"
+      approval: deny
+    - match: "doppler *--dashboard-host*"
+      approval: deny
+    - match: "doppler *--no-verify-tls*"
+      approval: deny
+    - match: "doppler *dns-resolver*"
+      approval: deny
+    - match: "doppler projects *create*"
+      approval: deny
+    - match: "doppler projects *delete*"
+      approval: deny
+    - match: "doppler projects *update*"
+      approval: deny
+    - match: "doppler projects *rename*"
+      approval: deny
+    - match: "doppler projects *clone*"
+      approval: deny
+    - match: "doppler projects *lock*"
+      approval: deny
+    - match: "doppler projects *unlock*"
+      approval: deny
+    - match: "doppler projects *logs*"
+      approval: deny
+    - match: "doppler configs *create*"
+      approval: deny
+    - match: "doppler configs *delete*"
+      approval: deny
+    - match: "doppler configs *update*"
+      approval: deny
+    - match: "doppler configs *rename*"
+      approval: deny
+    - match: "doppler configs *clone*"
+      approval: deny
+    - match: "doppler configs *lock*"
+      approval: deny
+    - match: "doppler configs *unlock*"
+      approval: deny
+    - match: "doppler configs *logs*"
+      approval: deny
+    - match: "doppler environments *create*"
+      approval: deny
+    - match: "doppler environments *delete*"
+      approval: deny
+    - match: "doppler environments *update*"
+      approval: deny
+    - match: "doppler environments *rename*"
+      approval: deny
+    - match: "doppler environments *clone*"
+      approval: deny
+    - match: "doppler environments *lock*"
+      approval: deny
+    - match: "doppler environments *unlock*"
+      approval: deny
+    - match: "doppler environments *logs*"
+      approval: deny
+    - match: "terraform import"
+      approval: deny
+    - match: "terraform import *"
+      approval: deny
+    - match: "terraform taint"
+      approval: deny
+    - match: "terraform taint *"
+      approval: deny
+    - match: "terraform untaint"
+      approval: deny
+    - match: "terraform untaint *"
+      approval: deny
+    - match: "terraform state mv"
+      approval: deny
+    - match: "terraform state mv *"
+      approval: deny
+    - match: "terraform init *-migrate-state*"
+      approval: deny
+    - match: "terraform refresh"
+      approval: deny
+    - match: "terraform refresh *"
+      approval: deny
+    - match: "terraform login"
+      approval: deny
+    - match: "terraform login *"
+      approval: deny
+    - match: "terraform show"
+      approval: deny
+    - match: "terraform show *"
+      approval: deny
+    - match: "terraform output"
+      approval: deny
+    - match: "terraform output *"
+      approval: deny
+    - match: "aws * delete-*"
+      approval: deny
+    - match: "aws * terminate-*"
+      approval: deny
+    - match: "aws * put-*"
+      approval: deny
+    - match: "aws * create-*"
+      approval: deny
+    - match: "aws * update-*"
+      approval: deny
+    - match: "aws * modify-*"
+      approval: deny
+    - match: "aws iam attach-*"
+      approval: deny
+    - match: "aws iam detach-*"
+      approval: deny
+    - match: "aws iam add-*"
+      approval: deny
+    - match: "aws s3 rm"
+      approval: deny
+    - match: "aws s3 rm *"
+      approval: deny
+    - match: "aws s3 mv"
+      approval: deny
+    - match: "aws s3 mv *"
+      approval: deny
+    - match: "aws s3 cp"
+      approval: deny
+    - match: "aws s3 cp *"
+      approval: deny
+    - match: "aws s3 presign"
+      approval: deny
+    - match: "aws s3 presign *"
+      approval: deny
+    - match: "aws s3 sync"
+      approval: deny
+    - match: "aws s3 sync *"
+      approval: deny
+    - match: "aws cloudformation deploy"
+      approval: deny
+    - match: "aws cloudformation deploy *"
+      approval: deny
+    - match: "aws ssm start-session"
+      approval: deny
+    - match: "aws ssm start-session *"
+      approval: deny
+    - match: "aws ssm send-command"
+      approval: deny
+    - match: "aws ssm send-command *"
+      approval: deny
+    - match: "aws ecs execute-command"
+      approval: deny
+    - match: "aws ecs execute-command *"
+      approval: deny
+    - match: "aws lambda invoke"
+      approval: deny
+    - match: "aws lambda invoke *"
+      approval: deny
+    - match: "aws configure"
+      approval: deny
+    - match: "aws configure set"
+      approval: deny
+    - match: "aws configure set *"
+      approval: deny
+    - match: "aws configure import"
+      approval: deny
+    - match: "aws configure import *"
+      approval: deny
+    - match: "aws configure sso*"
+      approval: deny
+    - match: "aws lambda list-functions"
+      approval: deny
+    - match: "aws lambda list-functions *"
+      approval: deny
+    - match: "aws lambda get-function*"
+      approval: deny
+    - match: "aws ecs describe-task-definition"
+      approval: deny
+    - match: "aws ecs describe-task-definition *"
+      approval: deny
+    - match: "aws ecs describe-tasks"
+      approval: deny
+    - match: "aws ecs describe-tasks *"
+      approval: deny
+    - match: "aws batch describe-job-definitions"
+      approval: deny
+    - match: "aws batch describe-job-definitions *"
+      approval: deny
+    - match: "aws apprunner describe-service"
+      approval: deny
+    - match: "aws apprunner describe-service *"
+      approval: deny
+    - match: "aws elasticbeanstalk describe-configuration-settings"
+      approval: deny
+    - match: "aws elasticbeanstalk describe-configuration-settings *"
+      approval: deny
+    - match: "aws ec2 describe-instance-attribute"
+      approval: deny
+    - match: "aws ec2 describe-instance-attribute *"
+      approval: deny
+    - match: "aws ec2 describe-launch-template-versions"
+      approval: deny
+    - match: "aws ec2 describe-launch-template-versions *"
+      approval: deny
+    - match: "aws codebuild batch-get-projects"
+      approval: deny
+    - match: "aws codebuild batch-get-projects *"
+      approval: deny
+    - match: "ansible"
+      approval: deny
+    - match: "ansible *"
+      approval: deny
+    - match: "ansible-inventory"
+      approval: deny
+    - match: "ansible-inventory *"
+      approval: deny
+    - match: "kubectl delete"
+      approval: deny
+    - match: "kubectl delete *"
+      approval: deny
+    - match: "kubectl apply"
+      approval: deny
+    - match: "kubectl apply *"
+      approval: deny
+    - match: "kubectl create"
+      approval: deny
+    - match: "kubectl create *"
+      approval: deny
+    - match: "kubectl patch"
+      approval: deny
+    - match: "kubectl patch *"
+      approval: deny
+    - match: "kubectl replace"
+      approval: deny
+    - match: "kubectl replace *"
+      approval: deny
+    - match: "kubectl scale"
+      approval: deny
+    - match: "kubectl scale *"
+      approval: deny
+    - match: "kubectl edit"
+      approval: deny
+    - match: "kubectl edit *"
+      approval: deny
+    - match: "kubectl exec"
+      approval: deny
+    - match: "kubectl exec *"
+      approval: deny
+    - match: "kubectl cp"
+      approval: deny
+    - match: "kubectl cp *"
+      approval: deny
+    - match: "kubectl rollout restart"
+      approval: deny
+    - match: "kubectl rollout restart *"
+      approval: deny
+    - match: "kubectl rollout undo"
+      approval: deny
+    - match: "kubectl rollout undo *"
+      approval: deny
+    - match: "kubectl rollout pause"
+      approval: deny
+    - match: "kubectl rollout pause *"
+      approval: deny
+    - match: "kubectl rollout resume"
+      approval: deny
+    - match: "kubectl rollout resume *"
+      approval: deny
+    - match: "kubectl label"
+      approval: deny
+    - match: "kubectl label *"
+      approval: deny
+    - match: "kubectl annotate"
+      approval: deny
+    - match: "kubectl annotate *"
+      approval: deny
+    - match: "kubectl set"
+      approval: deny
+    - match: "kubectl set *"
+      approval: deny
+    - match: "kubectl taint"
+      approval: deny
+    - match: "kubectl taint *"
+      approval: deny
+    - match: "kubectl cordon"
+      approval: deny
+    - match: "kubectl cordon *"
+      approval: deny
+    - match: "kubectl uncordon"
+      approval: deny
+    - match: "kubectl uncordon *"
+      approval: deny
+    - match: "kubectl drain"
+      approval: deny
+    - match: "kubectl drain *"
+      approval: deny
+    - match: "kubectl autoscale"
+      approval: deny
+    - match: "kubectl autoscale *"
+      approval: deny
+    - match: "kubectl expose"
+      approval: deny
+    - match: "kubectl expose *"
+      approval: deny
+    - match: "kubectl run"
+      approval: deny
+    - match: "kubectl run *"
+      approval: deny
+    - match: "kubectl debug"
+      approval: deny
+    - match: "kubectl debug *"
+      approval: deny
+    - match: "kubectl attach"
+      approval: deny
+    - match: "kubectl attach *"
+      approval: deny
+    - match: "kubectl certificate"
+      approval: deny
+    - match: "kubectl certificate *"
+      approval: deny
+    - match: "kubectl *--kubeconfig*"
+      approval: deny
+    - match: "helm *--kubeconfig*"
+      approval: deny
+    - match: "*KUBECONFIG=*"
+      approval: deny
+    - match: "helm install"
+      approval: deny
+    - match: "helm install *"
+      approval: deny
+    - match: "helm upgrade"
+      approval: deny
+    - match: "helm upgrade *"
+      approval: deny
+    - match: "helm uninstall"
+      approval: deny
+    - match: "helm uninstall *"
+      approval: deny
+    - match: "helm rollback"
+      approval: deny
+    - match: "helm rollback *"
+      approval: deny
+    - match: "helm test"
+      approval: deny
+    - match: "helm test *"
+      approval: deny
+    - match: "k3s secrets-encrypt"
+      approval: deny
+    - match: "k3s secrets-encrypt *"
+      approval: deny
+    - match: "k3s etcd-snapshot"
+      approval: deny
+    - match: "k3s etcd-snapshot *"
+      approval: deny
+    - match: "docker run"
+      approval: deny
+    - match: "docker run *"
+      approval: deny
+    - match: "docker create"
+      approval: deny
+    - match: "docker create *"
+      approval: deny
+    - match: "docker exec"
+      approval: deny
+    - match: "docker exec *"
+      approval: deny
+    - match: "docker cp"
+      approval: deny
+    - match: "docker cp *"
+      approval: deny
+    - match: "docker build"
+      approval: deny
+    - match: "docker build *"
+      approval: deny
+    - match: "docker buildx"
+      approval: deny
+    - match: "docker buildx *"
+      approval: deny
+    - match: "docker compose config"
+      approval: deny
+    - match: "docker compose config *"
+      approval: deny
+    - match: "docker-compose"
+      approval: deny
+    - match: "docker-compose *"
+      approval: deny
+    - match: "docker service"
+      approval: deny
+    - match: "docker service *"
+      approval: deny
+    - match: "docker login"
+      approval: deny
+    - match: "docker login *"
+      approval: deny
+    - match: "gh api *-X*"
+      approval: deny
+    - match: "gh api *--method*"
+      approval: deny
+    - match: "gh api *-f *"
+      approval: deny
+    - match: "gh api *-F *"
+      approval: deny
+    - match: "gh api *--field*"
+      approval: deny
+    - match: "gh api *--raw-field*"
+      approval: deny
+    - match: "gh api *--input*"
+      approval: deny
+    - match: "gh extension"
+      approval: deny
+    - match: "gh extension *"
+      approval: deny
+    - match: "gh alias"
+      approval: deny
+    - match: "gh alias *"
+      approval: deny
+    - match: "gh auth"
+      approval: deny
+    - match: "gh auth *"
+      approval: deny
+    - match: "gh secret"
+      approval: deny
+    - match: "gh secret *"
+      approval: deny
+    - match: "gh variable"
+      approval: deny
+    - match: "gh variable *"
+      approval: deny
+    - match: "gh ssh-key"
+      approval: deny
+    - match: "gh ssh-key *"
+      approval: deny
+    - match: "gh gpg-key"
+      approval: deny
+    - match: "gh gpg-key *"
+      approval: deny
+    - match: "gh repo create"
+      approval: deny
+    - match: "gh repo create *"
+      approval: deny
+    - match: "gh repo edit"
+      approval: deny
+    - match: "gh repo edit *"
+      approval: deny
+    - match: "gh repo archive"
+      approval: deny
+    - match: "gh repo archive *"
+      approval: deny
+    - match: "gh repo rename"
+      approval: deny
+    - match: "gh repo rename *"
+      approval: deny
+    - match: "gh release delete"
+      approval: deny
+    - match: "gh release delete *"
+      approval: deny
+    - match: "gh run cancel"
+      approval: deny
+    - match: "gh run cancel *"
+      approval: deny
+    - match: "gh run delete"
+      approval: deny
+    - match: "gh run delete *"
+      approval: deny
+    - match: "gh workflow"
+      approval: deny
+    - match: "gh workflow *"
+      approval: deny
+    - match: "gh cache delete"
+      approval: deny
+    - match: "gh cache delete *"
+      approval: deny
+    - match: "gh issue delete"
+      approval: deny
+    - match: "gh issue delete *"
+      approval: deny
+    - match: "gh label delete"
+      approval: deny
+    - match: "gh label delete *"
+      approval: deny
+    - match: "git push *--delete*"
+      approval: deny
+    - match: "git push * -d *"
+      approval: deny
+    - match: "git push * :*"
+      approval: deny
+    - match: "git push * +*"
+      approval: deny
+    - match: "git push *--mirror*"
+      approval: deny
+    - match: "git push *--prune*"
+      approval: deny
+    - match: "git checkout -- *"
+      approval: deny
+    - match: "git stash drop"
+      approval: deny
+    - match: "git stash drop *"
+      approval: deny
+    - match: "git stash clear"
+      approval: deny
+    - match: "git stash clear *"
+      approval: deny
+    - match: "doppler login"
+      approval: deny
+    - match: "doppler login *"
+      approval: deny
+    - match: "doppler setup"
+      approval: deny
+    - match: "doppler setup *"
+      approval: deny
+    - match: "journalctl"
+      approval: deny
+    - match: "journalctl *"
+      approval: deny
+    - match: "firewall-cmd"
+      approval: deny
+    - match: "firewall-cmd *"
+      approval: deny
+    - match: "semanage"
+      approval: deny
+    - match: "semanage *"
+      approval: deny
+    - match: "setsebool"
+      approval: deny
+    - match: "setsebool *"
+      approval: deny
+    - match: "restorecon"
+      approval: deny
+    - match: "restorecon *"
+      approval: deny
+    - match: "tofu apply"
+      approval: deny
+    - match: "tofu apply *"
+      approval: deny
+    - match: "tofu import"
+      approval: deny
+    - match: "tofu import *"
+      approval: deny
+    - match: "tofu taint"
+      approval: deny
+    - match: "tofu taint *"
+      approval: deny
+    - match: "tofu untaint"
+      approval: deny
+    - match: "tofu untaint *"
+      approval: deny
+    - match: "tofu state mv"
+      approval: deny
+    - match: "tofu state mv *"
+      approval: deny
+    - match: "tofu init *-migrate-state*"
+      approval: deny
+    - match: "tofu refresh"
+      approval: deny
+    - match: "tofu refresh *"
+      approval: deny
+    - match: "tofu login"
+      approval: deny
+    - match: "tofu login *"
+      approval: deny
+    - match: "tofu show"
+      approval: deny
+    - match: "tofu show *"
+      approval: deny
+    - match: "tofu output"
+      approval: deny
+    - match: "tofu output *"
+      approval: deny
+    - match: "podman-compose"
+      approval: deny
+    - match: "podman-compose *"
+      approval: deny
+    - match: "podman run"
+      approval: deny
+    - match: "podman run *"
+      approval: deny
+    - match: "podman create"
+      approval: deny
+    - match: "podman create *"
+      approval: deny
+    - match: "podman exec"
+      approval: deny
+    - match: "podman exec *"
+      approval: deny
+    - match: "podman cp"
+      approval: deny
+    - match: "podman cp *"
+      approval: deny
+    - match: "podman build"
+      approval: deny
+    - match: "podman build *"
+      approval: deny
+    - match: "podman buildx"
+      approval: deny
+    - match: "podman buildx *"
+      approval: deny
+    - match: "podman compose config"
+      approval: deny
+    - match: "podman compose config *"
+      approval: deny
+    - match: "podman service"
+      approval: deny
+    - match: "podman service *"
+      approval: deny
+    - match: "podman login"
+      approval: deny
+    - match: "podman login *"
+      approval: deny
+    - match: "k3s kubectl delete"
+      approval: deny
+    - match: "k3s kubectl delete *"
+      approval: deny
+    - match: "k3s kubectl apply"
+      approval: deny
+    - match: "k3s kubectl apply *"
+      approval: deny
+    - match: "k3s kubectl create"
+      approval: deny
+    - match: "k3s kubectl create *"
+      approval: deny
+    - match: "k3s kubectl patch"
+      approval: deny
+    - match: "k3s kubectl patch *"
+      approval: deny
+    - match: "k3s kubectl replace"
+      approval: deny
+    - match: "k3s kubectl replace *"
+      approval: deny
+    - match: "k3s kubectl scale"
+      approval: deny
+    - match: "k3s kubectl scale *"
+      approval: deny
+    - match: "k3s kubectl edit"
+      approval: deny
+    - match: "k3s kubectl edit *"
+      approval: deny
+    - match: "k3s kubectl exec"
+      approval: deny
+    - match: "k3s kubectl exec *"
+      approval: deny
+    - match: "k3s kubectl cp"
+      approval: deny
+    - match: "k3s kubectl cp *"
+      approval: deny
+    - match: "k3s kubectl rollout restart"
+      approval: deny
+    - match: "k3s kubectl rollout restart *"
+      approval: deny
+    - match: "k3s kubectl rollout undo"
+      approval: deny
+    - match: "k3s kubectl rollout undo *"
+      approval: deny
+    - match: "k3s kubectl rollout pause"
+      approval: deny
+    - match: "k3s kubectl rollout pause *"
+      approval: deny
+    - match: "k3s kubectl rollout resume"
+      approval: deny
+    - match: "k3s kubectl rollout resume *"
+      approval: deny
+    - match: "k3s kubectl label"
+      approval: deny
+    - match: "k3s kubectl label *"
+      approval: deny
+    - match: "k3s kubectl annotate"
+      approval: deny
+    - match: "k3s kubectl annotate *"
+      approval: deny
+    - match: "k3s kubectl set"
+      approval: deny
+    - match: "k3s kubectl set *"
+      approval: deny
+    - match: "k3s kubectl taint"
+      approval: deny
+    - match: "k3s kubectl taint *"
+      approval: deny
+    - match: "k3s kubectl cordon"
+      approval: deny
+    - match: "k3s kubectl cordon *"
+      approval: deny
+    - match: "k3s kubectl uncordon"
+      approval: deny
+    - match: "k3s kubectl uncordon *"
+      approval: deny
+    - match: "k3s kubectl drain"
+      approval: deny
+    - match: "k3s kubectl drain *"
+      approval: deny
+    - match: "k3s kubectl autoscale"
+      approval: deny
+    - match: "k3s kubectl autoscale *"
+      approval: deny
+    - match: "k3s kubectl expose"
+      approval: deny
+    - match: "k3s kubectl expose *"
+      approval: deny
+    - match: "k3s kubectl run"
+      approval: deny
+    - match: "k3s kubectl run *"
+      approval: deny
+    - match: "k3s kubectl debug"
+      approval: deny
+    - match: "k3s kubectl debug *"
+      approval: deny
+    - match: "k3s kubectl attach"
+      approval: deny
+    - match: "k3s kubectl attach *"
+      approval: deny
+    - match: "k3s kubectl certificate"
+      approval: deny
+    - match: "k3s kubectl certificate *"
+      approval: deny
+    - match: "k3s kubectl *--kubeconfig*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push --force*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push -f*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push *--force*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push *-f"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push *--delete*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push * -d *"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push * :*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push * +*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push *--mirror*"
+      approval: deny
+    - match: "git -c core.hooksPath=/dev/null push *--prune*"
+      approval: deny
+    - match: "doppler run * -- aws configure get"
+      approval: deny
+    - match: "doppler run * -- aws configure export-credentials"
+      approval: deny
+    - match: "doppler run * -- aws sts get-session-token"
+      approval: deny
+    - match: "doppler run * -- aws sts assume-role*"
+      approval: deny
+    - match: "doppler run * -- aws sts get-federation-token"
+      approval: deny
+    - match: "doppler run * -- aws sso get-role-credentials"
+      approval: deny
+    - match: "doppler run * -- aws secretsmanager *get-secret-value*"
+      approval: deny
+    - match: "doppler run * -- aws ssm get-parameter*"
+      approval: deny
+    - match: "doppler run * -- aws kms decrypt"
+      approval: deny
+    - match: "doppler run * -- aws kms generate-data-key*"
+      approval: deny
+    - match: "doppler run * -- aws ec2 get-password-data"
+      approval: deny
+    - match: "doppler run * -- aws ec2 create-key-pair"
+      approval: deny
+    - match: "doppler run * -- aws iam create-access-key"
+      approval: deny
+    - match: "doppler run * -- aws iam create-login-profile"
+      approval: deny
+    - match: "doppler run * -- aws iam update-login-profile"
+      approval: deny
+    - match: "doppler run * -- aws iam create-service-specific-credential"
+      approval: deny
+    - match: "doppler run * -- aws iam reset-service-specific-credential"
+      approval: deny
+    - match: "doppler run * -- aws ecr get-login-password"
+      approval: deny
+    - match: "doppler run * -- aws ecr get-authorization-token"
+      approval: deny
+    - match: "doppler run * -- aws eks get-token"
+      approval: deny
+    - match: "doppler run * -- aws codeartifact get-authorization-token"
+      approval: deny
+    - match: "doppler run * -- aws rds generate-db-auth-token"
+      approval: deny
+    - match: "doppler run * -- aws s3 rb"
+      approval: deny
+    - match: "doppler run * -- aws s3 rm *--recursive*"
+      approval: deny
+    - match: "doppler run * -- aws organizations"
+      approval: deny
+    - match: "doppler run * -- aws iam delete-*"
+      approval: deny
+    - match: "doppler run * -- aws kms schedule-key-deletion"
+      approval: deny
+    - match: "doppler run * -- aws kms disable-key"
+      approval: deny
+    - match: "doppler run * -- aws ec2 terminate-instances"
+      approval: deny
+    - match: "doppler run * -- aws rds delete-db-*"
+      approval: deny
+    - match: "doppler run * -- aws cloudformation delete-stack"
+      approval: deny
+    - match: "doppler run * -- aws dynamodb delete-table"
+      approval: deny
+    - match: "doppler run * -- aws s3api delete-bucket*"
+      approval: deny
+    - match: "doppler run * -- aws eks delete-cluster"
+      approval: deny
+    - match: "doppler run * -- terraform destroy"
+      approval: deny
+    - match: "doppler run * -- terraform apply *-destroy*"
+      approval: deny
+    - match: "doppler run * -- terraform force-unlock"
+      approval: deny
+    - match: "doppler run * -- terraform state rm"
+      approval: deny
+    - match: "doppler run * -- terraform state push"
+      approval: deny
+    - match: "doppler run * -- terraform state pull"
+      approval: deny
+    - match: "doppler run * -- terraform state show"
+      approval: deny
+    - match: "doppler run * -- terraform console"
+      approval: deny
+    - match: "doppler run * -- terraform workspace delete"
+      approval: deny
+    - match: "doppler run * -- terraform show *-json*"
+      approval: deny
+    - match: "doppler run * -- terraform output *-json*"
+      approval: deny
+    - match: "doppler run * -- terraform output *-raw*"
+      approval: deny
+    - match: "doppler run * -- ansible-vault view"
+      approval: deny
+    - match: "doppler run * -- ansible-vault decrypt"
+      approval: deny
+    - match: "doppler run * -- ansible-vault edit"
+      approval: deny
+    - match: "doppler run * -- ansible-vault rekey"
+      approval: deny
+    - match: "doppler run * -- ansible-vault encrypt_string"
+      approval: deny
+    - match: "doppler run * -- ansible* *-vvv*"
+      approval: deny
+    - match: "doppler run * -- kubectl get *secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl describe *secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl get *Secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl describe *Secret*"
+      approval: deny
+    - match: "doppler run * -- kubectl get *SECRET*"
+      approval: deny
+    - match: "doppler run * -- kubectl describe *SECRET*"
+      approval: deny
+    - match: "doppler run * -- kubectl config view *--raw*"
+      approval: deny
+    - match: "doppler run * -- kubectl delete namespace*"
+      approval: deny
+    - match: "doppler run * -- kubectl delete ns*"
+      approval: deny
+    - match: "doppler run * -- kubectl delete *--all*"
+      approval: deny
+    - match: "doppler run * -- kubectl delete *-A*"
+      approval: deny
+    - match: "doppler run * -- helm get values"
+      approval: deny
+    - match: "doppler run * -- helm get all"
+      approval: deny
+    - match: "doppler run * -- helm get manifest"
+      approval: deny
+    - match: "doppler run * -- k3s token"
+      approval: deny
+    - match: "doppler run * -- aws *--profile*platform-admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--profile*seeds-admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--profile*admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--profile*Admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--profile*ADMIN*"
+      approval: deny
+    - match: "doppler run * -- aws *--sso-session*platform-admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--sso-session*seeds-admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--sso-session*admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--sso-session*Admin*"
+      approval: deny
+    - match: "doppler run * -- aws *--sso-session*ADMIN*"
+      approval: deny
+    - match: "doppler run * -- aws sso login"
+      approval: deny
+    - match: "doppler run * -- aws sso login --sso-session seeds-agent"
+      approval: deny
+    - match: "doppler run * -- aws sso login --sso-session=seeds-agent"
+      approval: deny
+    - match: "doppler run * -- aws sso login --profile agent-readonly"
+      approval: deny
+    - match: "doppler run * -- aws sso login --profile=agent-readonly"
+      approval: deny
+    - match: "doppler run * -- tofu destroy"
+      approval: deny
+    - match: "doppler run * -- tofu apply *-destroy*"
+      approval: deny
+    - match: "doppler run * -- tofu force-unlock"
+      approval: deny
+    - match: "doppler run * -- tofu state rm"
+      approval: deny
+    - match: "doppler run * -- tofu state push"
+      approval: deny
+    - match: "doppler run * -- tofu state pull"
+      approval: deny
+    - match: "doppler run * -- tofu state show"
+      approval: deny
+    - match: "doppler run * -- tofu console"
+      approval: deny
+    - match: "doppler run * -- tofu workspace delete"
+      approval: deny
+    - match: "doppler run * -- tofu show *-json*"
+      approval: deny
+    - match: "doppler run * -- tofu output *-json*"
+      approval: deny
+    - match: "doppler run * -- tofu output *-raw*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl get *secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl describe *secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl get *Secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl describe *Secret*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl get *SECRET*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl describe *SECRET*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl config view *--raw*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl delete namespace*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl delete ns*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl delete *--all*"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl delete *-A*"
+      approval: deny
+    - match: "doppler run * -- terraform apply"
+      approval: deny
+    - match: "doppler run * -- terraform import"
+      approval: deny
+    - match: "doppler run * -- terraform taint"
+      approval: deny
+    - match: "doppler run * -- terraform untaint"
+      approval: deny
+    - match: "doppler run * -- terraform state mv"
+      approval: deny
+    - match: "doppler run * -- terraform init *-migrate-state*"
+      approval: deny
+    - match: "doppler run * -- terraform refresh"
+      approval: deny
+    - match: "doppler run * -- terraform login"
+      approval: deny
+    - match: "doppler run * -- terraform show"
+      approval: deny
+    - match: "doppler run * -- terraform output"
+      approval: deny
+    - match: "doppler run * -- aws * delete-*"
+      approval: deny
+    - match: "doppler run * -- aws * terminate-*"
+      approval: deny
+    - match: "doppler run * -- aws * put-*"
+      approval: deny
+    - match: "doppler run * -- aws * create-*"
+      approval: deny
+    - match: "doppler run * -- aws * update-*"
+      approval: deny
+    - match: "doppler run * -- aws * modify-*"
+      approval: deny
+    - match: "doppler run * -- aws iam attach-*"
+      approval: deny
+    - match: "doppler run * -- aws iam detach-*"
+      approval: deny
+    - match: "doppler run * -- aws iam add-*"
+      approval: deny
+    - match: "doppler run * -- aws s3 rm"
+      approval: deny
+    - match: "doppler run * -- aws s3 mv"
+      approval: deny
+    - match: "doppler run * -- aws s3 cp"
+      approval: deny
+    - match: "doppler run * -- aws s3 presign"
+      approval: deny
+    - match: "doppler run * -- aws s3 sync"
+      approval: deny
+    - match: "doppler run * -- aws cloudformation deploy"
+      approval: deny
+    - match: "doppler run * -- aws ssm start-session"
+      approval: deny
+    - match: "doppler run * -- aws ssm send-command"
+      approval: deny
+    - match: "doppler run * -- aws ecs execute-command"
+      approval: deny
+    - match: "doppler run * -- aws lambda invoke"
+      approval: deny
+    - match: "doppler run * -- aws configure"
+      approval: deny
+    - match: "doppler run * -- aws configure set"
+      approval: deny
+    - match: "doppler run * -- aws configure import"
+      approval: deny
+    - match: "doppler run * -- aws configure sso*"
+      approval: deny
+    - match: "doppler run * -- aws lambda list-functions"
+      approval: deny
+    - match: "doppler run * -- aws lambda get-function*"
+      approval: deny
+    - match: "doppler run * -- aws ecs describe-task-definition"
+      approval: deny
+    - match: "doppler run * -- aws ecs describe-tasks"
+      approval: deny
+    - match: "doppler run * -- aws batch describe-job-definitions"
+      approval: deny
+    - match: "doppler run * -- aws apprunner describe-service"
+      approval: deny
+    - match: "doppler run * -- aws elasticbeanstalk describe-configuration-settings"
+      approval: deny
+    - match: "doppler run * -- aws ec2 describe-instance-attribute"
+      approval: deny
+    - match: "doppler run * -- aws ec2 describe-launch-template-versions"
+      approval: deny
+    - match: "doppler run * -- aws codebuild batch-get-projects"
+      approval: deny
+    - match: "doppler run * -- ansible"
+      approval: deny
+    - match: "doppler run * -- ansible-inventory"
+      approval: deny
+    - match: "doppler run * -- kubectl delete"
+      approval: deny
+    - match: "doppler run * -- kubectl apply"
+      approval: deny
+    - match: "doppler run * -- kubectl create"
+      approval: deny
+    - match: "doppler run * -- kubectl patch"
+      approval: deny
+    - match: "doppler run * -- kubectl replace"
+      approval: deny
+    - match: "doppler run * -- kubectl scale"
+      approval: deny
+    - match: "doppler run * -- kubectl edit"
+      approval: deny
+    - match: "doppler run * -- kubectl exec"
+      approval: deny
+    - match: "doppler run * -- kubectl cp"
+      approval: deny
+    - match: "doppler run * -- kubectl rollout restart"
+      approval: deny
+    - match: "doppler run * -- kubectl rollout undo"
+      approval: deny
+    - match: "doppler run * -- kubectl rollout pause"
+      approval: deny
+    - match: "doppler run * -- kubectl rollout resume"
+      approval: deny
+    - match: "doppler run * -- kubectl label"
+      approval: deny
+    - match: "doppler run * -- kubectl annotate"
+      approval: deny
+    - match: "doppler run * -- kubectl set"
+      approval: deny
+    - match: "doppler run * -- kubectl taint"
+      approval: deny
+    - match: "doppler run * -- kubectl cordon"
+      approval: deny
+    - match: "doppler run * -- kubectl uncordon"
+      approval: deny
+    - match: "doppler run * -- kubectl drain"
+      approval: deny
+    - match: "doppler run * -- kubectl autoscale"
+      approval: deny
+    - match: "doppler run * -- kubectl expose"
+      approval: deny
+    - match: "doppler run * -- kubectl run"
+      approval: deny
+    - match: "doppler run * -- kubectl debug"
+      approval: deny
+    - match: "doppler run * -- kubectl attach"
+      approval: deny
+    - match: "doppler run * -- kubectl certificate"
+      approval: deny
+    - match: "doppler run * -- kubectl *--kubeconfig*"
+      approval: deny
+    - match: "doppler run * -- helm *--kubeconfig*"
+      approval: deny
+    - match: "doppler run * -- helm install"
+      approval: deny
+    - match: "doppler run * -- helm upgrade"
+      approval: deny
+    - match: "doppler run * -- helm uninstall"
+      approval: deny
+    - match: "doppler run * -- helm rollback"
+      approval: deny
+    - match: "doppler run * -- helm test"
+      approval: deny
+    - match: "doppler run * -- k3s secrets-encrypt"
+      approval: deny
+    - match: "doppler run * -- k3s etcd-snapshot"
+      approval: deny
+    - match: "doppler run * -- tofu apply"
+      approval: deny
+    - match: "doppler run * -- tofu import"
+      approval: deny
+    - match: "doppler run * -- tofu taint"
+      approval: deny
+    - match: "doppler run * -- tofu untaint"
+      approval: deny
+    - match: "doppler run * -- tofu state mv"
+      approval: deny
+    - match: "doppler run * -- tofu init *-migrate-state*"
+      approval: deny
+    - match: "doppler run * -- tofu refresh"
+      approval: deny
+    - match: "doppler run * -- tofu login"
+      approval: deny
+    - match: "doppler run * -- tofu show"
+      approval: deny
+    - match: "doppler run * -- tofu output"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl delete"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl apply"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl create"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl patch"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl replace"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl scale"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl edit"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl exec"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl cp"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl rollout restart"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl rollout undo"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl rollout pause"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl rollout resume"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl label"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl annotate"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl set"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl taint"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl cordon"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl uncordon"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl drain"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl autoscale"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl expose"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl run"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl debug"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl attach"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl certificate"
+      approval: deny
+    - match: "doppler run * -- k3s kubectl *--kubeconfig*"
+      approval: deny
+    - match: "*.env"
+      approval: deny
+    - match: "*.env *"
+      approval: deny
+    - match: "*.env.*"
+      approval: deny
+    - match: "*.tfstate*"
+      approval: deny
+    - match: "*.tfplan*"
+      approval: deny
+    - match: "*.pem"
+      approval: deny
+    - match: "*.pem *"
+      approval: deny
+    - match: "*.key"
+      approval: deny
+    - match: "*.key *"
+      approval: deny
+    - match: "*.p12*"
+      approval: deny
+    - match: "*.pfx*"
+      approval: deny
+    - match: "*.jks*"
+      approval: deny
+    - match: "*.keystore*"
+      approval: deny
+    - match: "*.ppk*"
+      approval: deny
+    - match: "*id_rsa*"
+      approval: deny
+    - match: "*id_ed25519*"
+      approval: deny
+    - match: "*.aws/credentials*"
+      approval: deny
+    - match: "*.aws/sso*"
+      approval: deny
+    - match: "*.aws/cli/cache*"
+      approval: deny
+    - match: "*.ssh/id_*"
+      approval: deny
+    - match: "*.gnupg*"
+      approval: deny
+    - match: "*.kube/*"
+      approval: deny
+    - match: "* kubeconfig*"
+      approval: deny
+    - match: "*/kubeconfig*"
+      approval: deny
+    - match: "*.kubeconfig*"
+      approval: deny
+    - match: "*.netrc*"
+      approval: deny
+    - match: "*.git-credentials*"
+      approval: deny
+    - match: "*.config/gh/*"
+      approval: deny
+    - match: "*.config/gcloud*"
+      approval: deny
+    - match: "*.azure/*"
+      approval: deny
+    - match: "*.docker/config.json*"
+      approval: deny
+    - match: "*.npmrc*"
+      approval: deny
+    - match: "*.pypirc*"
+      approval: deny
+    - match: "*.doppler*"
+      approval: deny
+    - match: "*.vault_pass*"
+      approval: deny
+    - match: "*vault-pass*"
+      approval: deny
+    - match: "*Library/Keychains*"
+      approval: deny
+    - match: "*Library/Messages*"
+      approval: deny
+    - match: "*Library/Mail*"
+      approval: deny
+    - match: "*Library/Passes*"
+      approval: deny
+    - match: "*Library/Cookies*"
+      approval: deny
+    - match: "*Library/Safari*"
+      approval: deny
+    - match: "*chat.db*"
+      approval: deny
+    - match: "*Login Data*"
+      approval: deny
+    - match: "*key4.db*"
+      approval: deny
+    - match: "*logins.json*"
+      approval: deny
+    - match: "*zsh_history*"
+      approval: deny
+    - match: "*bash_history*"
+      approval: deny
+    - match: "*fish_history*"
+      approval: deny
+    - match: "*.psql_history*"
+      approval: deny
+    - match: "*.python_history*"
+      approval: deny
+    - match: "*.mysql_history*"
+      approval: deny
+    - match: "*.claude/.credentials*"
+      approval: deny
+    - match: "*.codex/auth.json*"
+      approval: deny
+    - match: "*opencode/auth.json*"
+      approval: deny
+    - match: "*/etc/rancher*"
+      approval: deny
+    - match: "*k3s.yaml*"
+      approval: deny
+    - match: "*k3s/server/tls*"
+      approval: deny
+    - match: "*k3s/server/*token*"
+      approval: deny
+    - match: "*.local/share/keyrings*"
+      approval: deny
+    - match: "*kwalletd*"
+      approval: deny
+    - match: "*.password-store*"
+      approval: deny
+    - match: "*.mozilla/*"
+      approval: deny
+    - match: "*.config/google-chrome*"
+      approval: deny
+    - match: "*.config/chromium*"
+      approval: deny
+    - match: "*.config/BraveSoftware*"
+      approval: deny
+    - match: "*.config/microsoft-edge*"
+      approval: deny
+    - match: "*.thunderbird*"
+      approval: deny
+    - match: "*.config/Signal*"
+      approval: deny
+    - match: "*TelegramDesktop*"
+      approval: deny
+    - match: "*.var/app/*"
+      approval: deny
+    - match: "*.pki/*"
+      approval: deny
+    - match: "*/etc/shadow*"
+      approval: deny
+    - match: "*/etc/gshadow*"
+      approval: deny
+    - match: "*/etc/sudoers*"
+      approval: deny
+    - match: "*/etc/ssh/ssh_host*"
+      approval: deny
+    - match: "*system-connections*"
+      approval: deny
+    - match: "*/etc/pki/tls/private*"
+      approval: deny
+    - match: "*/etc/ssl/private*"
+      approval: deny
+    - match: "*/etc/wireguard*"
+      approval: deny
+    - match: "*/etc/kubernetes/admin.conf*"
+      approval: deny
+    - match: "*/etc/kubernetes/pki*"
+      approval: deny
+    - match: "*/proc/*/environ*"
+      approval: deny
+    - match: "*/proc/*/cmdline*"
+      approval: deny
+    - match: "*/mnt/hgfs*"
+      approval: deny
+    # --- prompt ---
+    # --- allow ---
+    - match: "git status"
+      approval: allow
+    - match: "git status *"
+      approval: allow
+    - match: "git diff"
+      approval: allow
+    - match: "git diff *"
+      approval: allow
+    - match: "git log"
+      approval: allow
+    - match: "git log *"
+      approval: allow
+    - match: "git show"
+      approval: allow
+    - match: "git show *"
+      approval: allow
+    - match: "git blame"
+      approval: allow
+    - match: "git blame *"
+      approval: allow
+    - match: "git ls-files"
+      approval: allow
+    - match: "git ls-files *"
+      approval: allow
+    - match: "git rev-parse"
+      approval: allow
+    - match: "git rev-parse *"
+      approval: allow
+    - match: "git branch"
+      approval: allow
+    - match: "git branch --show-current"
+      approval: allow
+    - match: "terraform fmt"
+      approval: allow
+    - match: "terraform fmt *"
+      approval: allow
+    - match: "terraform validate"
+      approval: allow
+    - match: "terraform validate *"
+      approval: allow
+    - match: "terraform version"
+      approval: allow
+    - match: "terraform version *"
+      approval: allow
+    - match: "terraform -version"
+      approval: allow
+    - match: "terraform init *-backend=false*"
+      approval: allow
+    - match: "terraform providers"
+      approval: allow
+    - match: "terraform providers *"
+      approval: allow
+    - match: "terraform graph"
+      approval: allow
+    - match: "terraform graph *"
+      approval: allow
+    - match: "tflint"
+      approval: allow
+    - match: "tflint *"
+      approval: allow
+    - match: "tfsec"
+      approval: allow
+    - match: "tfsec *"
+      approval: allow
+    - match: "checkov"
+      approval: allow
+    - match: "checkov *"
+      approval: allow
+    - match: "terraform-docs"
+      approval: allow
+    - match: "terraform-docs *"
+      approval: allow
+    - match: "trivy config"
+      approval: allow
+    - match: "trivy config *"
+      approval: allow
+    - match: "helm lint"
+      approval: allow
+    - match: "helm lint *"
+      approval: allow
+    - match: "helm template"
+      approval: allow
+    - match: "helm template *"
+      approval: allow
+    - match: "helm version"
+      approval: allow
+    - match: "helm version *"
+      approval: allow
+    - match: "helm repo list"
+      approval: allow
+    - match: "helm repo list *"
+      approval: allow
+    - match: "helm search"
+      approval: allow
+    - match: "helm search *"
+      approval: allow
+    - match: "kubeconform"
+      approval: allow
+    - match: "kubeconform *"
+      approval: allow
+    - match: "yamllint"
+      approval: allow
+    - match: "yamllint *"
+      approval: allow
+    - match: "ansible-lint"
+      approval: allow
+    - match: "ansible-lint *"
+      approval: allow
+    - match: "ansible-doc"
+      approval: allow
+    - match: "ansible-doc *"
+      approval: allow
+    - match: "ansible --version"
+      approval: allow
+    - match: "ansible --version *"
+      approval: allow
+    - match: "ansible-playbook *--check*"
+      approval: allow
+    - match: "ansible-playbook *--syntax-check*"
+      approval: allow
+    - match: "ansible-playbook *--list-tasks*"
+      approval: allow
+    - match: "ansible-playbook *--list-hosts*"
+      approval: allow
+    - match: "gitleaks detect *--redact*"
+      approval: allow
+    - match: "gitleaks git *--redact*"
+      approval: allow
+    - match: "gitleaks dir *--redact*"
+      approval: allow
+    - match: "gitleaks protect *--redact*"
+      approval: allow
+    - match: "aws --version"
+      approval: allow
+    - match: "doppler --version"
+      approval: allow
+    - match: "docker ps"
+      approval: allow
+    - match: "docker ps *"
+      approval: allow
+    - match: "docker images"
+      approval: allow
+    - match: "docker images *"
+      approval: allow
+    - match: "docker version"
+      approval: allow
+    - match: "docker version *"
+      approval: allow
+    - match: "gh pr view"
+      approval: allow
+    - match: "gh pr view *"
+      approval: allow
+    - match: "gh pr list"
+      approval: allow
+    - match: "gh pr list *"
+      approval: allow
+    - match: "gh pr status"
+      approval: allow
+    - match: "gh pr status *"
+      approval: allow
+    - match: "gh pr checks"
+      approval: allow
+    - match: "gh pr checks *"
+      approval: allow
+    - match: "gh issue view"
+      approval: allow
+    - match: "gh issue view *"
+      approval: allow
+    - match: "gh issue list"
+      approval: allow
+    - match: "gh issue list *"
+      approval: allow
+    - match: "gh run view"
+      approval: allow
+    - match: "gh run view *"
+      approval: allow
+    - match: "gh run list"
+      approval: allow
+    - match: "gh run list *"
+      approval: allow
+    - match: "gh repo view"
+      approval: allow
+    - match: "gh repo view *"
+      approval: allow
+    - match: "gh repo list"
+      approval: allow
+    - match: "gh repo list *"
+      approval: allow
+    - match: "tofu fmt"
+      approval: allow
+    - match: "tofu fmt *"
+      approval: allow
+    - match: "tofu validate"
+      approval: allow
+    - match: "tofu validate *"
+      approval: allow
+    - match: "tofu version"
+      approval: allow
+    - match: "tofu version *"
+      approval: allow
+    - match: "tofu -version"
+      approval: allow
+    - match: "tofu init *-backend=false*"
+      approval: allow
+    - match: "tofu providers"
+      approval: allow
+    - match: "tofu providers *"
+      approval: allow
+    - match: "tofu graph"
+      approval: allow
+    - match: "tofu graph *"
+      approval: allow
+    - match: "podman ps"
+      approval: allow
+    - match: "podman ps *"
+      approval: allow
+    - match: "podman images"
+      approval: allow
+    - match: "podman images *"
+      approval: allow
+    - match: "podman version"
+      approval: allow
+    - match: "podman version *"
+      approval: allow
+    - match: "aws sso login *--no-browser*"
+      approval: allow
+    - match: "gh pr create"
+      approval: allow
+    - match: "gh pr create *"
+      approval: allow
+    - match: "gh pr edit"
+      approval: allow
+    - match: "gh pr edit *"
+      approval: allow
+    - match: "gh pr comment"
+      approval: allow
+    - match: "gh pr comment *"
+      approval: allow
+    - match: "gh pr diff"
+      approval: allow
+    - match: "gh pr diff *"
+      approval: allow
+    - match: "doppler projects"
+      approval: allow
+    - match: "doppler projects *"
+      approval: allow
+    - match: "doppler configs"
+      approval: allow
+    - match: "doppler configs *"
+      approval: allow
+    - match: "doppler environments"
+      approval: allow
+    - match: "doppler environments *"
+      approval: allow
+    - match: "git -c core.hooksPath=/dev/null push"
+      approval: allow
+    - match: "git -c core.hooksPath=/dev/null push *"
+      approval: allow
+    - match: "git -c core.hooksPath=/dev/null pull --rebase --autostash"
+      approval: allow
+    - match: "terraform plan"
+      approval: allow
+    - match: "terraform plan *"
+      approval: allow
+    - match: "terraform init"
+      approval: allow
+    - match: "terraform init *"
+      approval: allow
+    - match: "terraform state list"
+      approval: allow
+    - match: "terraform state list *"
+      approval: allow
+    - match: "terraform workspace list"
+      approval: allow
+    - match: "terraform workspace list *"
+      approval: allow
+    - match: "terraform workspace show"
+      approval: allow
+    - match: "terraform workspace show *"
+      approval: allow
+    - match: "aws *sts get-caller-identity*"
+      approval: allow
+    - match: "aws * describe-*"
+      approval: allow
+    - match: "aws * list-*"
+      approval: allow
+    - match: "aws *s3 ls*"
+      approval: allow
+    - match: "aws configure list-profiles"
+      approval: allow
+    - match: "aws configure list-profiles *"
+      approval: allow
+    - match: "kubectl get"
+      approval: allow
+    - match: "kubectl get *"
+      approval: allow
+    - match: "kubectl describe"
+      approval: allow
+    - match: "kubectl describe *"
+      approval: allow
+    - match: "kubectl logs"
+      approval: allow
+    - match: "kubectl logs *"
+      approval: allow
+    - match: "kubectl top"
+      approval: allow
+    - match: "kubectl top *"
+      approval: allow
+    - match: "kubectl version"
+      approval: allow
+    - match: "kubectl version *"
+      approval: allow
+    - match: "kubectl api-resources"
+      approval: allow
+    - match: "kubectl api-resources *"
+      approval: allow
+    - match: "kubectl explain"
+      approval: allow
+    - match: "kubectl explain *"
+      approval: allow
+    - match: "kubectl cluster-info"
+      approval: allow
+    - match: "kubectl cluster-info *"
+      approval: allow
+    - match: "kubectl config current-context"
+      approval: allow
+    - match: "kubectl config current-context *"
+      approval: allow
+    - match: "kubectl config get-contexts"
+      approval: allow
+    - match: "kubectl config get-contexts *"
+      approval: allow
+    - match: "helm list"
+      approval: allow
+    - match: "helm list *"
+      approval: allow
+    - match: "helm status"
+      approval: allow
+    - match: "helm status *"
+      approval: allow
+    - match: "helm history"
+      approval: allow
+    - match: "helm history *"
+      approval: allow
+    - match: "tofu plan"
+      approval: allow
+    - match: "tofu plan *"
+      approval: allow
+    - match: "tofu init"
+      approval: allow
+    - match: "tofu init *"
+      approval: allow
+    - match: "tofu state list"
+      approval: allow
+    - match: "tofu state list *"
+      approval: allow
+    - match: "tofu workspace list"
+      approval: allow
+    - match: "tofu workspace list *"
+      approval: allow
+    - match: "tofu workspace show"
+      approval: allow
+    - match: "tofu workspace show *"
+      approval: allow
+    - match: "k3s kubectl get"
+      approval: allow
+    - match: "k3s kubectl get *"
+      approval: allow
+    - match: "k3s kubectl describe"
+      approval: allow
+    - match: "k3s kubectl describe *"
+      approval: allow
+    - match: "k3s kubectl logs"
+      approval: allow
+    - match: "k3s kubectl logs *"
+      approval: allow
+    - match: "k3s kubectl top"
+      approval: allow
+    - match: "k3s kubectl top *"
+      approval: allow
+    - match: "k3s kubectl version"
+      approval: allow
+    - match: "k3s kubectl version *"
+      approval: allow
+    - match: "k3s kubectl api-resources"
+      approval: allow
+    - match: "k3s kubectl api-resources *"
+      approval: allow
+    - match: "k3s kubectl explain"
+      approval: allow
+    - match: "k3s kubectl explain *"
+      approval: allow
+    - match: "k3s kubectl cluster-info"
+      approval: allow
+    - match: "k3s kubectl cluster-info *"
+      approval: allow
+    - match: "k3s kubectl config current-context"
+      approval: allow
+    - match: "k3s kubectl config current-context *"
+      approval: allow
+    - match: "k3s kubectl config get-contexts"
+      approval: allow
+    - match: "k3s kubectl config get-contexts *"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- terraform plan"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- terraform init"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- terraform state list"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- terraform workspace list"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- terraform workspace show"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- aws *sts get-caller-identity*"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- aws * describe-*"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- aws * list-*"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- aws *s3 ls*"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- aws configure list-profiles"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl get"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl describe"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl logs"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl top"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl version"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl api-resources"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl explain"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl cluster-info"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl config current-context"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- kubectl config get-contexts"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- helm list"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- helm status"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- helm history"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- tofu plan"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- tofu init"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- tofu state list"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- tofu workspace list"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- tofu workspace show"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl get"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl describe"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl logs"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl top"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl version"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl api-resources"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl explain"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl cluster-info"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl config current-context"
+      approval: allow
+    - match: "doppler run *--only-secrets* -- k3s kubectl config get-contexts"
+      approval: allow

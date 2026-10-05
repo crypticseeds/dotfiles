@@ -91,6 +91,45 @@ Claude sandbox details (`sandbox` block in the Claude file):
 For a box where agents work unattended (the Pi). Pass it with `--claude-out` or `--install`; the
 `standard/` and `strict/` bundles are unchanged by it.
 
+**Claude: default-allow, nothing prompts.** Nobody is there to answer a prompt, so every
+command is allowed (`Bash(*)`) unless a deny rule or the guard hook blocks it, and there are no ask
+rules: each `ASK_BASH` entry is decided as allow or deny in `generate.py`, which refuses to run if
+one is left undecided. WebFetch and WebSearch are allowed; `WebFetch(domain:*)` also opens every
+host to sandboxed commands.
+
+**opencode and omp: the same rules, compiled to what they support** (`agent-host/opencode.json`,
+`agent-host/omp-config.yml`). They have no OS sandbox and no hook, so a default-allow would let any
+script read secrets: unmatched commands still prompt, and only the listed allows run unattended
+(reads, `terraform plan`, read-only kubectl/aws/helm, PRs). They get every deny rule, including the
+agent-host ones, and push only with `git -c core.hooksPath=/dev/null push` (a plain push or pull
+prompts, since a repo hook is agent-editable code that would run with full access). omp has no
+per-path rules at all (see Known gaps).
+- Still denied: every secret rule and every destructive rule from the standard profile.
+- **Guard hook** (`agent_host_guard.py`, embedded inline in the settings file, ~55 ms per Bash call).
+  Glob rules cannot say "only these subcommands" or look at files, so the guard does:
+  - Tools that run outside the sandbox (aws, terraform/tofu, kubectl, helm, docker/podman, gh,
+    doppler) may only run read-only subcommands (`aws` operations must be describe/list/get/...).
+    So live infrastructure is read-only, and docker (root-equivalent via the `docker` group) cannot
+    run, build or mount.
+  - No flag that sends credentials elsewhere or runs a program (`--endpoint-url`, `--server`,
+    `--post-renderer`, `--plugin-dir`, `doppler run --command/--fallback`), no `VAR=` prefix except
+    `AWS_PROFILE`/`AWS_REGION`/`TF_VAR_*`-style ones, and `doppler run -- <cmd>` only for
+    terraform/tofu/aws/kubectl/helm.
+  - No argument or planted symlink in the repo that resolves into a secret store; no Terraform code
+    that runs a program during `plan` (`data "external"`, provider `exec` other than `aws`,
+    non-registry providers, custom `endpoints`).
+  - git push/pull (outside the sandbox): no local config that runs programs, https/ssh remotes only,
+    and no push/pull hooks. In repos with hooks (husky) the agent must use
+    `git -c core.hooksPath=/dev/null push ...` / `... pull --rebase --autostash`; the deny message
+    says so. Pushes that delete or force (`--delete`, `:branch`, `+branch`, `--mirror`, `-f`) are denied.
+  - Destructive spellings globs miss: any recursive `rm`, `git -C x reset --hard`, `git clean`,
+    `git checkout .`, `git restore` (except `--staged`).
+  - `ansible-playbook` only with `--check`, `--syntax-check` or `--list-*` (it runs sandboxed).
+- `allowUnsandboxedCommands: false` removes the unsandboxed retry; `--agent-host --no-sandbox` is
+  refused. `allowManagedPermissionRulesOnly: true` makes repo `.claude/settings*.json` rules ignored.
+- **What no rule can stop:** a script the agent writes can still delete files inside the write
+  boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch protection covers pushed work.
+
 - `git push` and `gh pr create/edit/comment/diff` run without a prompt; `gh pr merge` and
   `gh repo delete` are denied (the human reviews and merges); force push stays denied.
 - `terraform apply` (and `tofu apply`, plain or Doppler-wrapped, with or without `-auto-approve`)
@@ -114,16 +153,25 @@ For a box where agents work unattended (the Pi). Pass it with `--claude-out` or 
   would let an agent loosen another repo's next session or plant a hook that runs unsandboxed.
   `.claude/worktrees` stays writable.
 - `~/.local/bin`, shell rc files and `~/dotfiles` stay outside the write boundary: anything there
-  runs outside the sandbox.
+  runs outside the sandbox. Claude always lets a session write the directory it starts in, so start
+  agents in `~/REPOS/<repo>`, never in `~/dotfiles`.
 - Required alongside, outside this file: branch protection on `main` (PR required, no force push,
   no deletion), because a glob cannot stop a plain `git push` made while on main, and a
   fine-grained, repo-scoped `GH_TOKEN` with no admin rights.
-- On the Pi, `~/REPOS/aws-platform/.claude/settings.local.json` must only ever be regenerated with
-  `bash regen-agent-host.sh`. It runs `git pull --rebase --autostash` on the dotfiles, then `--check`
-  (and stops if either fails), then writes the file
-  with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
-  `generate.py --claude-out` without those flags silently drops the host rules and
-  `enabledMcpjsonServers`. An optional argument writes elsewhere, for a dry run.
+- On the Pi, install or update all three only with `bash regen-agent-host.sh`, run by you (it uses
+  sudo). It runs `git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either
+  fails), then installs:
+  - Claude: `/etc/claude-code/managed-settings.json` (root-owned managed settings, every project),
+    generated with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
+    `generate.py --claude-out` without those flags silently drops the host rules.
+  - opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority). Configs
+    merge, so a project `opencode.json` can still add rules for patterns this file does not name.
+  - omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
+    your other settings kept. omp has no managed config, so this file stays user-writable.
+
+  An optional directory argument writes the three files there instead, without sudo, for a dry run.
+  Old per-project `opencode.json` / `.omp/config.yml` files from `--install` (e.g. in
+  `~/REPOS/aws-platform`) layer over these; delete them.
 
 ## SSO login: `--no-browser` only
 
@@ -157,6 +205,9 @@ profiles (native, snap, flatpak), keyrings and KWallet, password stores, Thunder
 Telegram, `/etc/shadow`, `/etc/sudoers*`, SSH host keys, saved WiFi/VPN passwords
 (`/etc/NetworkManager/system-connections`), WireGuard, kubeadm paths, `/proc/*/environ`,
 `/proc/*/cmdline`, and `/mnt/hgfs` (VMware shared folders = the Mac's files).
+The `/proc` paths are blocked by a `PreToolUse` hook (file tools) and command denies, not by
+Read/Edit rules: Claude folds those into the sandbox read-deny and bubblewrap then fails to start
+(`Can't mkdir parents for /proc/<pid>/mem`, verified on the Pi 2026-10-05).
 
 Fedora-specific rule coverage:
 - `podman` gets every `docker` rule; `k3s kubectl` gets every `kubectl` rule (otherwise they bypass them).
@@ -179,10 +230,11 @@ re-run the install with `--no-sandbox --force`. The permission rules, secret den
 hook all stay; only the OS-level write boundary for shell commands goes (Write/Edit tools still
 prompt outside the project). Fix the sandbox later and re-run without the flag.
 
-Verified vs not: the command and path rules for Linux are tested offline (`--check`, 1200+
-cases). **Not tested on Linux itself**: that the bubblewrap sandbox starts with this config, and
-Claude's own handling of the Linux paths. Do
-the first live run in the VM with the check list in the preflight script and a few canary reads.
+Verified vs not: the command and path rules for Linux are tested offline (`--check`, 1800+
+cases). On the Pi (Raspberry Pi OS, Claude Code 2.1.289) the bubblewrap sandbox starts with the
+agent-host config and enforces the write boundary (verified live 2026-10-05). **Not tested on
+Fedora**: do the first live run in the VM with the check list in the preflight script and a few
+canary reads.
 
 ## Known gaps (do not rely on these files for more than they do)
 

@@ -495,9 +495,6 @@
       "Read(//etc/kubernetes/admin.conf)",
       "Read(//etc/kubernetes/pki/**)",
       "Read(//var/lib/kubelet/**)",
-      "Read(//proc/*/environ)",
-      "Read(//proc/*/cmdline)",
-      "Read(//proc/*/mem)",
       "Read(//mnt/hgfs/**)",
       "Read(**/.env)",
       "Read(**/.env.[.0-9A-DF-Z_a-df-z-]*)",
@@ -596,9 +593,6 @@
       "Edit(//etc/kubernetes/admin.conf)",
       "Edit(//etc/kubernetes/pki/**)",
       "Edit(//var/lib/kubelet/**)",
-      "Edit(//proc/*/environ)",
-      "Edit(//proc/*/cmdline)",
-      "Edit(//proc/*/mem)",
       "Edit(//mnt/hgfs/**)",
       "Edit(**/.env)",
       "Edit(**/.env.[.0-9A-DF-Z_a-df-z-]*)",
@@ -1189,6 +1183,16 @@
             "type": "command",
             "if": "Bash(*aws sso login*)",
             "command": "python3 -c 'import json, re, sys\nc = json.load(sys.stdin).get('\"'\"'tool_input'\"'\"', {}).get('\"'\"'command'\"'\"', '\"'\"''\"'\"')\nif re.search(r'\"'\"'\\baws\\b.*\\bsso\\s+login\\b'\"'\"', c) and '\"'\"'--no-browser'\"'\"' not in c:\n    print(json.dumps({'\"'\"'hookSpecificOutput'\"'\"': {'\"'\"'hookEventName'\"'\"': '\"'\"'PreToolUse'\"'\"',\n        '\"'\"'permissionDecision'\"'\"': '\"'\"'deny'\"'\"', '\"'\"'permissionDecisionReason'\"'\"': \"Plain `aws sso login` is blocked here: it opens the default browser, which may be signed in to the admin account. Re-run it with --no-browser, for example `aws sso login --sso-session seeds-agent --no-browser`, then give the user the URL and code it prints so they can open it in a private browser window.\"}}))\n'",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import json, os, re, sys\nt = json.load(sys.stdin).get('\"'\"'tool_input'\"'\"', {})\nfor p in (t.get('\"'\"'file_path'\"'\"'), t.get('\"'\"'path'\"'\"')):\n    if p and re.fullmatch(r'\"'\"'/proc/[^/]+/(environ|cmdline|mem)'\"'\"', os.path.normpath(p)):\n        print(json.dumps({'\"'\"'hookSpecificOutput'\"'\"': {'\"'\"'hookEventName'\"'\"': '\"'\"'PreToolUse'\"'\"',\n            '\"'\"'permissionDecision'\"'\"': '\"'\"'deny'\"'\"', '\"'\"'permissionDecisionReason'\"'\"': '\"'\"'process environment and memory are secret'\"'\"'}}))\n        break\n'",
             "timeout": 10
           }
         ]
