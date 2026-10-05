@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Push another repo from an agent session on the agent host:  git-push-to <repo-dir> [git push args]
+# Installed root-owned in /usr/local/bin by regen-agent-host.sh. Claude's excludedCommands match only
+# from the start of a command, so `git -C <dir> push` stays sandboxed and cannot read the doppler
+# token; `git-push-to *` is excluded instead, and the agent-host guard checks every call like a push.
+# Hooks are off: a repo hook is agent-editable code and this runs outside the sandbox.
+set -euo pipefail
+[ $# -ge 1 ] || { echo "usage: git-push-to <repo-dir> [git push args]" >&2; exit 2; }
+cd "$1"
+shift
+exec git -c core.hooksPath=/dev/null push "$@"

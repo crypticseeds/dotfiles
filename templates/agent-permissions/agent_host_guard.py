@@ -253,15 +253,11 @@ def check_git(args, cwd):
     if i >= len(args):
         return
     sub, rest, glob = args[i], args[i + 1:], args[:i]
-    # `git -C * push *` runs outside the sandbox, and that glob also matches anything with " push "
-    # after `-C`. Only `[-C <dir>] [-c core.hooksPath=/dev/null] push` may use it.
-    if glob[:1] == ["-C"]:
-        if sub != "push" and "push" in " ".join(args).split():
-            deny("`git -C <dir> ...` containing the word push runs outside the sandbox; only "
-                 "`git -C <dir> [-c core.hooksPath=/dev/null] push ...` may (reword, e.g. the message)")
-        if sub == "push" and not (glob[2:] == [] or (len(glob) == 4 and glob[2] == "-c" and cfg == [NOHOOKS])):
-            deny("only `git -C <dir> [-c core.hooksPath=/dev/null] push ...`")
-        cwd = os.path.join(cwd, os.path.expanduser(glob[1]))
+    # excludedCommands only match from the start, so `git -C <dir> push` stays sandboxed and has no
+    # credentials. Pushing another repo: `cd <dir>` as its own command, then `git push`.
+    if "-C" in glob and sub in ("push", "pull"):
+        deny("`git -C <dir> %s` runs sandboxed without credentials: to push another repo use "
+             "`git-push-to <dir> [push args]`" % sub)
     short = [a for a in rest if re.fullmatch(r"-[A-Za-z]+", a)]
     if sub == "clean" or sub in ("filter-branch", "filter-repo"):
         deny("git %s deletes work" % sub)
@@ -286,9 +282,8 @@ def check_git(args, cwd):
         if dest and (dest[0].startswith(("/", ".", "~", "file:")) or os.path.exists(os.path.join(cwd, dest[0]))):
             deny("git push to a local path runs that repo's hooks outside the sandbox")
     # the forms that run outside the sandbox: plain, `-C <dir>`, either with only the hooks-off override
-    local = glob[2:] if glob[:1] == ["-C"] else glob
-    if sub in ("push", "pull") and (local == [] or local == ["-c", local[1]] and cfg == [NOHOOKS]):
-        git_repo_checks(cwd, nohooks=local != [])
+    if sub in ("push", "pull") and (glob == [] or glob == ["-c", glob[1]] and cfg == [NOHOOKS]):
+        git_repo_checks(cwd, nohooks=glob != [])
 
 
 def check_segment(t, cwd):
@@ -304,6 +299,13 @@ def check_segment(t, cwd):
             deny("recursive rm")
     if tool == "git":
         check_git(args, cwd)
+    if tool == "git-push-to":  # runs outside the sandbox: `cd <dir> && git -c hooksPath=/dev/null push`
+        if not args or args[0].startswith("-"):
+            deny("usage: git-push-to <repo-dir> [git push args]")
+        target = os.path.join(cwd, os.path.expanduser(args[0]))
+        if not (os.path.isdir(target) and scan_root(target)):
+            deny("git-push-to only pushes repos under %s" % ", ".join(WRITABLE))
+        check_git(["-c", "core.hooksPath=/dev/null", "push"] + args[1:], target)
     if tool == "ansible-playbook" and not set(args) & {"--check", "-C", "--syntax-check", "--list-tasks",
                                                       "--list-hosts", "--list-tags"}:
         deny("ansible-playbook only with --check, --syntax-check or --list-*")
@@ -397,10 +399,11 @@ def check_command(cmd, cwd):
             while s and s[0] in SHELL_KEYWORDS:
                 s = s[1:]
             words = [w for w in s if not re.match(r"[A-Za-z_]\w*=", w)]
-            if words and (os.path.basename(words[0]) in EXCLUDED or
+            if words and (os.path.basename(words[0]) in EXCLUDED | {"git-push-to"} or
                           (words[0] == "git" and ("push" in words or GIT_SYNC_WORDS <= set(words)))):
                 deny("run `%s` as its own Bash command: in a loop, pipeline or && chain it runs inside the "
-                     "sandbox without credentials (use `git -C <dir> push`, `gh -R owner/repo`, `--jq`)"
+                     "sandbox without credentials (another repo: `git-push-to <dir> [push args]`; gh: "
+                     "`-R owner/repo`, `--jq`)"
                      % " ".join(words[:3]))
 
 

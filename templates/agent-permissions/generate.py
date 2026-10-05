@@ -484,13 +484,14 @@ ALLOW_LIVE = [
 GIT_NOHOOKS = "git -c core.hooksPath=/dev/null "
 AGENT_HOST_EXCLUDED = [
     "git push *", "gh *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + GIT_SYNC[len("git "):],
-    # pushing another repo from this session (the guard allows only `-C <dir> [hooks-off] push` here)
-    "git -C * push *",
+    # pushing another repo: excludedCommands match only from the start (a mid-pattern `git -C * push *`
+    # never matched, verified live 2026-10-06), so bin/git-push-to <dir> does it; the guard checks it
+    "git-push-to *",
     # kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from
     # the sandbox. The rules still deny their secret reads (`kubectl get secret`, `helm get values`).
     "kubectl *", "helm *",
 ]
-AGENT_HOST_WRITE = ["~/REPOS"]
+AGENT_HOST_WRITE = ["~/REPOS", "~/.cache/pre-commit"]
 # NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
 # the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these
@@ -1397,12 +1398,16 @@ def check():
             ("git -c core.hooksPath=/dev/null push origin feat/x", "deny", "sshcmd"),
             ("git -c core.hooksPath=/dev/null -c core.sshCommand=x push origin feat/x", "allow", "husky"),
             # another repo's push from this session: git -C <dir>, with the same repo checks
-            ("git -C . push -u origin feat/x", "allow", "clean"), ("git -C . push origin feat/x", "deny", "husky"),
-            ("git -C . -c core.hooksPath=/dev/null push origin feat/x", "allow", "husky"),
-            ("git -C . push origin feat/x", "deny", "sshcmd"), ("git -C . push --force origin main", "deny"),
-            ("git -C . -c core.sshCommand=x push origin feat/x", "deny"), ("git -C a -C b push", "deny"),
-            ("git -C . commit -m 'fix push now'", "deny"), ("git -C . status", "allow"),
-            ("git -C . commit -m 'fix the gateway'", "allow"),
+            ("git -C . push -u origin feat/x", "deny", "clean"),
+            ("git -C . -c core.hooksPath=/dev/null push origin feat/x", "deny", "husky"),
+            ("git -C . pull --rebase --autostash", "deny"), ("git -C . status", "allow"),
+            ("git-push-to . -u origin feat/x", "allow", "clean"), ("git-push-to . origin feat/x", "allow", "husky"),
+            ("git-push-to . origin feat/x", "allow", "hook"), ("git-push-to . origin feat/x", "deny", "sshcmd"),
+            ("git-push-to . origin feat/x", "deny", "localremote"), ("git-push-to . --force origin main", "deny"),
+            ("git-push-to . origin :feat/x", "deny"), ("git-push-to . --receive-pack=x origin", "deny"),
+            ("git-push-to", "deny"), ("git-push-to -u origin x", "deny"), ("git-push-to /etc origin x", "deny"),
+            ("git add -A && git-push-to . origin x", "deny"),
+            ("git -C . commit -m 'fix push now'", "allow"), ("git -C . log --oneline -3", "allow"),
             # credentialed tools only as their own command (chained they run sandboxed, without credentials)
             ("git add -A && git commit -m x && git push", "deny"), ("cd x && git push", "deny"),
             ("for r in a b; do gh api repos/x/$r; done", "deny"), ("gh pr list --json title | jq .", "deny"),
@@ -1483,9 +1488,12 @@ def check():
     except SystemExit:
         refused = True
     expect("[agent-host] refuses --no-sandbox", True, refused)
-    for tool in ("gh *", "git push *", "git -C * push *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + "pull --rebase --autostash", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
+    for tool in ("gh *", "git push *", "git-push-to *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + "pull --rebase --autostash", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in host["sandbox"]["excludedCommands"])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
+    expect("[agent-host] pre-commit cache writable", True, "~/.cache/pre-commit" in fs["allowWrite"])
+    expect("[agent-host] no mid-pattern exclusions (they never match)", [],
+           [e for e in host["sandbox"]["excludedCommands"] if "*" in e[:-1]])
     expect("[agent-host] no secret store re-opened", [], fs["allowRead"])
     for path in AGENT_HOST_DENY_WRITE:
         expect("[agent-host] sandbox denies writing %s" % path, True, path in fs["denyWrite"])

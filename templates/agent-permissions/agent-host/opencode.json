@@ -1537,6 +1537,7 @@
       "~/dotfiles/agents/.agents/*": "allow",
       "~/dotfiles/claude/.claude/agents/*": "allow",
       "~/REPOS/*": "allow",
+      "~/.cache/pre-commit/*": "allow",
       "~/REPOS/*/.claude/settings.json": "deny",
       "~/REPOS/*/.claude/settings.json/*": "deny",
       "~/REPOS/*/.claude/settings.local.json": "deny",
