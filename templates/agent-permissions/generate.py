@@ -370,6 +370,28 @@ _HOOK_CODE = (
     "if re.search(r'\\baws\\b.*\\bsso\\s+login\\b', c) and '--no-browser' not in c:\n"
     "    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse',\n"
     "        'permissionDecision': 'deny', 'permissionDecisionReason': %s}}))\n" % json.dumps(SSO_LOGIN_MESSAGE))
+# No AI attribution in commits or PRs (global AGENTS.md rule). `attribution` below stops Claude Code
+# adding it; this hook rejects it if an agent writes it anyway. The message may come inline, from a
+# heredoc, or from a file (-F / --file / --body-file / --input), so files named that way are read too.
+_ATTRIBUTION_HOOK_CODE = (
+    "import json, os, re, sys\n"
+    "d = json.load(sys.stdin)\n"
+    "c, cwd = d.get('tool_input', {}).get('command', ''), d.get('cwd') or '.'\n"
+    "if re.search(r'\\bgit\\b.*\\b(commit|tag|notes)\\b|\\bgh\\b.*\\b((pr|issue|release)\\s+(create|edit|comment)|api)\\b', c, re.S):\n"
+    "    text = c\n"
+    "    for m in re.finditer(r'(?:-F|--file|--body-file|--input)[= ]+(\\S+)', c):\n"
+    "        try:\n"
+    "            text += open(os.path.join(cwd, os.path.expanduser(m.group(1).strip(chr(34) + chr(39)))), errors='replace').read(200000)\n"
+    "        except OSError:\n"
+    "            pass\n"
+    "    if re.search(r'Generated with \\[?Claude Code|Co-Authored-By:\\s*Claude|noreply@anthropic\\.com', text, re.I):\n"
+    "        print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'deny',\n"
+    "            'permissionDecisionReason': 'No AI attribution in commits or PRs: remove the Generated with / Co-Authored-By line and retry.'}}))\n")
+ATTRIBUTION_HOOK = {
+    "matcher": "Bash",
+    "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(_ATTRIBUTION_HOOK_CODE), "timeout": 10}],
+}
+
 SSO_LOGIN_HOOK = {
     "matcher": "Bash",
     "hooks": [{
@@ -745,7 +767,9 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "ask": ["Bash(%s)" % p for p in r["ask"]],
             "deny": uniq(deny),
         },
-        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK] + ([PROC_READ_HOOK] if os_name == "linux" else [])},
+        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK, ATTRIBUTION_HOOK] + ([PROC_READ_HOOK] if os_name == "linux" else [])},
+        # no "Generated with" / Co-Authored-By lines: Claude Code adds none and is not reminded to
+        "attribution": {"commit": "", "pr": ""},
         "sandbox": {
             "enabled": True,
             # Linux needs bubblewrap + socat. Without this, a missing dependency means a warning
@@ -1229,6 +1253,37 @@ def check():
         deny = json.loads(claude_file("standard", os_name).read_text())["permissions"]["deny"]
         return [e for e in deny if e.startswith(("Read(", "Edit("))]
     mac, lin = path_rules("macos"), path_rules("linux")
+    # attribution: off in every Claude file, and the hook rejects it if written anyway
+    import tempfile
+    att_dir = tempfile.mkdtemp()
+    pathlib.Path(att_dir, "msg.txt").write_text("feat: x\n\nCo-Authored-By: " + "Claude Opus <noreply@anthropic.com>\n")
+    pathlib.Path(att_dir, "clean.txt").write_text("feat: x\n\nplain body\n")
+    gen = "Generated with " + "[Claude Code](https://claude.com/claude-code)"
+    for os_name in OSES:
+        for profile in PROFILES:
+            st = json.loads(claude_file(profile, os_name).read_text())
+            expect("[%s %s] attribution off" % (profile, os_name), {"commit": "", "pr": ""}, st.get("attribution"))
+            expect("[%s %s] attribution hook" % (profile, os_name), True, ATTRIBUTION_HOOK in st["hooks"]["PreToolUse"])
+    host_st = claude_settings("standard", "linux", agent_host=True)
+    expect("[agent-host] attribution off", {"commit": "", "pr": ""}, host_st.get("attribution"))
+    expect("[agent-host] attribution hook", True, ATTRIBUTION_HOOK in host_st["hooks"]["PreToolUse"])
+    for cmd, blocked in (
+            ("git commit -m 'feat: x' -m '" + gen + "'", True),
+            ("git commit -F - <<'EOF'\nfeat: x\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>\nEOF", True),
+            ("git commit -F msg.txt", True), ("git commit --file=msg.txt", True),
+            ("gh pr create --title x --body '" + gen + "'", True), ("gh pr edit 3 --body-file msg.txt", True),
+            ("gh api repos/x/y/pulls -f body='co-authored-by: claude'", True),
+            ("git commit -m 'feat: add login'", False), ("git commit -F clean.txt", False),
+            ("gh pr create --title x --body 'adds login'", False), ("git log --grep=Claude", False),
+            ("echo '" + gen + "'", False)):
+        out = subprocess.run(["sh", "-c", ATTRIBUTION_HOOK["hooks"][0]["command"]],
+                             input=json.dumps({"tool_input": {"command": cmd}, "cwd": att_dir}),
+                             capture_output=True, text=True)
+        expect("[attribution hook] %s" % cmd[:60], blocked, '"permissionDecision": "deny"' in out.stdout)
+        expect("[attribution hook] runs cleanly: %s" % cmd[:40], "", out.stderr)
+    for f in ("msg.txt", "clean.txt"):
+        os.remove(os.path.join(att_dir, f))
+    os.rmdir(att_dir)
     # /proc: never a Read/Edit deny on Linux (it breaks bubblewrap); the hook blocks the file tools
     expect("Linux file has no /proc path rules", False, any("/proc/" in e for e in lin))
     linux_hooks = json.loads(claude_file("standard", "linux").read_text())["hooks"]["PreToolUse"]

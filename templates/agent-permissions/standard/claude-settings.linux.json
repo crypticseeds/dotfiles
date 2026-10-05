@@ -1298,6 +1298,16 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import json, os, re, sys\nd = json.load(sys.stdin)\nc, cwd = d.get('\"'\"'tool_input'\"'\"', {}).get('\"'\"'command'\"'\"', '\"'\"''\"'\"'), d.get('\"'\"'cwd'\"'\"') or '\"'\"'.'\"'\"'\nif re.search(r'\"'\"'\\bgit\\b.*\\b(commit|tag|notes)\\b|\\bgh\\b.*\\b((pr|issue|release)\\s+(create|edit|comment)|api)\\b'\"'\"', c, re.S):\n    text = c\n    for m in re.finditer(r'\"'\"'(?:-F|--file|--body-file|--input)[= ]+(\\S+)'\"'\"', c):\n        try:\n            text += open(os.path.join(cwd, os.path.expanduser(m.group(1).strip(chr(34) + chr(39)))), errors='\"'\"'replace'\"'\"').read(200000)\n        except OSError:\n            pass\n    if re.search(r'\"'\"'Generated with \\[?Claude Code|Co-Authored-By:\\s*Claude|noreply@anthropic\\.com'\"'\"', text, re.I):\n        print(json.dumps({'\"'\"'hookSpecificOutput'\"'\"': {'\"'\"'hookEventName'\"'\"': '\"'\"'PreToolUse'\"'\"', '\"'\"'permissionDecision'\"'\"': '\"'\"'deny'\"'\"',\n            '\"'\"'permissionDecisionReason'\"'\"': '\"'\"'No AI attribution in commits or PRs: remove the Generated with / Co-Authored-By line and retry.'\"'\"'}}))\n'",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Read|Edit|Write|Grep|Glob",
         "hooks": [
           {
@@ -1308,6 +1318,10 @@
         ]
       }
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
   },
   "sandbox": {
     "enabled": true,
