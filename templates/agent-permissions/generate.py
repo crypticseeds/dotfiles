@@ -503,7 +503,9 @@ AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in (
 )]
 AGENT_HOST_ALLOW_BASH = ["git push", "gh pr create", "gh pr edit", "gh pr comment", "gh pr diff",
                          # Doppler: list projects, configs and environments (names, never values)
-                         "doppler projects", "doppler configs", "doppler environments"]
+                         "doppler projects", "doppler configs", "doppler environments",
+                         # GitHub Actions secret names and dates; the API never returns values
+                         "gh secret list"]
 AGENT_HOST_DENY_BASH = [
     "gh pr merge", "gh repo delete",  # merging stays with the human
     "terraform apply",  # nobody is there to approve it, so deny instead of a prompt that stalls
@@ -546,7 +548,7 @@ AGENT_HOST_DENY_BASH = [
     # --- GitHub: gh runs outside the sandbox with a token; only reads, pushes and PRs ---
     "gh api *-X*", "gh api *--method*", "gh api *-f *", "gh api *-F *", "gh api *--field*",
     "gh api *--raw-field*", "gh api *--input*", "gh extension", "gh alias", "gh auth",
-    "gh secret", "gh variable", "gh ssh-key", "gh gpg-key", "gh repo create", "gh repo edit",
+    "gh secret set", "gh secret delete", "gh secret remove", "gh variable", "gh ssh-key", "gh gpg-key", "gh repo create", "gh repo edit",
     "gh repo archive", "gh repo rename", "gh release delete", "gh run cancel", "gh run delete",
     "gh workflow", "gh cache delete", "gh issue delete", "gh label delete",
     # --- remote branches: delete, mirror or force by refspec (the guard also checks these for Claude) ---
@@ -1422,7 +1424,10 @@ def check():
             ("docker build .", "deny"), ("podman run alpine", "deny"), ("docker rm x", "deny"),
             ("docker stop x", "deny"), ("docker image prune -a", "deny"),
             ("gh api -X DELETE repos/x", "deny"), ("gh api repos/x -f a=b", "deny"),
-            ("gh extension install x/y", "deny"), ("gh secret list", "deny"), ("gh pr close 3", "deny"),
+            ("gh extension install x/y", "deny"), ("gh pr close 3", "deny"),
+            ("gh secret list", "allow"), ("gh secret list -R crypticseeds/x", "allow"),
+            ("gh secret list --env prod", "allow"), ("gh secret set X --body y", "deny"),
+            ("gh secret delete X", "deny"), ("gh secret remove X", "deny"), ("gh secret", "deny"),
             ("gh release delete v1", "deny"), ("gh repo edit --visibility public", "deny"),
             ("git restore .", "deny"), ("git stash drop", "deny"), ("rm -rf build", "deny"),
             ("rm -Rf build", "deny"), ("rm -fr build", "deny"), ("rm --recursive build", "deny"),
@@ -1449,7 +1454,8 @@ def check():
             ("git -c core.hooksPath=/dev/null push -u origin feat/x", "allow"),
             ("git -c core.hooksPath=/dev/null pull --rebase --autostash", "allow"),
             ("gh pr create --fill", "allow"), ("terraform plan", "allow"), ("kubectl get pods -A", "allow"),
-            ("git status", "allow"), ("doppler projects", "allow"),
+            ("git status", "allow"), ("doppler projects", "allow"), ("gh secret list", "allow"),
+            ("gh secret set X --body y", "deny"), ("gh secret delete X", "deny"),
             ("git push origin feat/x", "ask"), ("git pull --rebase --autostash", "ask"),
             ("python3 -c 'print(1)'", "ask"), ("ls -la", "ask"), ("npm test", "ask"),
             ("ansible-playbook site.yml", "ask"), ("ansible-playbook site.yml --check", "allow"),

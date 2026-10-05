@@ -1146,9 +1146,17 @@ bash:
       approval: deny
     - match: "gh auth *"
       approval: deny
-    - match: "gh secret"
+    - match: "gh secret set"
       approval: deny
-    - match: "gh secret *"
+    - match: "gh secret set *"
+      approval: deny
+    - match: "gh secret delete"
+      approval: deny
+    - match: "gh secret delete *"
+      approval: deny
+    - match: "gh secret remove"
+      approval: deny
+    - match: "gh secret remove *"
       approval: deny
     - match: "gh variable"
       approval: deny
@@ -2329,6 +2337,10 @@ bash:
     - match: "doppler environments"
       approval: allow
     - match: "doppler environments *"
+      approval: allow
+    - match: "gh secret list"
+      approval: allow
+    - match: "gh secret list *"
       approval: allow
     - match: "git -c core.hooksPath=/dev/null push"
       approval: allow

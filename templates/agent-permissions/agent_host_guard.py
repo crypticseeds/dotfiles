@@ -42,7 +42,7 @@ READ = {
                "network ls", "network list", "volume ls", "volume list", "system df", "system info",
                "compose ps", "compose ls", "compose logs", "compose images", "compose version"},
     "gh": {"pr view", "pr list", "pr status", "pr checks", "pr diff", "pr create", "pr edit", "pr comment",
-           "pr ready", "issue view", "issue list", "issue status", "issue create",
+           "pr ready", "secret list", "issue view", "issue list", "issue status", "issue create",
            "issue comment", "run view", "run list", "run watch", "repo view", "repo list", "repo clone",
            "workflow list", "workflow view", "release list", "release view", "label list", "search",
            "api", "status", "--version", "version"},
