@@ -484,6 +484,8 @@ ALLOW_LIVE = [
 GIT_NOHOOKS = "git -c core.hooksPath=/dev/null "
 AGENT_HOST_EXCLUDED = [
     "git push *", "gh *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + GIT_SYNC[len("git "):],
+    # pushing another repo from this session (the guard allows only `-C <dir> [hooks-off] push` here)
+    "git -C * push *",
     # kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden from
     # the sandbox. The rules still deny their secret reads (`kubectl get secret`, `helm get values`).
     "kubectl *", "helm *",
@@ -1392,6 +1394,17 @@ def check():
             ("git -c core.hooksPath=/dev/null push origin :feat/x", "deny", "husky"),
             ("git -c core.hooksPath=/dev/null push origin feat/x", "deny", "sshcmd"),
             ("git -c core.hooksPath=/dev/null -c core.sshCommand=x push origin feat/x", "allow", "husky"),
+            # another repo's push from this session: git -C <dir>, with the same repo checks
+            ("git -C . push -u origin feat/x", "allow", "clean"), ("git -C . push origin feat/x", "deny", "husky"),
+            ("git -C . -c core.hooksPath=/dev/null push origin feat/x", "allow", "husky"),
+            ("git -C . push origin feat/x", "deny", "sshcmd"), ("git -C . push --force origin main", "deny"),
+            ("git -C . -c core.sshCommand=x push origin feat/x", "deny"), ("git -C a -C b push", "deny"),
+            ("git -C . commit -m 'fix push now'", "deny"), ("git -C . status", "allow"),
+            ("git -C . commit -m 'fix the gateway'", "allow"),
+            # credentialed tools only as their own command (chained they run sandboxed, without credentials)
+            ("git add -A && git commit -m x && git push", "deny"), ("cd x && git push", "deny"),
+            ("for r in a b; do gh api repos/x/$r; done", "deny"), ("gh pr list --json title | jq .", "deny"),
+            ("terraform plan 2>&1 | tail -5", "deny"), ("git add -A && git commit -m 'push it later'", "allow"),
             # live mutations, root-equivalent docker, destruction: denied, never prompt
             ("aws ec2 terminate-instances --instance-ids i", "deny"),
             ("aws s3 cp s3://b/k .", "deny"), ("aws iam create-user --user-name x", "deny"),
@@ -1464,7 +1477,7 @@ def check():
     except SystemExit:
         refused = True
     expect("[agent-host] refuses --no-sandbox", True, refused)
-    for tool in ("gh *", "git push *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + "pull --rebase --autostash", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
+    for tool in ("gh *", "git push *", "git -C * push *", GIT_NOHOOKS + "push *", GIT_NOHOOKS + "pull --rebase --autostash", "kubectl *", "helm *", "terraform *", "aws *", "doppler *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in host["sandbox"]["excludedCommands"])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in fs["allowWrite"])
     expect("[agent-host] no secret store re-opened", [], fs["allowRead"])

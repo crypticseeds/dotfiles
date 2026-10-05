@@ -23,6 +23,8 @@ WRITABLE = []      # filled in by generate.py: where sandboxed code can write (p
 HOME = os.path.expanduser("~")
 EXCLUDED = {"aws", "terraform", "tofu", "kubectl", "helm", "docker", "podman", "gh", "doppler"}
 SEPARATORS = {";", ";;", "&", "&&", "|", "||", "|&", "(", ")"}
+SHELL_KEYWORDS = {"do", "then", "else", "elif", "{", "!", "time", "if", "while", "until"}
+GIT_SYNC_WORDS = {"pull", "--rebase", "--autostash"}
 
 # Read-only subcommands, per tool: "verb" or "verb sub" (first one or two positional words).
 READ = {
@@ -250,7 +252,16 @@ def check_git(args, cwd):
         i += 2 if args[i] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") else 1
     if i >= len(args):
         return
-    sub, rest = args[i], args[i + 1:]
+    sub, rest, glob = args[i], args[i + 1:], args[:i]
+    # `git -C * push *` runs outside the sandbox, and that glob also matches anything with " push "
+    # after `-C`. Only `[-C <dir>] [-c core.hooksPath=/dev/null] push` may use it.
+    if glob[:1] == ["-C"]:
+        if sub != "push" and "push" in " ".join(args).split():
+            deny("`git -C <dir> ...` containing the word push runs outside the sandbox; only "
+                 "`git -C <dir> [-c core.hooksPath=/dev/null] push ...` may (reword, e.g. the message)")
+        if sub == "push" and not (glob[2:] == [] or (len(glob) == 4 and glob[2] == "-c" and cfg == [NOHOOKS])):
+            deny("only `git -C <dir> [-c core.hooksPath=/dev/null] push ...`")
+        cwd = os.path.join(cwd, os.path.expanduser(glob[1]))
     short = [a for a in rest if re.fullmatch(r"-[A-Za-z]+", a)]
     if sub == "clean" or sub in ("filter-branch", "filter-repo"):
         deny("git %s deletes work" % sub)
@@ -274,9 +285,10 @@ def check_git(args, cwd):
         dest = [a for a in rest if not a.startswith("-")][:1]
         if dest and (dest[0].startswith(("/", ".", "~", "file:")) or os.path.exists(os.path.join(cwd, dest[0]))):
             deny("git push to a local path runs that repo's hooks outside the sandbox")
-    # the forms that run outside the sandbox: plain, or with only the hooks-off override
-    if sub in ("push", "pull") and (i == 0 or args[:i] == ["-c", args[1]] and cfg == [NOHOOKS]):
-        git_repo_checks(cwd, nohooks=i > 0)
+    # the forms that run outside the sandbox: plain, `-C <dir>`, either with only the hooks-off override
+    local = glob[2:] if glob[:1] == ["-C"] else glob
+    if sub in ("push", "pull") and (local == [] or local == ["-c", local[1]] and cfg == [NOHOOKS]):
+        git_repo_checks(cwd, nohooks=local != [])
 
 
 def check_segment(t, cwd):
@@ -368,14 +380,28 @@ def check_command(cmd, cwd):
         if re.search(r"\b(rm|git|ansible-playbook|%s)\b" % "|".join(EXCLUDED), cmd):
             deny("could not parse the command")
         return
-    seg = []
+    segs, seg = [], []
     for tok in tokens + [";"]:
         if tok in SEPARATORS or tok == "\n":
             if seg:
-                check_segment([s for s in seg if s not in ("<", ">", ">>", "<<", "2>", "&>")], cwd)
+                segs.append([s for s in seg if s not in ("<", ">", ">>", "<<", "2>", "&>")])
             seg = []
         else:
             seg.append(tok)
+    for s in segs:
+        check_segment(s, cwd)
+    # Credentialed tools leave the sandbox only as a command of their own. Inside a loop, pipeline or
+    # chain they run sandboxed, cannot read their credentials, and fail with a confusing auth error.
+    if len(segs) > 1:
+        for s in segs:
+            while s and s[0] in SHELL_KEYWORDS:
+                s = s[1:]
+            words = [w for w in s if not re.match(r"[A-Za-z_]\w*=", w)]
+            if words and (os.path.basename(words[0]) in EXCLUDED or
+                          (words[0] == "git" and ("push" in words or GIT_SYNC_WORDS <= set(words)))):
+                deny("run `%s` as its own Bash command: in a loop, pipeline or && chain it runs inside the "
+                     "sandbox without credentials (use `git -C <dir> push`, `gh -R owner/repo`, `--jq`)"
+                     % " ".join(words[:3]))
 
 
 if __name__ == "__main__":
