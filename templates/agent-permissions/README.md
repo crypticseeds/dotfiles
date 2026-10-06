@@ -91,87 +91,142 @@ Claude sandbox details (`sandbox` block in the Claude file):
 For a box where agents work unattended (the Pi). Pass it with `--claude-out` or `--install`; the
 `standard/` and `strict/` bundles are unchanged by it.
 
-**Claude: default-allow, nothing prompts.** Nobody is there to answer a prompt, so every
-command is allowed (`Bash(*)`) unless a deny rule or the guard hook blocks it, and there are no ask
-rules: each `ASK_BASH` entry is decided as allow or deny in `generate.py`, which refuses to run if
-one is left undecided. WebFetch and WebSearch are allowed; `WebFetch(domain:*)` also opens every
-host to sandboxed commands.
+It protects exactly two things, and otherwise gets out of the way:
 
-**opencode and omp: the same rules, compiled to what they support** (`agent-host/opencode.json`,
-`agent-host/omp-config.yml`). They have no OS sandbox and no hook, so a default-allow would let any
-script read secrets: unmatched commands still prompt, and only the listed allows run unattended
-(reads, `terraform plan`, read-only kubectl/aws/helm, PRs). They get every deny rule, including the
-agent-host ones, and push only with `git -c core.hooksPath=/dev/null push` (a plain push or pull
-prompts, since a repo hook is agent-editable code that would run with full access). omp has no
-per-path rules at all (see Known gaps).
-- Still denied: every secret rule and every destructive rule from the standard profile.
-- **Guard hook** (`agent_host_guard.py`, embedded inline in the settings file, ~55 ms per Bash call).
-  Glob rules cannot say "only these subcommands" or look at files, so the guard does:
-  - Tools that run outside the sandbox (aws, terraform/tofu, kubectl, helm, docker/podman, gh,
-    doppler) may only run read-only subcommands (`aws` operations must be describe/list/get/...).
-    So live infrastructure is read-only, and docker (root-equivalent via the `docker` group) cannot
-    run, build or mount.
-  - No flag that sends credentials elsewhere or runs a program (`--endpoint-url`, `--server`,
-    `--post-renderer`, `--plugin-dir`, `doppler run --command/--fallback`), no `VAR=` prefix except
-    `AWS_PROFILE`/`AWS_REGION`/`TF_VAR_*`-style ones, and `doppler run -- <cmd>` only for
-    terraform/tofu/aws/kubectl/helm.
-  - No argument or planted symlink in the repo that resolves into a secret store; no Terraform code
-    that runs a program during `plan` (`data "external"`, provider `exec` other than `aws`,
-    non-registry providers, custom `endpoints`).
-  - git push/pull (outside the sandbox): no local config that runs programs, https/ssh remotes only,
-    and no push/pull hooks. In repos with hooks (husky) the agent must use
-    `git -c core.hooksPath=/dev/null push ...` / `... pull --rebase --autostash`; the deny message
-    says so. Pushes that delete or force (`--delete`, `:branch`, `+branch`, `--mirror`, `-f`) are denied.
-  - Destructive spellings globs miss: any recursive `rm`, `git -C x reset --hard`, `git clean`,
-    `git checkout .`, `git restore` (except `--staged`).
-  - `ansible-playbook` only with `--check`, `--syntax-check` or `--list-*` (it runs sandboxed).
-- `allowUnsandboxedCommands: false` removes the unsandboxed retry; `--agent-host --no-sandbox` is
-  refused. `allowManagedPermissionRulesOnly: true` makes repo `.claude/settings*.json` rules ignored.
-- **What no rule can stop:** a script the agent writes can still delete files inside the write
-  boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch protection covers pushed work.
+1. **Secrets never leak.** The secret stores are unreadable to sandboxed commands (OS read-deny, from
+   the `Read(...)` rules): `~/.doppler`, `~/.aws/credentials|sso|cli/cache`, `~/.ssh/id_*`, `~/.gnupg`,
+   `~/.kube`, `~/.config/gh/hosts.yml`, `~/.git-credentials`, `~/.netrc`, keyrings and password
+   managers, browser profiles, shell history, `.env`/`*.pem`/`*.key`. Commands that print secret
+   values are denied (`doppler secrets` without `--only-names`, `kubectl get secret`, `helm get values`,
+   the AWS secret reads, `env`/`printenv`, `terraform output`/`state pull`). Name-only listing works:
+   `doppler secrets --only-names`, `gh secret list`.
+2. **Destructive commands are blocked.** Recursive `rm`, `git reset --hard`, `git clean`,
+   `filter-branch`/`filter-repo`, discarding the whole tree (`git checkout .`), force push (`--force`,
+   `-f`, `+refspec`, `--delete`, `:branch`, `--mirror`) and `--force-with-lease` to `main`/`master`,
+   `gh pr merge`, `gh repo delete|archive|rename`, `gh release delete`, `gh api -X DELETE`,
+   `terraform apply|destroy|import`, mutating `aws` calls, `kubectl`/`helm` changes, `docker` beyond
+   reads, `ansible-playbook` without `--check`.
 
-- `git push` and `gh pr create/edit/comment/diff` run without a prompt; `gh pr merge` and
-  `gh repo delete` are denied (the human reviews and merges); force push stays denied.
-- `terraform apply` (and `tofu apply`, plain or Doppler-wrapped, with or without `-auto-approve`)
-  is denied rather than asked: nobody is there to answer the prompt. `plan` and `init` stay allowed.
-- `kubectl` and `helm` run outside the sandbox, like `terraform` and `aws`: they need `~/.kube` and
-  the AWS SSO cache for EKS tokens. Their secret reads stay denied by rule (`kubectl get secret`,
-  `helm get values`), so the agent's EKS RBAC should not grant secret reads either.
-- `doppler projects`, `doppler configs` and `doppler environments` are allowed (names, no values),
-  so an agent can see what is set up. Their `tokens`, `logs`, `--print-config`, mutating forms and
-  `--api-host`-style flags are denied. `doppler configure` (it can print the token), `doppler
-  secrets`, `--plain` and `doppler run -- printenv` stay denied.
-- `git push *` and `gh *` also run outside the sandbox (`AGENT_HOST_EXCLUDED`): the git credential
-  helper and the `~/.local/bin/gh` wrapper fetch `GH_TOKEN` from doppler per call, and `~/.doppler`
-  stays unreadable to sandboxed code. The permission rules above still apply to both.
-- `~/REPOS` is writable (`AGENT_HOST_WRITE`), so agents can work across repos.
-- **Linux ignores wildcard `denyWrite`** (verified live 2026-10-04), so on the Pi the next item is
-  enforced for the Edit tool only; sandboxed scripts can write sibling repos' config.
-- Sibling repos' agent config stays write-denied (`AGENT_HOST_DENY_WRITE`): `.claude` settings,
-  hooks, skills, agents, commands, workflows, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`,
-  `.git/hooks`, `.git/config`. Claude protects these only in the project it runs in; writable, they
-  would let an agent loosen another repo's next session or plant a hook that runs unsandboxed.
-  `.claude/worktrees` stays writable.
-- `~/.local/bin`, shell rc files and `~/dotfiles` stay outside the write boundary: anything there
-  runs outside the sandbox. Claude always lets a session write the directory it starts in, so start
-  agents in `~/REPOS/<repo>`, never in `~/dotfiles`.
-- Required alongside, outside this file: branch protection on `main` (PR required, no force push,
-  no deletion), because a glob cannot stop a plain `git push` made while on main, and a
-  fine-grained, repo-scoped `GH_TOKEN` with no admin rights.
-- On the Pi, install or update all three only with `bash regen-agent-host.sh`, run by you (it uses
-  sudo). It runs `git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either
-  fails), then installs:
-  - Claude: `/etc/claude-code/managed-settings.json` (root-owned managed settings, every project),
-    generated with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
-    `generate.py --claude-out` without those flags silently drops the host rules.
-  - opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority). Configs
-    merge, so a project `opencode.json` can still add rules for patterns this file does not name.
-  - omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
-    your other settings kept. omp has no managed config, so this file stays user-writable.
+Everything else runs without a prompt: `git` in the session's repo, and in any repo under `~/REPOS` through
+`git-in <dir> <git args>` (branch creation with tracking, `commit` with hooks, `update-ref -d`, push),
+`--force-with-lease` to a
+feature branch, `gh pr create|edit|close|reopen|comment|ready`, `gh run rerun|cancel|watch`,
+`gh issue create|comment|close`, `gh api` GET/PATCH/POST, `gh secret set`, `pre-commit install|run`,
+every `herdr` command, `terraform plan`, read-only `aws`/`kubectl`/`helm`.
 
-  An optional directory argument writes the three files there instead, without sudo, for a dry run.
-  Old per-project `opencode.json` / `.omp/config.yml` files from `--install` (e.g. in
-  `~/REPOS/aws-platform`) layer over these; delete them.
+**How (Claude):**
+- Default allow (`Bash(*)`), no ask rules, `WebFetch(domain:*)`: nobody is there to answer a prompt.
+  `generate.py` refuses to run while an `ASK_BASH` entry is undecided for the agent host.
+- Sandbox on (bubblewrap), `allowUnsandboxedCommands: false`, `allowManagedPermissionRulesOnly: true`.
+- `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`,
+  `kubectl *`, `helm *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
+- Guard hook (`agent_host_guard.py`, embedded inline in the settings file) for what globs cannot
+  express: spellings (`rm -Rf`, `git -C x reset --hard`, `gh -R o/r pr merge`), the branch a
+  lease-push targets, arguments of unsandboxed tools that resolve into a secret store (also through a
+  symlink), git config keys that run a program, live infra limited to read-only subcommands. It never
+  checks `herdr` (owner decision).
+- **`git -C <dir>`, `git -c k=v`, `--git-dir` and `--work-tree` can never run outside the sandbox.** Claude
+  Code's matcher refuses to exempt a git command with one of those global options (hard-coded, found in the
+  2.1.291 binary; no pattern, `git -C *` included, can match), so they run sandboxed: no doppler token, no
+  `.git/config` write, no network hooks. The read-only subcommands still work (`git -C d status|log|diff`);
+  anything else is denied by the guard with the fix: `git-in <repo-dir> <git args>` (`.` = current repo).
+  `bin/git-in` (installed root-owned in `/usr/local/bin`) is not `git`, so it is excluded, does the `cd`
+  itself, and refuses repos outside `~/REPOS`; the guard checks its git arguments like a plain `git` call.
+  Neither `cd <dir> && git ...` (chains are never exempt) nor `GIT_DIR=` prefixes work either.
+- It also explains, instead of letting it fail with "could not fetch GH_TOKEN", a credentialed command
+  that Claude would run inside the sandbox anyway: inside `&&`/`|`/a loop, or containing `<`, `>`, a
+  backtick or `$(` (even quoted). Fix: run it alone, `git-in <dir> ...`, `gh -R owner/repo`, `--jq`,
+  `--body-file F`, `git commit -F F`.
+- `~/REPOS` and `~/.cache/pre-commit` are writable. Sibling repos' agent config stays write-denied
+  for the Edit tool (`AGENT_HOST_DENY_WRITE`); Linux ignores the wildcard sandbox `denyWrite`.
+
+**opencode and omp** (`agent-host/opencode.json`, `agent-host/omp-config.yml`) have no sandbox and no
+hook: the same deny rules, the ordinary dev commands above as allows, everything else still prompts.
+Gaps without the guard: they cannot see the current branch (`git push --force-with-lease` with no
+refspec while on main), combined short flags (`git push -uf`), lowercase `gh api --method=delete`,
+symlinks, or a repo's `.git/config`.
+
+**Trade-offs (one line each; the owner decides):**
+- `git *` and `git-in *` outside the sandbox: commit hooks and push credentials work, but repo hooks run unsandboxed;
+  `.git/hooks` stays unwritable to sandboxed code (Claude's built-in protection), tracked hook
+  definitions (`.pre-commit-config.yaml` local hooks, `.husky/`) do not.
+- `.git/config` writable by git (branch tracking works) instead of `branch.autoSetupMerge=false`;
+  `hooksPath`/`alias`/`sshCommand`/`credential.helper`-style keys are refused by the guard on the command
+  line (`-c`, `git config`) and when present in the repo's local config (sibling repos' `.git/config` is
+  writable to sandboxed code on Linux).
+- `pre-commit *` outside the sandbox: hook installs and GitHub fetches work; hook code runs unsandboxed.
+- `herdr *` outside the sandbox, unchecked: visible panes work, but `herdr pane run` starts any command
+  unsandboxed, so herdr is a full sandbox escape for a determined agent.
+- Not `allowAllUnixSockets` for herdr: on Linux it is all-or-nothing (`allowUnixSockets` is macOS only)
+  and would also open the docker socket (root-equivalent), the dbus session bus and the gpg/ssh agents.
+- `doppler run --only-secrets X -- <cmd>` runs `<cmd>` outside the sandbox (any program); the guard
+  only refuses env printers and inline `-c`/`-e` code there.
+- Plain push to `main` is not blocked by a rule (only force/lease to main): GitHub branch protection
+  on `main` (PR required, no force push, no deletion) is the real control. Keep it on.
+- docker stays read-only: the `ai` user is in the `docker` group, so `docker run -v ~:/h` would read
+  every secret store.
+- Threat model is accident, not a determined process: anything that runs outside the sandbox (above)
+  can read the stores if an agent deliberately writes code to do it.
+
+**What no rule can stop:** a script the agent writes can still delete files inside the write
+boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch protection covers pushed work.
+
+**Install on the Pi** only with `bash regen-agent-host.sh`, run by you (it uses sudo). It runs
+`git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either fails), then:
+- Claude: `/etc/claude-code/managed-settings.json` (root-owned managed settings, every project),
+  generated with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
+  `generate.py --claude-out` without those flags silently drops the host rules.
+- opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority).
+- omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
+  your other settings kept. omp has no managed config, so this file stays user-writable.
+
+An optional directory argument writes the three files there instead, without sudo, for a dry run.
+Then restart the agent sessions. Live test from a new Claude session on the Pi (inside herdr):
+`herdr pane list`, `herdr pane split`, `herdr pane run <id> 'echo ok'`, `herdr pane close <id>`,
+`git-in ~/REPOS/<other> push --dry-run origin <branch>`, `doppler secrets --only-names`, and two
+denials: `cat ~/.doppler/.doppler.yaml`, `git push --force origin <branch>`.
+
+## Starting agents with token access (every session, pane and worktree)
+
+Start every agent as `doppler run --only-secrets GH_TOKEN -- <agent command>`. Then `GH_TOKEN` is in its
+environment, `git` (through the doppler credential helper) and `gh` authenticate from it, and nothing has
+to fetch the token from `~/.doppler`, which the sandbox hides. On Linux the zsh aliases do this for
+`claude`, `opencode`, `oc` (`opencode --auto`) and `omp` (`--approval-mode=yolo`); see
+`zsh/.config/zsh/aliases.zsh`.
+
+**Agents starting other agents** (new herdr panes, worktrees, delegated sessions): spell out the full
+command, because aliases exist only in interactive zsh and a pane's environment is not the parent agent's:
+
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- claude --agent implementer'
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- opencode --auto'
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- omp --approval-mode=yolo'
+
+- `-p harness -c dev` is the project and config the git credential helper falls back to. Use it for a
+  new worktree or a repo with no `doppler setup`: without `-p`/`-c`, doppler picks the project from the
+  directory's setup and fails to start the agent where there is none.
+- A worktree is a new directory under `~/REPOS`, so it is inside the write boundary: `git worktree add
+  ../<repo>-<branch> -b <branch>`, then start the agent in it as above.
+- Nothing else is needed per session: Claude reads `/etc/claude-code/managed-settings.json`, opencode
+  `/etc/opencode/opencode.json` and omp `~/.omp/agent/config.yml` in every directory, so a pane in any repo
+  or worktree, and every subagent, gets the same policy.
+
+**What the token exposes.** Everything that runs in the session can read `GH_TOKEN`: sandboxed commands,
+scripts the agent writes, subagents. `env`/`printenv` are denied by rule, but that is accident protection,
+not a barrier. The token must be fine-grained, repo-scoped and without admin rights, so the exposure is
+what the agent can already do (push branches, open and edit PRs). Rotate it on any leak. The guard's
+checks on chains, pipes and `<` `>` backticks in git/gh commands are unchanged.
+
+## Which rules file each agent reads
+
+The shared rules live in `agents/.agents/AGENTS.md` (secret detail in the `secret-hygiene` skill);
+every path below resolves to it (verified 2026-10-06 on the Pi):
+
+| Agent | Reads | Resolves to |
+|---|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` | symlink to `agents/.agents/AGENTS.md` |
+| omp | `~/.claude/CLAUDE.md`, `~/.agents/AGENTS.md`, `~/.omp/agent/RULES.md` (absent), project `AGENTS.md`/`CLAUDE.md` | both user files are the same file |
+| opencode | `~/.config/opencode/AGENTS.md` | symlink to `agents/.agents/AGENTS.md` |
+| Codex | `~/.codex/AGENTS.md` | symlink to `agents/.agents/AGENTS.md` |
 
 ## SSO login: `--no-browser` only
 
@@ -230,8 +285,8 @@ re-run the install with `--no-sandbox --force`. The permission rules, secret den
 hook all stay; only the OS-level write boundary for shell commands goes (Write/Edit tools still
 prompt outside the project). Fix the sandbox later and re-run without the flag.
 
-Verified vs not: the command and path rules for Linux are tested offline (`--check`, 1800+
-cases). On the Pi (Raspberry Pi OS, Claude Code 2.1.289) the bubblewrap sandbox starts with the
+Verified vs not: the command and path rules for Linux are tested offline (`--check`, ~780
+checks). On the Pi (Raspberry Pi OS, Claude Code 2.1.289) the bubblewrap sandbox starts with the
 agent-host config and enforces the write boundary (verified live 2026-10-05). **Not tested on
 Fedora**: do the first live run in the VM with the check list in the preflight script and a few
 canary reads.

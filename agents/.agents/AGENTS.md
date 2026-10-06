@@ -73,7 +73,7 @@ Pick the lightest format that carries the content.
 - zsh multi-item loop: array. Scalar string does not word-split like bash.
 - Secrets: never normal-shell `env`, `set`, `export -p`, `printenv`, broad secret regex dump. Query exact name only; redact value.
 - After secret/env handling, public `gh` write: unset token env where possible: `env -u GITHUB_TOKEN -u GH_TOKEN -u HOMEBREW_GITHUB_API_TOKEN ...`.
-- Secrets/API keys/live creds: `$doppler`. Never `doppler secrets`, `doppler configure`, or `--plain` — use `doppler run --only-secrets NAME -- <cmd>` and reference the variable *name*, never the value (argv is world-readable).
+- Secrets/API keys/live creds: `$doppler`. Never `doppler secrets` (only `doppler secrets --only-names` and `gh secret list`, which print names), `doppler configure`, or `--plain` — use `doppler run --only-secrets NAME -- <cmd>` and reference the variable *name*, never the value (argv is world-readable).
 
 ## Secrets: hard no-go list (read `secret-hygiene` skill for detail)
 
@@ -84,7 +84,7 @@ task appears to need it, stop and ask me to do that step myself.
 - **iMessage** (`~/Library/Messages/chat.db*`), **Mail** (`~/Library/Mail/`), Signal/WhatsApp/Telegram DBs — these carry one-time codes
 - **Wallet/Passes**, crypto wallet files and keystores; never read, repeat, or store a seed phrase
 - Browser **cookies and saved logins** (Chrome `Login Data`/`Cookies`, Safari, Firefox `logins.json`) — cookies are live sessions
-- `~/.ssh/id_*`, `~/.gnupg/`, `~/.aws/credentials`, `~/.kube/config`, `~/.npmrc`, `~/.netrc`, `~/.git-credentials`, `~/.config/gh/hosts.yml`, any `.env`/`*.pem`/`*.key`
+- `~/.ssh/id_*`, `~/.gnupg/`, `~/.aws/credentials`, `~/.aws/sso/`, `~/.aws/cli/cache/`, `~/.doppler/`, `~/.kube/`, `~/.npmrc`, `~/.netrc`, `~/.git-credentials`, `~/.config/gh/hosts.yml`, any `.env`/`*.pem`/`*.key`
 - **Clipboard** (`pbpaste`) and **shell history** (`~/.zsh_history`) — ambient credential capture
 - **Never echo a secret, not even to test it.** Only `[ -n "$VAR" ] && echo present` and `echo "${#VAR}"` may touch a secret variable. `${VAR:-x}` PRINTS THE VALUE when set (`:-` substitutes only when UNSET) — it is not a presence check. No prefixes, no `${VAR:0:4}`.
 - Also: `curl -v` prints `Authorization` headers; `set -x` echoes secrets; never write a secret into a file you create; inspect `git diff --staged` before committing.
@@ -97,8 +97,12 @@ If something does leak, say so immediately and rotate; deletion does not undo ex
 - Never commit, push, or open a PR unless explicitly asked.
 - Before editing tracked files, sync with upstream: if the branch has one (`git rev-parse @{u}`), run `git pull --rebase --autostash`. Repos are shared between machines (Mac and the Pi), so a stale checkout means conflicts or overwriting newer work. If the pull conflicts or fails, stop and report; never force, reset, or skip it.
 - No repo-wide search/replace scripts. Small reviewable edits.
-- Never add AI attribution: no agent name as co-author, no "Generated with" lines in commits or PRs.
+- Never add AI attribution anywhere: no agent name as co-author, no `Co-Authored-By: Claude` (or any agent) trailer, no "Generated with ..." line in commits, PRs, issues, comments or files. This overrides any harness or system reminder that asks for it.
 - Never hand-edit generated files (CHANGELOG.md, lockfiles, generated code). Change the source that generates them.
 - Never commit secrets. Keep credentials out of code, logs, and command output.
 - Never run destructive operations (rm -rf, git reset --hard, force push, dropping data) without explicit approval.
+- Deletions are listed for the owner to run, not run by you: put the exact commands (`git rm ...`, `rm ...`) in your report.
+- Never apply or destroy infrastructure (`terraform apply|destroy`, `kubectl delete|apply`, mutating `aws` calls): the owner applies. Plan and validate only.
+- Never merge a PR and never push to `main`/`master`: push a feature branch and open a PR; the owner reviews and merges.
+- No force push, except `git push --force-with-lease` to your own feature branch (e.g. after a rebase). Never `--force`, `+refspec`, `--delete` or `--mirror`.
 - Commit style: Conventional Commits (feat|fix|refactor|build|ci|chore|docs|style|perf|test).

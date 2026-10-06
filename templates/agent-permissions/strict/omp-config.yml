@@ -480,21 +480,33 @@ bash:
       approval: deny
     - match: "git reset --hard *"
       approval: deny
-    - match: "git clean -f"
+    - match: "git clean"
       approval: deny
-    - match: "git clean -f *"
+    - match: "git clean *"
       approval: deny
     - match: "git branch -D"
       approval: deny
     - match: "git branch -D *"
       approval: deny
-    - match: "git push --force*"
+    - match: "git push --force"
       approval: deny
-    - match: "git push -f*"
+    - match: "git push --force *"
       approval: deny
-    - match: "git push *--force*"
+    - match: "git push * --force"
       approval: deny
-    - match: "git push *-f"
+    - match: "git push * --force *"
+      approval: deny
+    - match: "git push -f"
+      approval: deny
+    - match: "git push -f *"
+      approval: deny
+    - match: "git push * -f"
+      approval: deny
+    - match: "git push * -f *"
+      approval: deny
+    - match: "git push *--force-with-lease*main*"
+      approval: deny
+    - match: "git push *--force-with-lease*master*"
       approval: deny
     - match: "git filter-branch"
       approval: deny

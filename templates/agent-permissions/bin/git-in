@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Run git in another repo from an agent session on the agent host:  git-in <repo-dir> <git args...>
+# Installed root-owned in /usr/local/bin by regen-agent-host.sh, and listed in excludedCommands.
+# Why: Claude Code never exempts `git -C <dir>`, `git -c k=v`, `--git-dir` or `--work-tree` from the
+# sandbox (hard-coded, no excludedCommands pattern can match them), so those forms run sandboxed:
+# no doppler token for the credential helper, no write to .git/config, no hooks that need the network.
+# This wrapper is not `git`, so it is excluded, and it does the `cd` itself. `.` means the current repo.
+# The agent-host guard checks the git arguments like a plain `git` call (force push, reset --hard...).
+# Only repos under ~/REPOS: ~/dotfiles and the rest of $HOME stay outside the agents' write boundary.
+set -euo pipefail
+[ $# -ge 2 ] || { echo "usage: git-in <repo-dir> <git args...>   (repos under ~/REPOS; . = current)" >&2; exit 2; }
+cd "$1"
+shift
+case "$(pwd -P)/" in
+  "$HOME"/REPOS/*) ;;
+  *) echo "git-in: $(pwd -P) is not under $HOME/REPOS" >&2; exit 2 ;;
+esac
+exec git "$@"

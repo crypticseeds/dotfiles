@@ -87,7 +87,7 @@ seems to require it, **stop and ask the user to do it themselves.**
 | Never | Why | Do this instead |
 |---|---|---|
 | `doppler secrets get X --plain` | prints the raw value to stdout | `doppler run --only-secrets X -- <cmd>` |
-| `doppler secrets` / `doppler secrets download` | dumps values | `doppler run --only-secrets` |
+| `doppler secrets` / `doppler secrets download` | dumps values | `doppler run --only-secrets`; to see what exists, `doppler secrets --only-names` (names only) |
 | `doppler configure` | prints the Doppler auth token itself | nothing — there is no safe variant |
 | `env`, `printenv`, `export -p`, `set` | dumps the whole environment incl. injected secrets | print one non-secret var by name |
 | `cat .env`, `cat *.pem`, `cat ~/.ssh/id_*` | direct disclosure | check existence/permissions with `test -e`, `stat` |
@@ -363,7 +363,9 @@ the preflight and a few canary reads (`.env`, `/etc/shadow`) on first use.
 - **Admin-profile denies are name matching.** They stop the command line, not Terraform code
   or an environment the agent can edit. Separation of credentials is the real control.
 - **Tools run outside the sandbox lose its write boundary** (terraform, aws, doppler, docker).
-  Their secret protection comes from the permission rules alone.
+  Their secret protection comes from the permission rules alone. On the agent host this also
+  covers `git` (so repo hooks run unsandboxed), `gh`, `pre-commit` and `herdr` (`herdr pane run`
+  starts any command unsandboxed); see the agent-permissions README trade-offs.
 - Therefore the durable controls are **scope and rotation**, not filtering:
   least-privilege tokens, narrow resource selection, short expiry, and routine
   rotation. Treat deny rules as protection against accident, which is the

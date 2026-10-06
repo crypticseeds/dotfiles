@@ -21,6 +21,13 @@ secrets:
 
 bash:
   patterns:
+    # --- allow (before the denies) ---
+    - match: "doppler secrets --only-names"
+      approval: allow
+    - match: "doppler secrets --only-names -p *"
+      approval: allow
+    - match: "doppler secrets --only-names --project *"
+      approval: allow
     # --- deny ---
     - match: "env"
       approval: deny
@@ -480,21 +487,33 @@ bash:
       approval: deny
     - match: "git reset --hard *"
       approval: deny
-    - match: "git clean -f"
+    - match: "git clean"
       approval: deny
-    - match: "git clean -f *"
+    - match: "git clean *"
       approval: deny
     - match: "git branch -D"
       approval: deny
     - match: "git branch -D *"
       approval: deny
-    - match: "git push --force*"
+    - match: "git push --force"
       approval: deny
-    - match: "git push -f*"
+    - match: "git push --force *"
       approval: deny
-    - match: "git push *--force*"
+    - match: "git push * --force"
       approval: deny
-    - match: "git push *-f"
+    - match: "git push * --force *"
+      approval: deny
+    - match: "git push -f"
+      approval: deny
+    - match: "git push -f *"
+      approval: deny
+    - match: "git push * -f"
+      approval: deny
+    - match: "git push * -f *"
+      approval: deny
+    - match: "git push *--force-with-lease*main*"
+      approval: deny
+    - match: "git push *--force-with-lease*master*"
       approval: deny
     - match: "git filter-branch"
       approval: deny
@@ -727,6 +746,96 @@ bash:
     - match: "gh repo delete"
       approval: deny
     - match: "gh repo delete *"
+      approval: deny
+    - match: "gh repo archive"
+      approval: deny
+    - match: "gh repo archive *"
+      approval: deny
+    - match: "gh repo rename"
+      approval: deny
+    - match: "gh repo rename *"
+      approval: deny
+    - match: "gh repo edit *--visibility*"
+      approval: deny
+    - match: "gh release delete"
+      approval: deny
+    - match: "gh release delete *"
+      approval: deny
+    - match: "gh api *-X DELETE*"
+      approval: deny
+    - match: "gh api *-XDELETE*"
+      approval: deny
+    - match: "gh api *--method DELETE*"
+      approval: deny
+    - match: "gh api *--method=DELETE*"
+      approval: deny
+    - match: "gh secret delete"
+      approval: deny
+    - match: "gh secret delete *"
+      approval: deny
+    - match: "gh secret remove"
+      approval: deny
+    - match: "gh secret remove *"
+      approval: deny
+    - match: "gh variable delete"
+      approval: deny
+    - match: "gh variable delete *"
+      approval: deny
+    - match: "gh run delete"
+      approval: deny
+    - match: "gh run delete *"
+      approval: deny
+    - match: "gh issue delete"
+      approval: deny
+    - match: "gh issue delete *"
+      approval: deny
+    - match: "gh label delete"
+      approval: deny
+    - match: "gh label delete *"
+      approval: deny
+    - match: "gh workflow run"
+      approval: deny
+    - match: "gh workflow run *"
+      approval: deny
+    - match: "gh extension"
+      approval: deny
+    - match: "gh extension *"
+      approval: deny
+    - match: "gh alias"
+      approval: deny
+    - match: "gh alias *"
+      approval: deny
+    - match: "gh auth"
+      approval: deny
+    - match: "gh auth *"
+      approval: deny
+    - match: "gh ssh-key"
+      approval: deny
+    - match: "gh ssh-key *"
+      approval: deny
+    - match: "gh gpg-key"
+      approval: deny
+    - match: "gh gpg-key *"
+      approval: deny
+    - match: "git push *--delete*"
+      approval: deny
+    - match: "git push * -d *"
+      approval: deny
+    - match: "git push * :*"
+      approval: deny
+    - match: "git push * +*"
+      approval: deny
+    - match: "git push *--mirror*"
+      approval: deny
+    - match: "git push *--prune*"
+      approval: deny
+    - match: "git checkout ."
+      approval: deny
+    - match: "git checkout -- ."
+      approval: deny
+    - match: "git restore ."
+      approval: deny
+    - match: "git restore --worktree ."
       approval: deny
     - match: "terraform apply"
       approval: deny
@@ -1120,122 +1229,6 @@ bash:
       approval: deny
     - match: "docker login *"
       approval: deny
-    - match: "gh api *-X*"
-      approval: deny
-    - match: "gh api *--method*"
-      approval: deny
-    - match: "gh api *-f *"
-      approval: deny
-    - match: "gh api *-F *"
-      approval: deny
-    - match: "gh api *--field*"
-      approval: deny
-    - match: "gh api *--raw-field*"
-      approval: deny
-    - match: "gh api *--input*"
-      approval: deny
-    - match: "gh extension"
-      approval: deny
-    - match: "gh extension *"
-      approval: deny
-    - match: "gh alias"
-      approval: deny
-    - match: "gh alias *"
-      approval: deny
-    - match: "gh auth"
-      approval: deny
-    - match: "gh auth *"
-      approval: deny
-    - match: "gh secret set"
-      approval: deny
-    - match: "gh secret set *"
-      approval: deny
-    - match: "gh secret delete"
-      approval: deny
-    - match: "gh secret delete *"
-      approval: deny
-    - match: "gh secret remove"
-      approval: deny
-    - match: "gh secret remove *"
-      approval: deny
-    - match: "gh variable"
-      approval: deny
-    - match: "gh variable *"
-      approval: deny
-    - match: "gh ssh-key"
-      approval: deny
-    - match: "gh ssh-key *"
-      approval: deny
-    - match: "gh gpg-key"
-      approval: deny
-    - match: "gh gpg-key *"
-      approval: deny
-    - match: "gh repo create"
-      approval: deny
-    - match: "gh repo create *"
-      approval: deny
-    - match: "gh repo edit"
-      approval: deny
-    - match: "gh repo edit *"
-      approval: deny
-    - match: "gh repo archive"
-      approval: deny
-    - match: "gh repo archive *"
-      approval: deny
-    - match: "gh repo rename"
-      approval: deny
-    - match: "gh repo rename *"
-      approval: deny
-    - match: "gh release delete"
-      approval: deny
-    - match: "gh release delete *"
-      approval: deny
-    - match: "gh run cancel"
-      approval: deny
-    - match: "gh run cancel *"
-      approval: deny
-    - match: "gh run delete"
-      approval: deny
-    - match: "gh run delete *"
-      approval: deny
-    - match: "gh workflow"
-      approval: deny
-    - match: "gh workflow *"
-      approval: deny
-    - match: "gh cache delete"
-      approval: deny
-    - match: "gh cache delete *"
-      approval: deny
-    - match: "gh issue delete"
-      approval: deny
-    - match: "gh issue delete *"
-      approval: deny
-    - match: "gh label delete"
-      approval: deny
-    - match: "gh label delete *"
-      approval: deny
-    - match: "git push *--delete*"
-      approval: deny
-    - match: "git push * -d *"
-      approval: deny
-    - match: "git push * :*"
-      approval: deny
-    - match: "git push * +*"
-      approval: deny
-    - match: "git push *--mirror*"
-      approval: deny
-    - match: "git push *--prune*"
-      approval: deny
-    - match: "git checkout -- *"
-      approval: deny
-    - match: "git stash drop"
-      approval: deny
-    - match: "git stash drop *"
-      approval: deny
-    - match: "git stash clear"
-      approval: deny
-    - match: "git stash clear *"
-      approval: deny
     - match: "doppler login"
       approval: deny
     - match: "doppler login *"
@@ -1447,26 +1440,6 @@ bash:
     - match: "k3s kubectl certificate *"
       approval: deny
     - match: "k3s kubectl *--kubeconfig*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push --force*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push -f*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push *--force*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push *-f"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push *--delete*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push * -d *"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push * :*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push * +*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push *--mirror*"
-      approval: deny
-    - match: "git -c core.hooksPath=/dev/null push *--prune*"
       approval: deny
     - match: "doppler run * -- aws configure get"
       approval: deny
@@ -1912,6 +1885,186 @@ bash:
       approval: deny
     - match: "doppler run * -- k3s kubectl *--kubeconfig*"
       approval: deny
+    - match: "git -C * reset --hard"
+      approval: deny
+    - match: "git -C * reset --hard *"
+      approval: deny
+    - match: "git -C * clean"
+      approval: deny
+    - match: "git -C * clean *"
+      approval: deny
+    - match: "git -C * branch -D"
+      approval: deny
+    - match: "git -C * branch -D *"
+      approval: deny
+    - match: "git -C * push --force"
+      approval: deny
+    - match: "git -C * push --force *"
+      approval: deny
+    - match: "git -C * push * --force"
+      approval: deny
+    - match: "git -C * push * --force *"
+      approval: deny
+    - match: "git -C * push -f"
+      approval: deny
+    - match: "git -C * push -f *"
+      approval: deny
+    - match: "git -C * push * -f"
+      approval: deny
+    - match: "git -C * push * -f *"
+      approval: deny
+    - match: "git -C * push *--force-with-lease*main*"
+      approval: deny
+    - match: "git -C * push *--force-with-lease*master*"
+      approval: deny
+    - match: "git -C * filter-branch"
+      approval: deny
+    - match: "git -C * filter-branch *"
+      approval: deny
+    - match: "git -C * filter-repo"
+      approval: deny
+    - match: "git -C * filter-repo *"
+      approval: deny
+    - match: "git -C * push *--delete*"
+      approval: deny
+    - match: "git -C * push * -d *"
+      approval: deny
+    - match: "git -C * push * :*"
+      approval: deny
+    - match: "git -C * push * +*"
+      approval: deny
+    - match: "git -C * push *--mirror*"
+      approval: deny
+    - match: "git -C * push *--prune*"
+      approval: deny
+    - match: "git -C * checkout ."
+      approval: deny
+    - match: "git -C * checkout -- ."
+      approval: deny
+    - match: "git -C * restore ."
+      approval: deny
+    - match: "git -C * restore --worktree ."
+      approval: deny
+    - match: "git-in * reset --hard"
+      approval: deny
+    - match: "git-in * reset --hard *"
+      approval: deny
+    - match: "git-in * clean"
+      approval: deny
+    - match: "git-in * clean *"
+      approval: deny
+    - match: "git-in * branch -D"
+      approval: deny
+    - match: "git-in * branch -D *"
+      approval: deny
+    - match: "git-in * push --force"
+      approval: deny
+    - match: "git-in * push --force *"
+      approval: deny
+    - match: "git-in * push * --force"
+      approval: deny
+    - match: "git-in * push * --force *"
+      approval: deny
+    - match: "git-in * push -f"
+      approval: deny
+    - match: "git-in * push -f *"
+      approval: deny
+    - match: "git-in * push * -f"
+      approval: deny
+    - match: "git-in * push * -f *"
+      approval: deny
+    - match: "git-in * push *--force-with-lease*main*"
+      approval: deny
+    - match: "git-in * push *--force-with-lease*master*"
+      approval: deny
+    - match: "git-in * filter-branch"
+      approval: deny
+    - match: "git-in * filter-branch *"
+      approval: deny
+    - match: "git-in * filter-repo"
+      approval: deny
+    - match: "git-in * filter-repo *"
+      approval: deny
+    - match: "git-in * push *--delete*"
+      approval: deny
+    - match: "git-in * push * -d *"
+      approval: deny
+    - match: "git-in * push * :*"
+      approval: deny
+    - match: "git-in * push * +*"
+      approval: deny
+    - match: "git-in * push *--mirror*"
+      approval: deny
+    - match: "git-in * push *--prune*"
+      approval: deny
+    - match: "git-in * checkout ."
+      approval: deny
+    - match: "git-in * checkout -- ."
+      approval: deny
+    - match: "git-in * restore ."
+      approval: deny
+    - match: "git-in * restore --worktree ."
+      approval: deny
+    - match: "git-in * -C * reset --hard"
+      approval: deny
+    - match: "git-in * -C * reset --hard *"
+      approval: deny
+    - match: "git-in * -C * clean"
+      approval: deny
+    - match: "git-in * -C * clean *"
+      approval: deny
+    - match: "git-in * -C * branch -D"
+      approval: deny
+    - match: "git-in * -C * branch -D *"
+      approval: deny
+    - match: "git-in * -C * push --force"
+      approval: deny
+    - match: "git-in * -C * push --force *"
+      approval: deny
+    - match: "git-in * -C * push * --force"
+      approval: deny
+    - match: "git-in * -C * push * --force *"
+      approval: deny
+    - match: "git-in * -C * push -f"
+      approval: deny
+    - match: "git-in * -C * push -f *"
+      approval: deny
+    - match: "git-in * -C * push * -f"
+      approval: deny
+    - match: "git-in * -C * push * -f *"
+      approval: deny
+    - match: "git-in * -C * push *--force-with-lease*main*"
+      approval: deny
+    - match: "git-in * -C * push *--force-with-lease*master*"
+      approval: deny
+    - match: "git-in * -C * filter-branch"
+      approval: deny
+    - match: "git-in * -C * filter-branch *"
+      approval: deny
+    - match: "git-in * -C * filter-repo"
+      approval: deny
+    - match: "git-in * -C * filter-repo *"
+      approval: deny
+    - match: "git-in * -C * push *--delete*"
+      approval: deny
+    - match: "git-in * -C * push * -d *"
+      approval: deny
+    - match: "git-in * -C * push * :*"
+      approval: deny
+    - match: "git-in * -C * push * +*"
+      approval: deny
+    - match: "git-in * -C * push *--mirror*"
+      approval: deny
+    - match: "git-in * -C * push *--prune*"
+      approval: deny
+    - match: "git-in * -C * checkout ."
+      approval: deny
+    - match: "git-in * -C * checkout -- ."
+      approval: deny
+    - match: "git-in * -C * restore ."
+      approval: deny
+    - match: "git-in * -C * restore --worktree ."
+      approval: deny
     - match: "*.env"
       approval: deny
     - match: "*.env *"
@@ -2082,7 +2235,6 @@ bash:
       approval: deny
     - match: "*/mnt/hgfs*"
       approval: deny
-    # --- prompt ---
     # --- allow ---
     - match: "git status"
       approval: allow
@@ -2272,6 +2424,8 @@ bash:
       approval: allow
     - match: "gh repo list *"
       approval: allow
+    - match: "git pull --rebase --autostash"
+      approval: allow
     - match: "tofu fmt"
       approval: allow
     - match: "tofu fmt *"
@@ -2310,6 +2464,68 @@ bash:
       approval: allow
     - match: "aws sso login *--no-browser*"
       approval: allow
+    - match: "git push"
+      approval: allow
+    - match: "git push *"
+      approval: allow
+    - match: "git-in"
+      approval: allow
+    - match: "git-in *"
+      approval: allow
+    - match: "git -C"
+      approval: allow
+    - match: "git -C *"
+      approval: allow
+    - match: "git fetch"
+      approval: allow
+    - match: "git fetch *"
+      approval: allow
+    - match: "git pull"
+      approval: allow
+    - match: "git pull *"
+      approval: allow
+    - match: "git commit"
+      approval: allow
+    - match: "git commit *"
+      approval: allow
+    - match: "git add"
+      approval: allow
+    - match: "git add *"
+      approval: allow
+    - match: "git checkout"
+      approval: allow
+    - match: "git checkout *"
+      approval: allow
+    - match: "git switch"
+      approval: allow
+    - match: "git switch *"
+      approval: allow
+    - match: "git branch *"
+      approval: allow
+    - match: "git merge"
+      approval: allow
+    - match: "git merge *"
+      approval: allow
+    - match: "git rebase"
+      approval: allow
+    - match: "git rebase *"
+      approval: allow
+    - match: "git stash"
+      approval: allow
+    - match: "git stash *"
+      approval: allow
+    - match: "git update-ref"
+      approval: allow
+    - match: "git update-ref *"
+      approval: allow
+    - match: "git tag"
+      approval: allow
+    - match: "git tag *"
+      approval: allow
+    - match: "git restore"
+      approval: allow
+    - match: "git restore *"
+      approval: allow
     - match: "gh pr create"
       approval: allow
     - match: "gh pr create *"
@@ -2318,13 +2534,85 @@ bash:
       approval: allow
     - match: "gh pr edit *"
       approval: allow
+    - match: "gh pr close"
+      approval: allow
+    - match: "gh pr close *"
+      approval: allow
+    - match: "gh pr reopen"
+      approval: allow
+    - match: "gh pr reopen *"
+      approval: allow
     - match: "gh pr comment"
       approval: allow
     - match: "gh pr comment *"
       approval: allow
+    - match: "gh pr ready"
+      approval: allow
+    - match: "gh pr ready *"
+      approval: allow
     - match: "gh pr diff"
       approval: allow
     - match: "gh pr diff *"
+      approval: allow
+    - match: "gh pr checkout"
+      approval: allow
+    - match: "gh pr checkout *"
+      approval: allow
+    - match: "gh run rerun"
+      approval: allow
+    - match: "gh run rerun *"
+      approval: allow
+    - match: "gh run cancel"
+      approval: allow
+    - match: "gh run cancel *"
+      approval: allow
+    - match: "gh run watch"
+      approval: allow
+    - match: "gh run watch *"
+      approval: allow
+    - match: "gh issue create"
+      approval: allow
+    - match: "gh issue create *"
+      approval: allow
+    - match: "gh issue comment"
+      approval: allow
+    - match: "gh issue comment *"
+      approval: allow
+    - match: "gh issue close"
+      approval: allow
+    - match: "gh issue close *"
+      approval: allow
+    - match: "gh issue edit"
+      approval: allow
+    - match: "gh issue edit *"
+      approval: allow
+    - match: "gh api"
+      approval: allow
+    - match: "gh api *"
+      approval: allow
+    - match: "gh secret list"
+      approval: allow
+    - match: "gh secret list *"
+      approval: allow
+    - match: "gh secret set"
+      approval: allow
+    - match: "gh secret set *"
+      approval: allow
+    - match: "gh repo clone"
+      approval: allow
+    - match: "gh repo clone *"
+      approval: allow
+    - match: "gh repo create"
+      approval: allow
+    - match: "gh repo create *"
+      approval: allow
+    - match: "pre-commit"
+      approval: allow
+    - match: "pre-commit *"
+      approval: allow
+    - match: "herdr"
+      approval: allow
+    - match: "herdr *"
       approval: allow
     - match: "doppler projects"
       approval: allow
@@ -2337,16 +2625,6 @@ bash:
     - match: "doppler environments"
       approval: allow
     - match: "doppler environments *"
-      approval: allow
-    - match: "gh secret list"
-      approval: allow
-    - match: "gh secret list *"
-      approval: allow
-    - match: "git -c core.hooksPath=/dev/null push"
-      approval: allow
-    - match: "git -c core.hooksPath=/dev/null push *"
-      approval: allow
-    - match: "git -c core.hooksPath=/dev/null pull --rebase --autostash"
       approval: allow
     - match: "terraform plan"
       approval: allow
