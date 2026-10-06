@@ -149,15 +149,19 @@ alias kindl='kind get clusters'
 alias kindi='kind load docker-image'
 
 # Harnesses
-# oc: plain opencode on macOS (keep permission prompts locally);
-# --auto elsewhere (remote servers) so agents don't block on approvals.
+# oc: opencode --auto everywhere, so agents don't block on approvals.
 if [[ "$OSTYPE" == darwin* ]]; then
-  alias oc='opencode'
-else
   alias oc='opencode --auto'
+  alias omp='omp --approval-mode=yolo'
+else
+  # Linux (the agent host): start every harness with GH_TOKEN injected, so git and gh authenticate from
+  # the environment inside the sandbox too.
+  alias oc='doppler run --only-secrets GH_TOKEN -- opencode --auto'
+  alias opencode='doppler run --only-secrets GH_TOKEN -- opencode'
+  alias claude='doppler run --only-secrets GH_TOKEN -- claude'
+  alias omp='doppler run --only-secrets GH_TOKEN -- omp --approval-mode=yolo'
 fi
 alias oca='doppler run --only-secrets OPENCODE_SERVER_PASSWORD,OPENCODE_SERVER_USERNAME -- opencode attach https://opencode.internal.devopsfoundry.com'
-# alias claude='doppler run -- claude'
 
 # General
 alias ds='docker stats -a --format "table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"'
