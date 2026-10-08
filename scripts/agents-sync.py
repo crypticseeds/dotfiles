@@ -7,6 +7,7 @@ Usage: agents-sync.py [--dry-run] {fetch|link|mcp|plugins|all}
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -43,7 +44,8 @@ def checkout(entry):
         git(cache, "init", "-q")
     if not has_commit(cache, entry["ref"]):
         url = "https://github.com/%s.git" % entry["repo"]
-        git(cache, "fetch", "-q", "--depth", "1", url, entry["ref"])
+        git(cache, "-c", "http.lowSpeedLimit=1000", "-c",
+            "http.lowSpeedTime=30", "fetch", "-q", "--depth", "1", url, entry["ref"])
     if entry["path"] == ".":
         git(cache, "sparse-checkout", "disable")
     else:
@@ -60,21 +62,45 @@ def read_marker(target):
         return None
 
 
+def remove(path):
+    if os.path.islink(path) or os.path.isfile(path):
+        os.unlink(path)
+    elif os.path.lexists(path):
+        shutil.rmtree(path)
+
+
 def install(src, target, entry, skill_path):
-    """Copy src to target atomically enough, then write marker and .gitignore."""
-    tmp = target + ".tmp-sync"
-    if os.path.isdir(tmp):
-        shutil.rmtree(tmp)
-    shutil.copytree(src, tmp, ignore=shutil.ignore_patterns(".git"))
-    with open(os.path.join(tmp, MARKER), "w") as f:
-        json.dump({"repo": entry["repo"], "path": skill_path,
-                   "ref": entry["ref"]}, f, indent=2)
-        f.write("\n")
-    with open(os.path.join(tmp, ".gitignore"), "w") as f:
-        f.write("*\n")
-    if os.path.isdir(target):
-        shutil.rmtree(target)
-    os.rename(tmp, target)
+    """Build into <target>.tmp-sync, then swap in; never leave a half-deleted target."""
+    tmp, old = target + ".tmp-sync", target + ".old-sync"
+    remove(tmp)
+    remove(old)
+    try:
+        os.makedirs(tmp)
+        # ignore file first, so a stale tmp dir never shows up in git
+        with open(os.path.join(tmp, ".gitignore"), "w") as f:
+            f.write("*\n")
+        shutil.copytree(src, tmp, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns(".git"))
+        with open(os.path.join(tmp, ".gitignore"), "w") as f:
+            f.write("*\n")
+        with open(os.path.join(tmp, MARKER), "w") as f:
+            json.dump({"repo": entry["repo"], "path": skill_path,
+                       "ref": entry["ref"]}, f, indent=2)
+            f.write("\n")
+    except BaseException:
+        remove(tmp)
+        raise
+    had_old = os.path.lexists(target)
+    if had_old:
+        os.rename(target, old)
+    try:
+        os.rename(tmp, target)
+    except BaseException:
+        if had_old:
+            os.rename(old, target)
+        remove(tmp)
+        raise
+    remove(old)
 
 
 def skill_dirs(base, entry):
@@ -92,10 +118,13 @@ def skill_dirs(base, entry):
 def sync_skill(entry, name, src, skill_path, skills_dir, dry):
     target = os.path.join(skills_dir, name)
     marker = read_marker(target)
-    if os.path.exists(target) and marker is None:
+    if os.path.lexists(target) and (os.path.islink(target) or marker is None):
         print("WARN  %s exists and is not managed by the manifest, skipping" % target)
         return
-    if marker and marker.get("ref") == entry["ref"] and marker.get("repo") == entry["repo"]:
+    if (marker and marker.get("ref") == entry["ref"]
+            and marker.get("repo") == entry["repo"]
+            and marker.get("path") == skill_path
+            and os.path.isfile(os.path.join(target, "SKILL.md"))):
         print("unchanged  %s" % name)
         return
     if dry:
@@ -103,6 +132,14 @@ def sync_skill(entry, name, src, skill_path, skills_dir, dry):
         return
     install(src, target, entry, skill_path)
     print("installed  %s (%s@%s)" % (name, entry["repo"], entry["ref"][:12]))
+
+
+def validate(entry):
+    for key in ("repo", "ref", "path"):
+        if not entry.get(key):
+            raise RuntimeError("missing '%s'" % key)
+    if not re.fullmatch(r"[0-9a-f]{40}", entry["ref"]):
+        raise RuntimeError("ref is not a 40-hex commit SHA: %r" % entry["ref"])
 
 
 def fetch(manifest, dry):
@@ -117,6 +154,7 @@ def fetch(manifest, dry):
             print("skip  %s (host %s not in %s)" % (label, host, entry["hosts"]))
             continue
         try:
+            validate(entry)
             if dry:
                 if "name" in entry:
                     sync_skill(entry, entry["name"], None, entry["path"],
@@ -161,9 +199,14 @@ def main():
     p.add_argument("--dry-run", action="store_true",
                    help="print what would change, write nothing")
     p.add_argument("step", choices=[s for s, _ in STEPS] + ["all"])
+    p.add_argument("--manifest", default=MANIFEST, help=argparse.SUPPRESS)
     args = p.parse_args()
-    with open(MANIFEST) as f:
-        manifest = json.load(f)
+    try:
+        with open(args.manifest) as f:
+            manifest = json.load(f)
+    except (OSError, ValueError) as e:
+        print("ERROR  manifest %s: %s" % (args.manifest, e))
+        return 1
     rc = 0
     for name, fn in STEPS:
         if args.step in (name, "all"):

@@ -44,7 +44,7 @@ mac: pull
 	$(STOW) $(COMMON) $(MACONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
-	$(MAKE) agents-sync
+	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	$(MAKE) doctor
 
 linux: pull
@@ -52,7 +52,7 @@ linux: pull
 	$(STOW) $(COMMON) $(LINUXONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
-	$(MAKE) agents-sync
+	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	$(MAKE) doctor
 
 # Headless servers (the DNS Pi and friends): shell + prompt, nothing else.
@@ -72,14 +72,14 @@ restow-mac: pull
 	$(STOW) -R agents $(COMMON) $(MACONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
-	$(MAKE) agents-sync
+	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	@$(reload-hint)
 
 restow-linux: pull
 	$(STOW) -R agents $(COMMON) $(LINUXONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
-	$(MAKE) agents-sync
+	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	@$(reload-hint)
 
 delete:
