@@ -253,9 +253,14 @@ def link_target(manifest, dry, harness, tdir, src_dir, names):
     for name in names:
         src = os.path.join(src_dir, name)
         allowed = harness_filter(manifest, name, src)
-        if allowed is not None and harness not in allowed:
-            continue
         path = os.path.join(tdir, name)
+        if allowed is not None and harness not in allowed:
+            if (os.path.islink(path)
+                    and os.path.realpath(path) == os.path.realpath(src)):
+                print("%s  %s" % ("would unlink" if dry else "unlinked", path))
+                if not dry:
+                    os.unlink(path)
+            continue
         if os.path.islink(path):
             if os.path.realpath(path) == os.path.realpath(src):
                 continue
