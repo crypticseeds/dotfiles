@@ -197,43 +197,39 @@ def state_path():
 
 def load_state():
     try:
-        with open(state_path()) as f:
+        with open(state_path(), encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
 
 
-def write_json(path, data):
-    """Atomic 2-space JSON write (tmp + rename), keeping the file mode."""
+def atomic_write(path, text):
+    """Atomic write (tmp + rename); existing files keep their mode, new ones get 0644."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".agents-sync-")
     try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-            f.write("\n")
-        if os.path.exists(path):
-            os.chmod(tmp, os.stat(path).st_mode & 0o7777)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, os.stat(path).st_mode & 0o7777 if os.path.exists(path) else 0o644)
         os.replace(tmp, path)
     except BaseException:
         if os.path.lexists(tmp):
             os.unlink(tmp)
         raise
+
+
+def write_json(path, data):
+    atomic_write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
 def write_text(path, text):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".agents-sync-")
-    try:
-        with os.fdopen(fd, "w") as f:
-            f.write(text)
-        if os.path.exists(path):
-            os.chmod(tmp, os.stat(path).st_mode & 0o7777)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.lexists(tmp):
-            os.unlink(tmp)
-        raise
+    atomic_write(path, text)
+
+
+def string_list(value):
+    return (isinstance(value, list)
+            and all(isinstance(x, str) and x in MCP_HARNESSES for x in value))
 
 
 def mcp_entries(manifest):
@@ -241,13 +237,18 @@ def mcp_entries(manifest):
     entries, bad = {}, False
     for name, e in (manifest.get("mcp") or {}).items():
         try:
+            if not isinstance(e, dict):
+                raise RuntimeError("entry must be an object")
             if "${" in json.dumps(e):
                 raise RuntimeError("contains '${': env/header substitution is not supported")
             if ("command" in e) == ("url" in e):
                 raise RuntimeError("needs exactly one of 'command' or 'url'")
             if "command" in e and not isinstance(e.get("args", []), list):
                 raise RuntimeError("'args' must be a list")
-        except (RuntimeError, TypeError) as err:
+            for key in ("except", "harnesses"):
+                if key in e and not string_list(e[key]):
+                    raise RuntimeError("'%s' must be a list of %s" % (key, "/".join(MCP_HARNESSES)))
+        except RuntimeError as err:
             print("ERROR  mcp %s: %s" % (name, err))
             bad = True
             continue
@@ -302,9 +303,13 @@ def plan_owned(harness, want, existing, owned):
 
 
 def mcp_json_file(harness, path, want, owned, dry):
-    """cursor / omp / opencode: merge into one JSON object key. Returns new owned."""
+    """cursor / omp / opencode: merge into one JSON object key.
+
+    owned is the live ownership record: names are added before the write and
+    dropped only after their removal was written.
+    """
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             doc = json.load(f)
         if not isinstance(doc, dict):
             raise ValueError("top level is not an object")
@@ -321,10 +326,9 @@ def mcp_json_file(harness, path, want, owned, dry):
     if not isinstance(servers, dict):
         raise RuntimeError("%s: '%s' is not an object" % (path, key))
     apply_, drop = plan_owned(harness, want, servers, owned)
-    new_owned, changed = [], False
+    changed = False
     for name in apply_:
         rendered = render_json(harness, want[name])
-        new_owned.append(name)
         if servers.get(name) == rendered:
             print("unchanged  %s: %s" % (harness, name))
             continue
@@ -339,13 +343,70 @@ def mcp_json_file(harness, path, want, owned, dry):
             del servers[name]
             changed = True
     if changed and not dry:
+        owned.update(apply_)  # record before the write
         doc[key] = servers
         write_json(path, doc)
-    return new_owned
+    owned.update(apply_)
+    owned.difference_update(drop)
 
 
 CODEX_TABLE = re.compile(
     r'^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|([A-Za-z0-9_-]+))\s*(?:\]|\.)')
+TOML_KEYPART = re.compile(
+    r'''\s*(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|([A-Za-z0-9_-]+))\s*''')
+
+
+def toml_key(text, pos=0):
+    """Parse a dotted TOML key from text[pos:]; returns (parts, end) or (None, pos)."""
+    parts = []
+    while True:
+        m = TOML_KEYPART.match(text, pos)
+        if not m:
+            return None, pos
+        parts.append(next(g for g in m.groups() if g is not None))
+        pos = m.end()
+        if pos < len(text) and text[pos] == ".":
+            pos += 1
+            continue
+        return parts, pos
+
+
+def codex_references(lines):
+    """Server names referenced outside the managed block (any TOML spelling).
+
+    Raises RuntimeError for a line mentioning mcp_servers that cannot be classified.
+    """
+    names, in_parent = set(), False
+    for ln in lines:
+        s = ln.strip()
+        if not s or s.startswith("#"):
+            continue
+        if s.startswith("["):
+            dbl = s.startswith("[[")
+            inner = s[2 if dbl else 1:]
+            parts, end = toml_key(inner)
+            rest = inner[end:].lstrip() if parts else ""
+            if parts and rest.startswith("]") and "mcp_servers" not in parts[1:]:
+                in_parent = parts == ["mcp_servers"]
+                if parts[0] == "mcp_servers" and len(parts) > 1:
+                    names.add(parts[1])
+                continue
+            if "mcp_servers" in s:
+                raise RuntimeError("cannot classify line mentioning mcp_servers: %s" % s)
+            in_parent = False
+            continue
+        parts, end = toml_key(s)
+        if parts and s[end:].startswith("="):
+            if in_parent:
+                names.add(parts[0])
+            elif parts[0] == "mcp_servers":
+                if len(parts) < 2:
+                    raise RuntimeError("cannot classify line mentioning mcp_servers: %s" % s)
+                names.add(parts[1])
+            continue
+        if "mcp_servers" in s:
+            raise RuntimeError("cannot classify line mentioning mcp_servers: %s" % s)
+    return names
 
 
 def toml_name(name):
@@ -368,23 +429,22 @@ def render_codex(want):
     return lines
 
 
-def mcp_codex(path, want, dry):
+def mcp_codex(path, want, owned, dry):
     """Managed block inside config.toml; text outside it is never changed."""
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             lines = f.read().split("\n")
     except FileNotFoundError:
         lines = [""]
     if lines and lines[-1] == "":
         lines.pop()  # trailing newline is re-added on write
-    start = end = None
-    for i, ln in enumerate(lines):
-        if ln.strip() == MCP_START and start is None:
-            start = i
-        elif ln.strip() == MCP_END and start is not None and end is None:
-            end = i
-    if (start is None) != (end is None):
-        raise RuntimeError("%s: unbalanced agents-sync markers" % path)
+    starts = [i for i, ln in enumerate(lines) if ln.strip() == MCP_START]
+    ends = [i for i, ln in enumerate(lines) if ln.strip() == MCP_END]
+    if (len(starts) > 1 or len(ends) > 1 or len(starts) != len(ends)
+            or (starts and starts[0] > ends[0])):
+        raise RuntimeError("corrupted agents-sync markers, refusing")
+    start = starts[0] if starts else None
+    end = ends[0] if ends else None
     outside = lines[:start] + lines[end + 1:] if start is not None else lines
     inside = lines[start + 1:end] if start is not None else []
     old = set()
@@ -392,12 +452,8 @@ def mcp_codex(path, want, dry):
         m = CODEX_TABLE.match(ln)
         if m:
             old.add(m.group(1) or m.group(2))
-    unmanaged = set()
-    for ln in outside:
-        m = CODEX_TABLE.match(ln)
-        if m:
-            unmanaged.add(m.group(1) or m.group(2))
-    apply_, drop = plan_owned("codex", want, unmanaged, set())
+    unmanaged = codex_references(outside)
+    apply_, _ = plan_owned("codex", want, unmanaged, set())
     final = dict((n, want[n]) for n in apply_)
     block = render_codex(final) if final else []
     if start is not None:
@@ -415,12 +471,14 @@ def mcp_codex(path, want, dry):
     if new == lines:
         for name in sorted(final):
             print("unchanged  codex: %s" % name)
-        return sorted(final)
-    if old == set(final):
-        print("%s  codex: managed block" % ("would update" if dry else "updated"))
-    if not dry:
-        write_text(path, "\n".join(new) + "\n")
-    return sorted(final)
+    else:
+        if old == set(final):
+            print("%s  codex: managed block" % ("would update" if dry else "updated"))
+        if not dry:
+            owned.update(final)  # record before the write
+            write_text(path, "\n".join(new) + "\n")
+    owned.clear()
+    owned.update(final)
 
 
 def run_cli(argv, dry):
@@ -439,39 +497,46 @@ def run_cli(argv, dry):
 
 def mcp_claude(want, owned, dry):
     try:
-        with open(os.path.join(home(), ".claude.json")) as f:
+        with open(os.path.join(home(), ".claude.json"), encoding="utf-8") as f:
             servers = (json.load(f).get("mcpServers") or {})
+        if not isinstance(servers, dict):
+            raise ValueError("mcpServers is not an object")
     except FileNotFoundError:
         servers = {}
     except (OSError, ValueError, AttributeError) as e:
         raise RuntimeError("cannot parse ~/.claude.json: %s" % e)
     apply_, drop = plan_owned("claude", want, servers, owned)
-    new_owned = []
     for name in apply_:
         rendered = render_json("claude", want[name])
         cur = servers.get(name)
-        new_owned.append(name)
-        if cur is not None and all(cur.get(k) == v for k, v in rendered.items()):
+        if (isinstance(cur, dict)
+                and all(cur.get(k) == v for k, v in rendered.items())):
             print("unchanged  claude: %s" % name)
+            owned.add(name)
             continue
-        if cur is not None:
+        owned.add(name)  # record before the first mutating call
+        if name in servers:
             run_cli(["claude", "mcp", "remove", "--scope", "user", name], dry)
         run_cli(["claude", "mcp", "add-json", "--scope", "user", name,
                  json.dumps(rendered)], dry)
     for name in drop:
         if name in servers:
             run_cli(["claude", "mcp", "remove", "--scope", "user", name], dry)
-    return new_owned
+        owned.discard(name)  # only after the removal succeeded
+
+
+def hermes_home():
+    return os.environ.get("HERMES_HOME") or os.path.join(home(), ".hermes")
 
 
 def hermes_existing(path):
-    """Read-only scan of config.yaml: {name: {key: scalar}} under mcp_servers."""
-    out, in_block, child_indent, name = {}, False, None, None
-    try:
-        with open(path) as f:
-            text = f.read().split("\n")
-    except OSError:
-        return out
+    """Read-only scan of config.yaml: {name: {key: scalar}} under mcp_servers.
+
+    Only keys directly under a server (one indent level) are read.
+    """
+    out, in_block, child_indent, sub_indent, name = {}, False, None, None, None
+    with open(path, encoding="utf-8") as f:
+        text = f.read().split("\n")
     for ln in text:
         if not ln.strip() or ln.lstrip().startswith("#"):
             continue
@@ -487,17 +552,22 @@ def hermes_existing(path):
         if child_indent is None:
             child_indent = indent
         if indent == child_indent:
-            name = key.strip("'\"")
+            name, sub_indent = key.strip("'\""), None
             out[name] = {}
         elif name is not None:
-            out[name][key] = val
+            if sub_indent is None:
+                sub_indent = indent
+            if indent == sub_indent and not key.startswith("-"):
+                out[name][key] = val
     return out
 
 
 def mcp_hermes(want, owned, dry):
-    cfg = os.path.join(os.environ.get("HERMES_HOME") or os.path.join(home(), ".hermes"),
-                       "config.yaml")
-    existing = hermes_existing(cfg)
+    cfg = os.path.join(hermes_home(), "config.yaml")
+    try:
+        existing = hermes_existing(cfg)
+    except FileNotFoundError:
+        existing = {}
     remote = {}
     for name, e in want.items():
         if "url" in e:
@@ -505,25 +575,27 @@ def mcp_hermes(want, owned, dry):
         else:
             print("skip  hermes: %s (stdio MCPs are not written for hermes)" % name)
     apply_, drop = plan_owned("hermes", remote, existing, owned)
-    new_owned = []
     for name in apply_:
         e = remote[name]
         values = [("url", e["url"]), ("enabled", "true")]
         if e.get("auth"):
             values.append(("auth", e["auth"]))
-        new_owned.append(name)
         cur = existing.get(name, {})
-        todo = [(k, v) for k, v in values if cur.get(k) != v]
+        todo = [(k, v) for k, v in values
+                if (cur.get(k, "").lower() not in ("true", "yes") if k == "enabled"
+                    else cur.get(k) != v)]
         if not todo:
             print("unchanged  hermes: %s" % name)
+            owned.add(name)
             continue
+        owned.add(name)  # record before the first mutating call
         for k, v in todo:
             run_cli(["hermes", "config", "set", "--force",
                      "mcp_servers.%s.%s" % (name, k), v], dry)
     for name in drop:
         if name in existing:
             run_cli(["hermes", "config", "unset", "mcp_servers.%s" % name], dry)
-    return new_owned
+        owned.discard(name)  # only after the removal succeeded
 
 
 def mcp(manifest, dry):
@@ -531,7 +603,7 @@ def mcp(manifest, dry):
     entries, bad = mcp_entries(manifest)
     rc = 1 if bad else 0
     state = load_state()
-    owned_all = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
+    recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
     present = {
         "claude": shutil.which("claude") is not None,
         "codex": os.path.isdir(os.path.join(h, ".codex")),
@@ -539,36 +611,37 @@ def mcp(manifest, dry):
         "omp": os.path.isdir(os.path.join(h, ".omp")),
         "opencode": os.path.isdir(os.path.join(h, ".config", "opencode")),
         "hermes": shutil.which("hermes") is not None
-        and os.path.isdir(os.path.join(h, ".hermes")),
+        and os.path.isdir(hermes_home()),
     }
     for harness in MCP_HARNESSES:
         if not present[harness]:
             print("skip  %s (not installed)" % harness)
             continue
         want = applicable(entries, harness)
-        owned = set(owned_all.get(harness, []))
+        owned = set(recorded.get(harness, []))
         try:
             if harness == "claude":
-                new = mcp_claude(want, owned, dry)
+                mcp_claude(want, owned, dry)
             elif harness == "codex":
-                new = mcp_codex(os.path.join(h, ".codex", "config.toml"), want, dry)
+                mcp_codex(os.path.join(h, ".codex", "config.toml"), want, owned, dry)
             elif harness == "hermes":
-                new = mcp_hermes(want, owned, dry)
+                mcp_hermes(want, owned, dry)
             else:
                 path = {"cursor": os.path.join(h, ".cursor", "mcp.json"),
                         "omp": os.path.join(h, ".omp", "agent", "mcp.json"),
                         "opencode": os.path.join(h, ".config", "opencode",
                                                  "opencode.json")}[harness]
-                new = mcp_json_file(harness, path, want, owned, dry)
-        except (OSError, RuntimeError) as e:
+                mcp_json_file(harness, path, want, owned, dry)
+        except (OSError, RuntimeError, ValueError) as e:
             print("ERROR  %s: %s" % (harness, e))
             rc = 1
-            continue  # keep the old record: nothing was confirmed
-        owned_all[harness] = sorted(new)
-    if not dry:
-        state["mcp"] = owned_all
-        if state != load_state():
-            write_json(state_path(), state)
+        finally:
+            # persist what we may have written, even after a partial failure
+            if not dry:
+                recorded[harness] = sorted(owned)
+                state["mcp"] = recorded
+                if state != load_state():
+                    write_json(state_path(), state)
     return rc
 
 
