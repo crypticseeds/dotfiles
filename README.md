@@ -36,11 +36,20 @@ make install    # auto-detects OS, stows everything, runs health check
 
 | Target | What it does |
 |---|---|
-| `make install` | Stow everything for this OS + `skills` + `doctor` |
+| `make install` | Stow everything for this OS + `agents-sync` (fetch + link) + `doctor` |
 | `make restow` | Re-stow after adding/removing files in packages |
 | `make delete` | Remove all managed symlinks (safe; only touches links) |
-| `make skills` | Regenerate per-skill links for claude/codex |
-| `make doctor` | Health check: links, skills, agents, credential scan |
+| `make skills` | Regenerate per-skill links for claude/codex/hermes |
+| `make agents-sync` | Fetch manifest-pinned skills, then link them per harness, then create/update the manifest MCP servers, then install missing Claude plugins |
+| `make doctor` | Health check: links, skills, agents, credential scan, plus a drift report (`WARN drift:` lines, never changes the exit code) |
+
+Related files and commands:
+
+- `agents/.agents/manifest.json` - source of truth for pinned skills, Claude plugins and MCP servers.
+- `python3 scripts/agents-sync.py --dry-run all` - show what a sync would change, write nothing.
+- `python3 scripts/agents-sync.py check` - read-only drift report (same output as the doctor section). It lists: (a) skills in `~/.agents/skills` that are neither committed nor in the manifest, (b) manifest skills missing on this host or at a different pin, (c) manifest MCPs missing or different in an installed harness, (d) manifest-enabled Claude plugins that are not installed.
+
+MCP rule: every MCP name in the manifest is managed in each harness it applies to - created if missing, updated to the manifest definition if different, left alone if equal. Names that are not in the manifest are never touched, and nothing is removed automatically: if you drop an entry from the manifest, delete the existing copies by hand.
 
 ## Layout
 
@@ -74,7 +83,7 @@ harness reads it through symlinks committed to this repo:
 
 - **Skills** live in `agents/.agents/skills/` (Agent Skills standard). pi and
   opencode read `~/.agents/skills` natively; `make skills` links them into
-  claude/codex. Installing a new skill (e.g. `npx skills add ...`) writes
+  claude/codex/hermes. Installing a new skill (e.g. `npx skills add ...`) writes
   through `~/.agents` straight into the repo - commit it.
 - **Subagents**: `agents/.agents/subagents/` is shared by Claude Code and
   Cursor (same format). opencode agents live in

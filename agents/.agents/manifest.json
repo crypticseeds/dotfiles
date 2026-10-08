@@ -1,0 +1,125 @@
+{
+  "skills": [
+    {
+      "name": "find-skills",
+      "repo": "vercel-labs/skills",
+      "path": "skills/find-skills",
+      "ref": "05bf93879366fa21c5a4df7482a96adf13beabd2"
+    },
+    {
+      "name": "shadcn",
+      "repo": "shadcn/ui",
+      "path": "skills/shadcn",
+      "ref": "6ea090075cd537d3b792c6c1a625e2448b6ede26"
+    },
+    {
+      "name": "code-review",
+      "repo": "coderabbitai/skills",
+      "path": "skills/code-review",
+      "ref": "928c3b61f71b578b1bcfbacc289f1446244dd9dd"
+    },
+    {
+      "name": "herdr",
+      "repo": "herdrdev/herdr",
+      "path": "skills/herdr",
+      "ref": "2563803dca97c040beaf3dc3acdcb5a3221b4238"
+    },
+    {
+      "group": "aws",
+      "repo": "aws/agent-toolkit-for-aws",
+      "path": "plugins/aws-core/skills",
+      "ref": "df2ab44e485b28358353d827e5ebafbe267cce9f",
+      "all": true
+    },
+    {
+      "name": "setting-up-cloudwatch-observability",
+      "repo": "aws/agent-toolkit-for-aws",
+      "path": "skills/specialized-skills/operations-skills/setting-up-cloudwatch-observability",
+      "ref": "df2ab44e485b28358353d827e5ebafbe267cce9f"
+    },
+    {
+      "group": "buzz",
+      "repo": "tonbistudio/buzz-skills",
+      "path": ".",
+      "ref": "3f2d5700b8e2953127948d9241f1a84213a598b3",
+      "only": [
+        "hermes-in-buzz",
+        "buzz-media-attachments",
+        "buzz-self-hosting"
+      ],
+      "harnesses": [
+        "hermes"
+      ]
+    },
+    {
+      "name": "buzz-external-agents",
+      "local": true,
+      "hosts": [
+        "agents-pi"
+      ]
+    }
+  ],
+  "plugins": {
+    "marketplaces": {
+      "claude-plugins-official": "anthropics/claude-plugins-official",
+      "claude-code-warp": "warpdotdev/claude-code-warp",
+      "antonbabenko": "antonbabenko/agent-plugins"
+    },
+    "enabled": [
+      "coderabbit@claude-plugins-official",
+      "context7@claude-plugins-official",
+      "linear@claude-plugins-official",
+      "sentry@claude-plugins-official",
+      "warp@claude-code-warp",
+      "superpowers@claude-plugins-official",
+      "terraform-skill@antonbabenko"
+    ]
+  },
+  "mcp": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--headless=true",
+        "--isolated=true"
+      ]
+    },
+    "linear": {
+      "url": "https://mcp.linear.app/mcp",
+      "auth": "oauth",
+      "except": [
+        "claude"
+      ]
+    },
+    "firecrawl": {
+      "url": "https://mcp.firecrawl.dev/v2/mcp-oauth",
+      "auth": "oauth",
+      "except": [
+        "claude"
+      ]
+    },
+    "tinyfish": {
+      "url": "https://agent.tinyfish.ai/mcp",
+      "except": [
+        "claude"
+      ]
+    },
+    "aws-mcp": {
+      "command": "uvx",
+      "args": [
+        "mcp-proxy-for-aws-cli==1.7.0",
+        "https://aws-mcp.us-east-1.api.aws/mcp",
+        "--skip-auth"
+      ]
+    }
+  }
+}

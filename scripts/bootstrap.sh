@@ -1,9 +1,13 @@
 #!/usr/bin/env sh
 # Fresh machine bootstrap: detect OS -> install packages -> shell + nvim deps
-# -> install harnesses -> back up conflicting defaults -> deploy with stow -> verify.
+# -> install harnesses -> back up conflicting defaults -> deploy with stow -> verify
+# -> herdr integrations.
 # Idempotent: safe to rerun any time.
 set -eu
 cd "$(dirname "$0")/.."
+# Harness CLIs install here; the stowed zshrc covers later shells, but this
+# script (make install, agents-sync) needs them now.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
 
 # 1. OS / distro detection + system packages
 case "$(uname -s)" in
@@ -53,3 +57,12 @@ done
 # 5. Deploy + verify (make install auto-detects OS and ends with make doctor).
 #    Neovim installs its plugins, servers and parsers on first launch.
 make install
+
+# 6. herdr agent integrations (hook scripts + wiring, versioned and updated by
+#    herdr). After stow, so they extend the stowed configs instead of creating
+#    real files that make stow abort.
+if command -v herdr >/dev/null 2>&1; then
+  for t in claude codex opencode omp; do
+    herdr integration install "$t" >/dev/null 2>&1 || true
+  done
+fi

@@ -26,7 +26,7 @@
     "sentry@claude-plugins-official": true,
     "warp@claude-code-warp": true,
     "superpowers@claude-plugins-official": true,
-    "aws-core@claude-plugins-official": true,
+    "aws-core@claude-plugins-official": false,
     "terraform-skill@antonbabenko": true
   },
   "extraKnownMarketplaces": {

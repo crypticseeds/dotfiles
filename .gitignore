@@ -8,6 +8,7 @@ herdr-agent-state.*
 # cmux skills installed from manaflow-ai/cmux (managed by skills CLI, not versioned)
 agents/.agents/skills/cmux/
 agents/.agents/skills/cmux-*/
+# Remove after the one-time migration in docs/specs/agent-skills-mcp-sync.md
 # herdr skill installed from herdrdev/herdr (skills CLI, one-time install per device; not versioned)
 agents/.agents/skills/herdr/
 # AWS skills installed by the AWS plugin installer (each has .aws-skill-metadata; not versioned)

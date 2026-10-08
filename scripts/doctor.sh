@@ -21,10 +21,22 @@ got=$(readlink -f "$HOME/.agents/AGENTS.md" 2>/dev/null || true)
 if [ "$got" = "$want" ]; then echo "OK    ~/.agents"; else echo "FAIL  ~/.agents/AGENTS.md -> ${got:-missing}"; fail=1; fi
 
 # 3. No dangling links in the skill farms
-for d in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills"; do
+for d in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills" \
+         "$HOME/.hermes/skills"; do
   [ -d "$d" ] || continue
   bad=$(find -L "$d" -maxdepth 1 -type l 2>/dev/null)
-  if [ -n "$bad" ]; then echo "FAIL  dangling links in $d:"; echo "$bad"; fail=1; fi
+  if [ "$d" = "$HOME/.hermes/skills" ]; then
+    # hermes owns its dir: only links into ~/.agents/skills are ours (as prune does)
+    ours=""
+    for l in $bad; do
+      case "$(readlink "$l")" in
+        */.agents/skills/*) ours="$ours$l
+" ;;
+      esac
+    done
+    ours=${ours%?}
+    if [ -n "$ours" ]; then echo "WARN  dangling links in $d:"; echo "$ours"; fi
+  elif [ -n "$bad" ]; then echo "FAIL  dangling links in $d:"; echo "$bad"; fail=1; fi
 done
 
 # 4. opencode config + agents must parse
@@ -35,6 +47,10 @@ fi
 # 5. No credential files inside the repo
 creds=$(find "$repo" \( -name auth.json -o -name '*.credentials.json' -o -name '.env' \) -not -path '*/node_modules/*' 2>/dev/null)
 if [ -n "$creds" ]; then echo "FAIL  credential files inside repo:"; echo "$creds"; fail=1; fi
+
+# 6. Drift: skills, MCP servers and plugins vs the manifest (report only, never fails)
+echo "-- Drift"
+python3 -B "$repo/scripts/agents-sync.py" check || true
 
 [ "$fail" = 0 ] && echo "doctor: all checks passed"
 exit "$fail"

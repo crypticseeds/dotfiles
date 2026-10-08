@@ -4,6 +4,9 @@
 # Brewfile; these guards simply skip them.
 set -u
 
+# Installers put the harness CLIs here; make the `have` checks see them.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # opencode - https://opencode.ai
@@ -18,21 +21,11 @@ have claude || curl -fsSL https://claude.ai/install.sh | bash
 # stowed zshrc.
 if ! have codex && have npm; then npm_config_prefix="$HOME/.local" npm install -g @openai/codex; fi
 
-# Cursor CLI
-have cursor-agent || curl -fsS https://cursor.com/install | bash
-
-# pi coding agent
-if ! have pi && have npm; then npm_config_prefix="$HOME/.local" npm install -g --ignore-scripts @earendil-works/pi-coding-agent; fi
+# omp (oh-my-pi) - https://github.com/can1357/oh-my-pi
+have omp || curl -fsSL https://omp.sh/install | sh
 
 # herdr (terminal multiplexer / agent runtime) - https://herdr.dev
 # On macOS the Brewfile installs it; this guard covers Linux and skips if present.
 have herdr || curl -fsSL https://herdr.dev/install.sh | sh
-
-# herdr agent integrations (hook scripts + wiring; versioned and updated by herdr)
-if have herdr; then
-  for t in claude codex cursor opencode; do
-    herdr integration install "$t" >/dev/null 2>&1 || true
-  done
-fi
 
 exit 0
