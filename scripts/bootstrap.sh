@@ -4,6 +4,9 @@
 # Idempotent: safe to rerun any time.
 set -eu
 cd "$(dirname "$0")/.."
+# Harness CLIs install here; the stowed zshrc covers later shells, but this
+# script (make install, agents-sync) needs them now.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
 
 # 1. OS / distro detection + system packages
 case "$(uname -s)" in

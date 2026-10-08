@@ -4,6 +4,9 @@
 # Brewfile; these guards simply skip them.
 set -u
 
+# Installers put the harness CLIs here; make the `have` checks see them.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # opencode - https://opencode.ai

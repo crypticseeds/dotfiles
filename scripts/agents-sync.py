@@ -629,7 +629,8 @@ def mcp_present():
         "claude": shutil.which("claude") is not None,
         "codex": os.path.isdir(os.path.join(h, ".codex")),
         "cursor": os.path.isdir(os.path.join(h, ".cursor")),
-        "omp": os.path.isdir(os.path.join(h, ".omp")),
+        "omp": shutil.which("omp") is not None
+        or os.path.isdir(os.path.join(h, ".omp")),
         "opencode": os.path.isdir(os.path.join(h, ".config", "opencode")),
         "hermes": shutil.which("hermes") is not None
         and os.path.isdir(hermes_home()),
