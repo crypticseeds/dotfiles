@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, delegate to implementer/reviewer agents (in visible herdr panes for write or long work), verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
+description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, route each task to the cheapest capable model tier (Haiku, Sonnet, or yourself), delegate to implementer/reviewer agents in their own worktrees (in visible herdr panes for write or long work), verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
 ---
 
 # orchestrate
@@ -15,31 +15,48 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
    - **Scope**: files or areas it may touch, and what it must not touch.
    - **Acceptance criteria**: numbered, each with the exact check (command and expected result, or observable behavior). "Works correctly" is not a criterion.
    - **Out of scope**: what a worker must report, not fix.
+   - **Tier**: Haiku, Sonnet, or orchestrator (Opus), per the tiering table in AGENTS.md, with one line of reasoning. Split a task further if part of it fits a cheaper tier.
 4. Get the user's approval of the plan before delegating. Tasks that touch the same files run sequentially; independent tasks may run in parallel in separate worktrees.
 
 ## 2. Delegate
 
-- Research and read-only review: inline via the Agent tool (`codebase-researcher`, `code-reviewer`, `security-reviewer`). Subagents cannot spawn subagents, so you coordinate all of them.
-- Implementation, test runs, builds, long or approval-prone work: own herdr pane via the `delegate-visibly` skill (`claude --agent implementer`). One writer per worktree.
-- Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the report path, and the contract below.
+- Research and read-only review: inline via the Agent tool in your own checkout, always with an explicit `model`. Subagents cannot spawn subagents, so you coordinate all of them.
+  - `codebase-researcher`: `haiku` for quick lookups, `sonnet` for medium or very thorough.
+  - `code-reviewer`: `sonnet`; `opus` when the diff touches auth, IAM, secrets, Terraform, or exposes a service.
+  - `security-reviewer`: `opus`.
+- Implementation, test runs, builds, long or approval-prone work: `claude --agent implementer --model <haiku|sonnet>` in its own git worktree on branch `agent/<slug>`, launched via the `delegate-visibly` skill. It picks grid pane (worker likely needs the user) or background workspace (autonomous). One writer per worktree.
+- Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the worktree path and branch, the report path, and the contract below.
+- Do not do mid- or small-tier work yourself to save a round trip. Your tokens go to planning, specs, verification, and the tasks the table reserves for the top tier.
 
 ## 3. Verify (never skip)
 
 After a worker reports:
 
-1. Run the acceptance checks yourself. Do not accept the worker's output as evidence.
+1. Run the acceptance checks yourself, inside the worker's worktree. Do not accept the worker's output as evidence.
 2. Request independent review: `code-reviewer` with the plan and the diff range; add `security-reviewer` when the change touches auth, secrets, IAM, network, input handling, or CI. Pass the acceptance criteria so the review is judged against them.
 3. Build a criteria table: each criterion PASS / FAIL / UNVERIFIED with evidence.
 
 ## 4. Heal
 
 - Any FAIL, UNVERIFIED, or Critical/Important review finding goes back to the implementer (same pane, same session) as a corrective task that names the failing criteria and findings.
-- Re-verify from step 3. Maximum 3 heal rounds per task. Then stop, summarize what was tried and learned, and ask the user.
+- Escalate the tier instead of looping: a Haiku worker that fails once moves to a fresh Sonnet worker in the same worktree (close the Haiku pane first); a Sonnet worker that fails two heal rounds hands the task back to you.
+- Re-verify from step 3. Maximum 3 heal rounds per task across all tiers. Then stop, summarize what was tried and learned, and ask the user.
+
+## Integrate and clean up (after a task is verified)
+
+Run from your own checkout, one task at a time:
+
+    git merge agent/<slug>                 # stop and ask on any conflict you cannot resolve trivially
+    # re-run the task's acceptance checks on the merged result
+    git worktree remove .worktrees/<slug>  # never --force: a refusal means uncommitted work
+    git branch -d agent/<slug>             # never -D: a refusal means it is not merged
+
+Then close its pane or workspace (see Pane lifecycle). You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round.
 - Never weaken a criterion or a test to get a pass. If a criterion is wrong, say so and ask.
 
 ## 5. Finish
 
-Report: what changed, the criteria table with evidence, review verdicts, open concerns. Run the pane sweep (see Pane lifecycle) first. Do not commit, push, or open a PR unless the user asks.
+Report: what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), open concerns. Run the pane sweep (see Pane lifecycle) first and confirm `git worktree list` shows no leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
 
 ## Pane lifecycle (you decide; panes are shared space)
 
@@ -53,4 +70,4 @@ After each verification pass, decide for every pane you spawned. Never touch pan
 
 ## Worker contract (include in every delegation)
 
-Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them. Never commit.
+Work only inside the given worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.

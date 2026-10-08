@@ -38,7 +38,33 @@ Keep inline (NO pane): quick/medium read-only codebase research, inspect-only re
        rm -f /tmp/agent-reports/<slug>.md   # stale report = instant false completion signal
        # write the prompt to /tmp/agent-prompts/<slug>.md
 
-3. Place the helper using the 2x2 grid protocol, then launch the agent interactively. Helpers live in a 2x2 grid beside the main pane so every pane stays readable - never chain right-splits, which shrink panes into unreadable slivers:
+   **Run every `herdr` command as a plain command of its own.** On the agent host, herdr only runs outside the sandbox that way; inside a pipe, `&&` chain, loop, or `$(...)` it hits the sandbox and fails with `PermissionDenied`. Read the JSON it prints and copy the ids into the next command literally (shell variables do not persist between tool calls anyway).
+
+3. If the agent will write files, give it its own worktree (read-only agents skip this and use your cwd). `.worktrees/` lives inside the repo so it stays sandbox-writable; the exclude line keeps it out of `git status`. Run from the repo root, each git command on its own:
+
+       grep -qx '.worktrees/' .git/info/exclude || echo '.worktrees/' >> .git/info/exclude
+       git worktree add -b agent/<slug> <repo-root>/.worktrees/<slug>
+
+   Pick the model per the tiering table in AGENTS.md and always pass it: `--model haiku` or `--model sonnet` (`--model` with the provider's equivalent in opencode). Never omit it.
+
+4. Write a launcher script, so the herdr command itself stays plain (no `$(...)` in it):
+
+       # /tmp/agent-prompts/<slug>.sh
+       #!/bin/sh
+       # Claude Code (default permissions, so the user can approve in the pane):
+       exec claude --agent <agent-name> --model <haiku|sonnet> "$(cat /tmp/agent-prompts/<slug>.md)"
+       # opencode instead:
+       # exec opencode --agent <agent-name> --model <provider/model> --prompt "$(cat /tmp/agent-prompts/<slug>.md)"
+
+5. Choose placement:
+   - **Grid pane** - the worker will likely need the user (approvals it cannot avoid, clarifying questions, a spec with judgment calls) or the user wants to watch. Use the 2x2 grid below, splitting with `--cwd <worktree-path>`.
+   - **Background workspace** - well-specified autonomous work. It does not use a grid slot. herdr's sidebar and notifications surface it if it blocks, and you still check for blocked status:
+
+         herdr workspace create --cwd <worktree-path> --label agent/<slug> --no-focus
+
+     The new pane id is `.result.root_pane.pane_id` and the workspace id is `.result.workspace.workspace_id`. Then `herdr pane run <pane-id> "sh /tmp/agent-prompts/<slug>.sh"`. If a background worker blocks on something you cannot answer, tell the user its workspace label.
+
+6. Grid placement: place the helper using the 2x2 grid protocol, then launch the agent interactively. Helpers live in a 2x2 grid beside the main pane so every pane stays readable - never chain right-splits, which shrink panes into unreadable slivers:
 
        +--------+------+------+
        |        |  H1  |  H3  |
@@ -53,12 +79,9 @@ Keep inline (NO pane): quick/medium read-only codebase research, inspect-only re
    - H3 (third): split H1, `--direction right`
    - H4 (fourth): split H2, `--direction right`
 
-       NEW=$(herdr pane split <source-pane-id> --direction <right|down> --no-focus \
-         | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
-       # Claude Code (default permissions, so the user can approve in the pane):
-       herdr pane run "$NEW" "claude --agent <agent-name> \"\$(cat /tmp/agent-prompts/<slug>.md)\""
-       # opencode:
-       herdr pane run "$NEW" "opencode --agent <agent-name> --prompt \"\$(cat /tmp/agent-prompts/<slug>.md)\""
+       herdr pane split <source-pane-id> --direction <right|down> --cwd <worktree-path> --no-focus
+       # new pane id: .result.pane.pane_id
+       herdr pane run <new-pane-id> "sh /tmp/agent-prompts/<slug>.sh"
 
    The main pane gives up width once (H1) and is never split again. Track which slots you opened; when a helper pane closes, ids can shift and slots free up - re-run `herdr pane list` before every split and fill the freed slot using the same sequence logic.
 
@@ -66,20 +89,16 @@ Keep inline (NO pane): quick/medium read-only codebase research, inspect-only re
 
 ## Monitor
 
-The completion signal is the REPORT FILE appearing - not pane text, and not agent status. Poll for the file; check status only to detect blockage:
+The completion signal is the REPORT FILE appearing - not pane text, and not agent status. Wait on the file (a plain file check works inside the sandbox, so it may loop; in Claude Code use the Monitor tool with an until-loop rather than foreground sleep):
 
-    for i in $(seq 1 24); do
-      [ -f /tmp/agent-reports/<slug>.md ] && break
-      STATUS=$(herdr pane list | python3 -c 'import sys,json; print(next((p.get("agent_status","?") for p in json.load(sys.stdin)["result"]["panes"] if p["pane_id"]=="'"$NEW"'"),"gone"))')
-      [ "$STATUS" = "blocked" ] && echo "Pane $NEW needs user input"
-      sleep 5
-    done
+    until [ -f /tmp/agent-reports/<slug>.md ]; do sleep 30; done
 
+Check status only to detect blockage, with a standalone `herdr pane list` (never inside the loop) and read `agent_status` for your pane id:
 - Report file exists: the deliverable is ready. Optionally confirm the pane's status has settled (`idle`), then proceed to Collect.
-- `blocked`: tell the user immediately - "Pane $NEW needs your input (approval or question)" - then keep polling. Do not spam repeat alerts for the same blockage.
+- `blocked`: tell the user immediately - "Pane <pane-id> needs your input (approval or question)" - then keep polling. Do not spam repeat alerts for the same blockage.
 - `working`: keep polling; extend the loop for long tasks.
 - `gone`: the pane closed unexpectedly - report this to the user.
-- Loop exhausted with `idle` status and no report file: the agent likely finished without writing the report or is sitting at a prompt - read the pane (`herdr pane read "$NEW" --source recent-unwrapped --lines 60`) and judge from there.
+- Pane `idle` for a while and still no report file: the agent likely finished without writing the report or is sitting at a prompt - read the pane (`herdr pane read <pane-id> --source recent-unwrapped --lines 60`) and judge from there.
 - Do NOT use `herdr wait output --match` on a completion token: the TUI echoes the delegation prompt, so any token you mandated can match on the echo before the work is done. Do NOT use `wait agent-status --status done` as the completion signal either: a finished TUI session often reports `idle`. Status is for blocked-detection; the file is for completion.
 - While waiting you may continue your own independent read-only work, but never edit files the delegated agent may also touch.
 
@@ -89,7 +108,7 @@ Pane ids can shift when panes close: re-read ids from `herdr pane list` rather t
 
 1. Read `/tmp/agent-reports/<slug>.md`. If it is missing, fall back to:
 
-       herdr pane read "$NEW" --source recent-unwrapped --lines 150
+       herdr pane read <pane-id> --source recent-unwrapped --lines 150
 
 2. Judge the work yourself against the delegation spec. You own the quality bar; a subagent's success claim is not evidence.
 
@@ -97,14 +116,14 @@ Pane ids can shift when panes close: re-read ids from `herdr pane list` rather t
 
 - Accepted result: close the pane and remove the prompt file.
 
-      herdr pane close "$NEW"
-      rm -f /tmp/agent-prompts/<slug>.md
+      herdr pane close <pane-id>         # background worker: herdr workspace close <workspace-id>
+      rm -f /tmp/agent-prompts/<slug>.md /tmp/agent-prompts/<slug>.sh
 
-  Keep the report file as evidence for your own final response.
+  Keep the report file as evidence for your own final response. If the worker had a worktree, merge and remove it per the orchestrate skill's "Integrate and clean up" section.
 - Rejected, failed, or still unclear: KEEP the pane open, tell the user the pane id and what is wrong. For rework, reuse the same session instead of respawning:
 
-      herdr pane send-text "$NEW" "<corrective follow-up instruction>"
-      herdr pane send-keys "$NEW" Enter
+      herdr pane send-text <pane-id> "<corrective follow-up instruction>"
+      herdr pane send-keys <pane-id> Enter
 
   then monitor again.
 
@@ -113,5 +132,5 @@ Pane ids can shift when panes close: re-read ids from `herdr pane list` rather t
 - Be conservative: when in doubt, delegate inline. A pane must earn its existence.
 - Always split with `--no-focus`; never steal the user's focus.
 - Close only panes you spawned; never close or write to panes that are not yours.
-- One agent per pane; one writer per worktree; never more than 4 helper panes open at once.
+- One agent per pane; one writer per worktree; never more than 4 helper panes open at once (background workspaces do not count toward the grid cap, but keep their number reasonable and close each one when done).
 - If the agent CLI fails to start in the pane (read the pane to check), report the error to the user; do not silently fall back.

@@ -43,6 +43,30 @@ Define success criteria. Loop until verified. Evidence, not assertion.
 - No placeholder, stub, or TODO code presented as complete work.
 - After about 3 failed attempts at the same problem, stop. Summarize what you tried and what you learned in an HTML file, then ask.
 
+## Model tiering and delegation
+
+Sessions start on the top-tier model (Opus in Claude Code) as the orchestrator: it reasons, plans, writes task specs, delegates, and verifies. Token budget is finite; spend top-tier tokens on judgment, not on work a smaller model can do. The full workflow is in the `orchestrate` and `delegate-visibly` skills.
+
+Route each task to the cheapest tier that can do it reliably. Judge by complexity and blast radius, not by size:
+
+| Tier | Claude model | Give it |
+|------|--------------|---------|
+| Small | Haiku | Fully specified, low-judgment work with an exact, checkable outcome: docs and README updates from given facts, adding a line to a package list or config, mechanical edits where the spec names every file and change, running a test suite or build and summarizing the output, quick read-only lookups ("where is X defined"), inventories and formatting. |
+| Mid | Sonnet | Clear spec, real engineering: feature implementation, refactors, bug fixes with a known reproduction, writing tests, medium or thorough codebase research, routine code review. |
+| Top | Opus (the orchestrator itself) | Ambiguous or cross-cutting work: planning and task decomposition, architecture and design calls, debugging with no known cause, security review, review of auth, IAM, secrets, Terraform or anything exposing a service, and verification of every worker's result. |
+
+- Never give a small-tier model a refactor, a multi-file behavior change, a debugging task, or anything where it must choose between designs. When unsure between two tiers, pick the higher one.
+- A task is ready for a smaller model only when its spec states scope, acceptance criteria with exact checks, and out-of-scope items. If you cannot write that spec, the task is not ready to delegate.
+- Escalate on failure, do not retry the same tier: a small-tier worker that fails once or reports ambiguity moves to mid tier; a mid-tier worker that fails two heal rounds hands the task back to the orchestrator.
+- Set the model explicitly on every delegation (`model` on the Agent tool, `--model` on `claude --agent`). Never rely on inheritance, which silently runs the worker on the top tier.
+- Other harnesses map the same three tiers to their own equivalents.
+
+Worktrees and panes:
+
+- Every agent that writes files works in its own git worktree on a local `agent/<slug>` branch. One writer per worktree. Read-only agents (research, review, lookups) run inline in the orchestrator's checkout.
+- A worker that will likely need the user (approvals, clarifying questions, an ambiguous spec) runs in a herdr pane in the orchestrator's 2x2 grid, with its cwd in its worktree. A well-specified autonomous worker runs in its own herdr worktree workspace in the background; herdr notifies the user if it blocks.
+- Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
+
 ## Code review (CodeRabbit)
 
 Use the `code-review` skill (CodeRabbit CLI). The quota is a free tier: spend it deliberately.
