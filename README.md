@@ -40,6 +40,7 @@ make install    # auto-detects OS, stows everything, runs health check
 | `make restow` | Re-stow after adding/removing files in packages |
 | `make delete` | Remove all managed symlinks (safe; only touches links) |
 | `make skills` | Regenerate per-skill links for claude/codex |
+| `make agents-sync` | Fetch manifest-pinned skills into `~/.agents/skills` (`agents/.agents/manifest.json`) |
 | `make doctor` | Health check: links, skills, agents, credential scan |
 
 ## Layout

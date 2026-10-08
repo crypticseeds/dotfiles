@@ -24,7 +24,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills doctor setup shell nvim
+.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills agents-sync doctor setup shell nvim
 
 # Mac and the Pi share this repo: rebase onto upstream before deploying or rewriting tracked
 # files (nvim's Lazy sync rewrites lazy-lock.json), so no machine works from a stale checkout.
@@ -44,6 +44,7 @@ mac: pull
 	$(STOW) $(COMMON) $(MACONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
+	$(MAKE) agents-sync
 	$(MAKE) doctor
 
 linux: pull
@@ -51,6 +52,7 @@ linux: pull
 	$(STOW) $(COMMON) $(LINUXONLY)
 	$(STOW) --no-folding $(TOOLS)
 	$(MAKE) skills
+	$(MAKE) agents-sync
 	$(MAKE) doctor
 
 # Headless servers (the DNS Pi and friends): shell + prompt, nothing else.
@@ -70,12 +72,14 @@ restow-mac: pull
 	$(STOW) -R agents $(COMMON) $(MACONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
+	$(MAKE) agents-sync
 	@$(reload-hint)
 
 restow-linux: pull
 	$(STOW) -R agents $(COMMON) $(LINUXONLY)
 	$(STOW) -R --no-folding $(TOOLS)
 	$(MAKE) skills
+	$(MAKE) agents-sync
 	@$(reload-hint)
 
 delete:
@@ -105,6 +109,11 @@ skills:
 			ln -sfn "$${s%/}" "$$t/$$(basename $$s)"; \
 		done; \
 	done
+
+# Fetch manifest-pinned skills into ~/.agents/skills, then link, MCP and plugin
+# steps (agents/.agents/manifest.json; scripts/agents-sync.py).
+agents-sync:
+	python3 scripts/agents-sync.py all
 
 doctor:
 	@sh scripts/doctor.sh

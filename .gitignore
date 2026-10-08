@@ -8,11 +8,3 @@ herdr-agent-state.*
 # cmux skills installed from manaflow-ai/cmux (managed by skills CLI, not versioned)
 agents/.agents/skills/cmux/
 agents/.agents/skills/cmux-*/
-# herdr skill installed from herdrdev/herdr (skills CLI, one-time install per device; not versioned)
-agents/.agents/skills/herdr/
-# AWS skills installed by the AWS plugin installer (each has .aws-skill-metadata; not versioned)
-agents/.agents/skills/aws-*/
-agents/.agents/skills/amazon-bedrock/
-agents/.agents/skills/launch-with-aws/
-agents/.agents/skills/setting-up-cloudwatch-observability/
-agents/.agents/skills/signing-in-to-aws/
