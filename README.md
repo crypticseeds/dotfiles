@@ -43,6 +43,12 @@ make install    # auto-detects OS, stows everything, runs health check
 | `make agents-sync` | Fetch manifest-pinned skills, then link them per harness, then generate MCP servers, then install missing Claude plugins |
 | `make doctor` | Health check: links, skills, agents, credential scan, plus a drift report (`WARN drift:` lines, never fails the run) |
 
+Related files and commands:
+
+- `agents/.agents/manifest.json` - source of truth for pinned skills, Claude plugins and MCP servers.
+- `python3 scripts/agents-sync.py --dry-run all` - show what a sync would change, write nothing.
+- `python3 scripts/agents-sync.py check` - read-only drift report (same output as the doctor section).
+
 ## Layout
 
 Each top-level directory is a stow package mirroring `$HOME`:

@@ -25,7 +25,18 @@ for d in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills" \
          "$HOME/.hermes/skills"; do
   [ -d "$d" ] || continue
   bad=$(find -L "$d" -maxdepth 1 -type l 2>/dev/null)
-  if [ -n "$bad" ]; then echo "FAIL  dangling links in $d:"; echo "$bad"; fail=1; fi
+  if [ "$d" = "$HOME/.hermes/skills" ]; then
+    # hermes owns its dir: only links into ~/.agents/skills are ours (as prune does)
+    ours=""
+    for l in $bad; do
+      case "$(readlink "$l")" in
+        */.agents/skills/*) ours="$ours$l
+" ;;
+      esac
+    done
+    ours=${ours%?}
+    if [ -n "$ours" ]; then echo "WARN  dangling links in $d:"; echo "$ours"; fi
+  elif [ -n "$bad" ]; then echo "FAIL  dangling links in $d:"; echo "$bad"; fail=1; fi
 done
 
 # 4. opencode config + agents must parse

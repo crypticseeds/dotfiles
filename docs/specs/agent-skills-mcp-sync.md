@@ -1,6 +1,6 @@
 # Spec: reproducible agent skills, plugins and MCP servers
 
-Status: draft for review (2026-10-08). Nothing here is built yet.
+Status: built on branch feat/agent-skills-mcp-sync (2026-10-08).
 
 ## Problem
 
@@ -56,6 +56,8 @@ follow the account to every machine and are out of scope.
 | Cursor | native (docs: loads `~/.agents/skills`, plus `~/.claude/skills` and `~/.codex/skills` for compatibility) | `~/.cursor/mcp.json` |
 
 A harness that is not installed on the machine is skipped, not an error.
+Codex and Cursor presence is detected by `~/.codex` / `~/.cursor`, which stow
+creates, so their MCP files are written even without the CLI installed.
 
 ## Design
 
@@ -81,20 +83,24 @@ without new dependencies.
     "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@<version>"] },
     "linear":     { "url": "https://mcp.linear.app/mcp", "auth": "oauth", "except": ["claude"] },
     "firecrawl":  { "url": "https://mcp.firecrawl.dev/v2/mcp-oauth", "auth": "oauth", "except": ["claude"] },
-    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] },
-    "example-key-based": { "url": "...", "headers": { "Authorization": "Bearer ${EXAMPLE_API_KEY}" } }
+    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] }
   }
 }
 ```
 
 Rules:
 - Every remote skill is pinned to a full commit SHA. Updating is an explicit
-  `make agents-update` that bumps refs and shows the diff for review.
+  `make agents-update` that bumps refs and shows the diff for review. (Not
+  implemented, future: refs are bumped by hand today.)
 - `local: true` marks a skill whose files live only on the listed hosts; the
   sync never fetches it and doctor does not flag it there.
 - `harnesses` / `except` restrict an entry; default is all installed harnesses.
-- Secrets appear only as `${VAR}` references to Doppler names. Harnesses
-  already launch under `doppler run`; the generator never resolves values.
+- Secrets as `${VAR}` references to Doppler names, and a `headers` entry,
+  are not implemented (future). Any entry containing `${` is rejected today.
+  Harnesses already launch under `doppler run`; the generator never resolves
+  values.
+- `harnesses` restricts per-skill LINKS only. Skills in `~/.agents/skills` are
+  still visible to harnesses that read it natively (pi, opencode, omp, cursor).
 - Repo-owned skills (`delegate-visibly`, `orchestrate`, ...) are not listed:
   everything committed under `agents/.agents/skills/` is managed by definition.
 
@@ -169,17 +175,9 @@ Report only; it never deletes. It is produced by the read-only
 install` / `make restow` call it after stowing (the existing load-bearing order
 stays: `agents` stows first).
 
-## One-time migration (on the Pi, then the Mac)
+## One-time migration
 
-1. Record SHAs for find-skills, shadcn, code-review, herdr, the AWS set and
-   buzz-skills into the manifest.
-2. Remove real-directory skill copies from `~/.claude/skills` and
-   `~/.pi/agent/skills` (commands listed for the owner to run, per repo rules).
-3. Disable the aws-core plugin's skills (disable the plugin, keep aws-mcp via
-   the manifest); uninstall `superpowers@anthropic-plugin-directory`.
-4. Move unmanaged MCPs (Claude aws-mcp, opencode `opencode.json` aws-mcp, omp
-   linear, Hermes firecrawl) into the manifest; regenerate.
-5. Replace the three copied Buzz skills in `~/.hermes/skills` with links.
+See `docs/plans/agent-skills-mcp-sync-migration.md`.
 
 ## Decisions (resolved 2026-10-08)
 

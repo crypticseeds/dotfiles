@@ -499,14 +499,21 @@ def mcp_codex(path, want, owned, dry, frozen):
     owned.update(final_all)
 
 
+CLI_TIMEOUT = 300
+
+
 def run_cli(argv, dry):
     """Run (or, in dry-run, print) a mutating CLI call; raises on failure."""
     text = " ".join(shlex.quote(a) for a in argv)
     if dry:
         print("would run  %s" % text)
         return
-    r = subprocess.run(argv, cwd=home(), stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
+    try:
+        r = subprocess.run(argv, cwd=home(), stdin=subprocess.DEVNULL,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           timeout=CLI_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("%s failed: timed out after %ss" % (text, CLI_TIMEOUT))
     if r.returncode != 0:
         raise RuntimeError("%s failed: %s" % (text, r.stderr.decode(errors="replace").strip()
                                               or r.stdout.decode(errors="replace").strip()))
@@ -921,7 +928,6 @@ def drift_mcp(manifest, out):
     state = load_state()
     recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
     present = mcp_present()
-    names = set(entries) | bad
     for harness in MCP_HARNESSES:
         if not present[harness]:
             continue
@@ -931,11 +937,15 @@ def drift_mcp(manifest, out):
             out.append("cannot read %s MCP config: %s" % (harness, e))
             continue
         owned = set(recorded.get(harness, []))
-        for n in sorted(existing - owned - names):
-            out.append("unmanaged MCP: %s in %s" % (n, harness))
         want = applicable(entries, harness)
         if harness == "hermes":
             want = dict((n, e) for n, e in want.items() if "url" in e)
+        for n in sorted(existing - owned - bad):
+            if n in want:
+                out.append("MCP %s in %s exists but is not managed by the sync"
+                           % (n, harness))
+            else:
+                out.append("unmanaged MCP: %s in %s" % (n, harness))
         for n in sorted(set(want) - existing):
             out.append("missing MCP: %s in %s" % (n, harness))
 
@@ -974,8 +984,8 @@ def check(manifest):
     for fn in (drift_skills, drift_mcp, drift_plugins):
         try:
             fn(manifest, out)
-        except (OSError, RuntimeError, ValueError) as e:
-            out.append("%s failed: %s" % (fn.__name__, e))
+        except Exception as e:
+            print("WARN  drift: %s failed: %s" % (fn.__name__, e))
     for line in out:
         print("WARN  drift: %s" % line)
     if not out:
