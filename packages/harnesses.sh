@@ -28,11 +28,4 @@ have omp || curl -fsSL https://omp.sh/install | sh
 # On macOS the Brewfile installs it; this guard covers Linux and skips if present.
 have herdr || curl -fsSL https://herdr.dev/install.sh | sh
 
-# herdr agent integrations (hook scripts + wiring; versioned and updated by herdr)
-if have herdr; then
-  for t in claude codex opencode omp; do
-    herdr integration install "$t" >/dev/null 2>&1 || true
-  done
-fi
-
 exit 0
