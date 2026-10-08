@@ -246,7 +246,8 @@ def link_target(manifest, dry, harness, tdir, src_dir, names):
         for n in sorted(os.listdir(tdir)):
             path = os.path.join(tdir, n)
             if (os.path.islink(path) and not os.path.exists(path)
-                    and os.readlink(path).startswith(src_dir + os.sep)):
+                    and os.path.realpath(path).startswith(
+                        os.path.realpath(src_dir) + os.sep)):
                 print("%s  %s" % ("would prune" if dry else "pruned", path))
                 if not dry:
                     os.unlink(path)
@@ -291,6 +292,9 @@ def main():
             manifest = json.load(f)
     except (OSError, ValueError) as e:
         print("ERROR  manifest %s: %s" % (args.manifest, e))
+        if args.step in ("link", "all"):
+            print("WARN  manifest unreadable, linking without harness filters")
+            link({}, args.dry_run)
         return 1
     rc = 0
     for name, fn in STEPS:
