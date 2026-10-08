@@ -65,8 +65,9 @@ the manifest are left alone.
 cd ~/dotfiles && make install    # or: make agents-sync && make doctor
 ```
 
-Expected: no `WARN ... exists and is not managed` lines except the kept
-entries from step 3; doctor's Drift section shows only those (or `OK drift: none`).
+Expected: no `WARN ... not managed` lines for skills; MCPs named in the manifest
+now match it in every installed harness; doctor's Drift section shows
+`OK    drift: none` or only items you chose to keep.
 New remote MCPs (linear, firecrawl, tinyfish) in codex/cursor/omp/opencode ask
 for an OAuth login on first use.
 

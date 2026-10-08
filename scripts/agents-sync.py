@@ -23,8 +23,10 @@ MARKER = ".managed-by-manifest"
 SYNC_SUFFIXES = (".tmp-sync", ".old-sync")
 GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
 
+
 def home():
     return os.path.expanduser("~")
+
 
 def atomic_write(path, text):
     """Write via tmp + rename; existing files keep their mode, new ones get 0644."""
@@ -40,12 +42,14 @@ def atomic_write(path, text):
             os.unlink(tmp)
         raise
 
+
 def cli(argv):
     try:
         return subprocess.run(argv, cwd=home(), stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
     except subprocess.TimeoutExpired:
         raise RuntimeError("%s failed: timed out after 300s" % " ".join(argv))
+
 
 def run_cli(argv, dry):
     """Run (or, in dry-run, print) a mutating CLI call; raises on failure."""
@@ -58,10 +62,12 @@ def run_cli(argv, dry):
         raise RuntimeError("%s failed: %s" % (text, (r.stderr or r.stdout).decode(errors="replace").strip()))
     print("ran  %s" % text)
 
+
 # --- fetch -------------------------------------------------------------------
 def git(cwd, *args):
     subprocess.run(["git", *args], cwd=cwd, env=GIT_ENV, check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
 
 def checkout(entry):
     """Shallow, sparse checkout of entry['ref'] into the cache; return its dir."""
@@ -82,6 +88,7 @@ def checkout(entry):
     git(cache, "checkout", "-q", "--force", "--detach", entry["ref"])
     return cache
 
+
 def read_marker(target):
     try:
         with open(os.path.join(target, MARKER)) as f:
@@ -89,11 +96,13 @@ def read_marker(target):
     except (OSError, ValueError):
         return None
 
+
 def remove(path):
     if os.path.islink(path) or os.path.isfile(path):
         os.unlink(path)
     elif os.path.lexists(path):
         shutil.rmtree(path)
+
 
 def install(src, target, entry, skill_path):
     """Build into <target>.tmp-sync, then swap in; never leave a half-deleted target."""
@@ -118,6 +127,7 @@ def install(src, target, entry, skill_path):
         raise
     remove(old)
 
+
 def sync_skill(entry, name, src, skill_path, skills_dir):
     target = os.path.join(skills_dir, name)
     marker = read_marker(target)
@@ -129,6 +139,7 @@ def sync_skill(entry, name, src, skill_path, skills_dir):
     else:
         install(src, target, entry, skill_path)
         print("installed  %s (%s@%s)" % (name, entry["repo"], entry["ref"][:12]))
+
 
 def fetch(manifest, dry):
     skills_dir = os.path.join(home(), ".agents", "skills")
@@ -155,7 +166,7 @@ def fetch(manifest, dry):
             if "name" in entry:
                 sync_skill(entry, entry["name"], base, entry["path"], skills_dir)
                 continue
-            names = entry.get("only") or sorted(
+            names = entry["only"] if "only" in entry else sorted(
                 n for n in os.listdir(base) if os.path.isfile(os.path.join(base, n, "SKILL.md")))
             for name in names:
                 sync_skill(entry, name, os.path.join(base, name),
@@ -165,6 +176,7 @@ def fetch(manifest, dry):
             print("ERROR  %s: %s" % (label, detail.decode(errors="replace").strip() if detail else e))
             failed = True
     return 1 if failed else 0
+
 
 # --- link --------------------------------------------------------------------
 def owner(manifest, name, marker):
@@ -179,8 +191,10 @@ def owner(manifest, name, marker):
             return e
     return None
 
+
 def entry_path(e, name):
     return e.get("path") if "name" in e else os.path.normpath(os.path.join(e.get("path", "."), name))
+
 
 def link(manifest, dry):
     h = home()
@@ -200,6 +214,7 @@ def link(manifest, dry):
             print("ERROR  %s: %s" % (harness, e))
             rc = 1
     return rc
+
 
 def link_target(manifest, dry, harness, tdir, src_dir, names):
     if not os.path.isdir(tdir):
@@ -248,6 +263,7 @@ SCHEMA = "https://opencode.ai/config.json"
 CODEX_TABLE = re.compile(
     r'^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|([A-Za-z0-9_-]+))\s*(?:\]|\.)', re.M)
 
+
 def mcp_error(e):
     if not isinstance(e, dict):
         return "entry must be an object"
@@ -261,6 +277,7 @@ def mcp_error(e):
             return "'%s' must be a list%s" % (key, "" if key == "args" else " of harness names")
     return None
 
+
 def mcp_entries(manifest):
     """Valid manifest MCP entries and the number of invalid ones (skipped)."""
     entries, bad = {}, 0
@@ -273,14 +290,17 @@ def mcp_entries(manifest):
         print("ERROR  mcp %s: %s" % (name, err))
     return entries, bad
 
+
 def applicable(entries, harness):
     return dict((n, e) for n, e in entries.items()
                 if harness in e.get("harnesses", MCP_HARNESSES)
                 and harness not in e.get("except", [])
                 and (harness != "hermes" or "url" in e))
 
+
 def hermes_home():
     return os.environ.get("HERMES_HOME") or os.path.join(home(), ".hermes")
+
 
 def mcp_present():
     h = home()
@@ -291,9 +311,11 @@ def mcp_present():
             "opencode": os.path.isdir(os.path.join(h, ".config", "opencode")),
             "hermes": shutil.which("hermes") is not None and os.path.isdir(hermes_home())}
 
+
 def say(dry, verb, harness, name):
     past = {"add": "added", "update": "updated"}[verb]
     print("%s  %s: %s" % ("would " + verb if dry else past, harness, name))
+
 
 def render_json(harness, e):
     cmd, args = e.get("command"), e.get("args", [])
@@ -307,10 +329,12 @@ def render_json(harness, e):
         return {"type": "stdio", "command": cmd, "args": args}
     return {"type": "http", "url": e["url"]}
 
+
 def same(harness, current, wanted):
     if harness == "claude":  # claude adds fields of its own; compare ours only
         return isinstance(current, dict) and all(current.get(k) == v for k, v in wanted.items())
     return current == wanted
+
 
 def load_servers(harness):
     """(path, document, key, servers) of a JSON-config harness; missing file = empty."""
@@ -331,6 +355,7 @@ def load_servers(harness):
     if not isinstance(servers, dict):
         raise RuntimeError("%s: unexpected structure" % path)
     return path, doc, key, servers
+
 
 def mcp_json(harness, want, dry):
     """claude (via its CLI), cursor, omp, opencode: create or update manifest names."""
@@ -353,8 +378,10 @@ def mcp_json(harness, want, dry):
         doc[key] = servers
         atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
+
 def toml_name(name):
     return name if re.fullmatch(r"[A-Za-z0-9_-]+", name) else json.dumps(name)
+
 
 def codex_chunk(name, e):
     lines = ["[mcp_servers.%s]" % toml_name(name)]
@@ -364,6 +391,7 @@ def codex_chunk(name, e):
     else:
         lines.append("url = %s" % json.dumps(e["url"]))
     return lines
+
 
 def codex_read(path):
     """(lines, start, end, chunks, outside): file lines, block marker indexes
@@ -394,6 +422,7 @@ def codex_read(path):
     names = set(a or b for a, b in CODEX_TABLE.findall("\n".join(outside)))
     return lines, start, end, chunks, names
 
+
 def mcp_codex(want, dry):
     """Regenerate the managed block; names in it that are not in `want` are kept."""
     path = os.path.join(home(), ".codex", "config.toml")
@@ -420,6 +449,7 @@ def mcp_codex(want, dry):
     if new != lines and not dry:
         atomic_write(path, "\n".join(new) + "\n")
 
+
 def hermes_todo(name, e):
     values = [("url", e["url"]), ("enabled", "true")]
     if e.get("auth"):
@@ -432,11 +462,13 @@ def hermes_todo(name, e):
             todo.append((k, v))
     return todo
 
+
 def mcp_hermes(want, dry):
     for name in sorted(want):
         for k, v in hermes_todo(name, want[name]):
             run_cli(["hermes", "config", "set", "--force",
                      "mcp_servers.%s.%s" % (name, k), v], dry)
+
 
 def mcp(manifest, dry):
     entries, bad = mcp_entries(manifest)
@@ -459,6 +491,7 @@ def mcp(manifest, dry):
             rc = 1
     return rc
 
+
 # --- plugins -----------------------------------------------------------------
 def plugin_state():
     """(installed marketplaces, installed plugins) from Claude's own state files."""
@@ -475,6 +508,7 @@ def plugin_state():
         node = node.get(key) if key and isinstance(node, dict) else node
         out.append(set(node) if isinstance(node, dict) else set())
     return out
+
 
 def plugins(manifest, dry):
     """Add missing marketplaces and install missing enabled plugins; never uninstall."""
@@ -501,11 +535,13 @@ def plugins(manifest, dry):
             rc = 1
     return rc
 
+
 # --- check -------------------------------------------------------------------
 def tracked_in_repo(name):
     r = subprocess.run(["git", "ls-files", "agents/.agents/skills/" + name],
                        cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     return bool(r.stdout.strip())
+
 
 def drift_skills(manifest, out):
     sdir = os.path.join(home(), ".agents", "skills")
@@ -532,6 +568,7 @@ def drift_skills(manifest, out):
             if n not in on_disk and ("hosts" not in e or host in e["hosts"]):
                 out.append("missing skill: %s (in manifest, not in %s)" % (n, sdir))
 
+
 def drift_mcp(manifest, out):
     """Whatever `mcp --dry-run` would change is drift (it only reads)."""
     buf = io.StringIO()
@@ -541,12 +578,14 @@ def drift_mcp(manifest, out):
         if line.startswith(("would ", "ERROR")):
             out.append("MCP out of sync: %s" % line)
 
+
 def drift_plugins(manifest, out):
     if shutil.which("claude") is not None:
         installed = plugin_state()[1]
         for p in (manifest.get("plugins") or {}).get("enabled") or []:
             if p not in installed:
                 out.append("plugin not installed: %s" % p)
+
 
 def check(manifest):
     """Read-only drift report: WARN lines, or OK; never writes, always exit 0."""
@@ -561,6 +600,7 @@ def check(manifest):
 
 
 STEPS = [("fetch", fetch), ("link", link), ("mcp", mcp), ("plugins", plugins)]
+
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
