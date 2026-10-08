@@ -233,8 +233,8 @@ def string_list(value):
 
 
 def mcp_entries(manifest):
-    """Validated neutral entries; returns (entries, had_error)."""
-    entries, bad = {}, False
+    """Validated neutral entries; returns (entries, names that failed validation)."""
+    entries, bad = {}, set()
     for name, e in (manifest.get("mcp") or {}).items():
         try:
             if not isinstance(e, dict):
@@ -250,7 +250,7 @@ def mcp_entries(manifest):
                     raise RuntimeError("'%s' must be a list of %s" % (key, "/".join(MCP_HARNESSES)))
         except RuntimeError as err:
             print("ERROR  mcp %s: %s" % (name, err))
-            bad = True
+            bad.add(name)
             continue
         entries[name] = e
     return entries, bad
@@ -284,11 +284,12 @@ def render_json(harness, e):
     return {"type": "http", "url": e["url"]}
 
 
-def plan_owned(harness, want, existing, owned):
+def plan_owned(harness, want, existing, owned, frozen=()):
     """Split by ownership: (names to write, owned names to remove).
 
     existing: names present in the harness; owned: names this sync wrote.
-    A same-name entry that is not ours is never written (WARN).
+    A same-name entry that is not ours is never written (WARN). Frozen names
+    (invalid manifest entries) are neither updated nor removed.
     """
     apply_, drop = [], []
     for name in want:
@@ -297,12 +298,14 @@ def plan_owned(harness, want, existing, owned):
         else:
             apply_.append(name)
     for name in sorted(owned):
-        if name not in want:
+        if name in frozen:
+            print("skip  %s: %s (invalid manifest entry)" % (harness, name))
+        elif name not in want:
             drop.append(name)
     return apply_, drop
 
 
-def mcp_json_file(harness, path, want, owned, dry):
+def mcp_json_file(harness, path, want, owned, dry, frozen):
     """cursor / omp / opencode: merge into one JSON object key.
 
     owned is the live ownership record: names are added before the write and
@@ -325,7 +328,7 @@ def mcp_json_file(harness, path, want, owned, dry):
         servers = {}
     if not isinstance(servers, dict):
         raise RuntimeError("%s: '%s' is not an object" % (path, key))
-    apply_, drop = plan_owned(harness, want, servers, owned)
+    apply_, drop = plan_owned(harness, want, servers, owned, frozen)
     changed = False
     for name in apply_:
         rendered = render_json(harness, want[name])
@@ -413,12 +416,17 @@ def toml_name(name):
     return name if re.fullmatch(r"[A-Za-z0-9_-]+", name) else json.dumps(name)
 
 
-def render_codex(want):
+def render_codex(want, kept=None):
+    """Managed block; kept = {name: verbatim lines} for frozen (invalid) entries."""
+    kept = kept or {}
     lines = [MCP_START]
-    for i, name in enumerate(sorted(want)):
-        e = want[name]
+    for i, name in enumerate(sorted(set(want) | set(kept))):
+        e = want.get(name)
         if i:
             lines.append("")
+        if e is None:
+            lines.extend(kept[name])
+            continue
         lines.append("[mcp_servers.%s]" % toml_name(name))
         if "command" in e:
             lines.append("command = %s" % json.dumps(e["command"]))
@@ -429,7 +437,7 @@ def render_codex(want):
     return lines
 
 
-def mcp_codex(path, want, owned, dry):
+def mcp_codex(path, want, owned, dry, frozen):
     """Managed block inside config.toml; text outside it is never changed."""
     try:
         with open(path, encoding="utf-8") as f:
@@ -447,15 +455,22 @@ def mcp_codex(path, want, owned, dry):
     end = ends[0] if ends else None
     outside = lines[:start] + lines[end + 1:] if start is not None else lines
     inside = lines[start + 1:end] if start is not None else []
-    old = set()
+    old, chunks, cur = set(), {}, None
     for ln in inside:
         m = CODEX_TABLE.match(ln)
         if m:
-            old.add(m.group(1) or m.group(2))
+            cur = m.group(1) or m.group(2)
+            old.add(cur)
+            chunks[cur] = []
+        if cur is not None and ln.strip():
+            chunks[cur].append(ln)
+    kept = dict((n, chunks[n]) for n in sorted(old & set(frozen)))
+    for name in kept:
+        print("skip  codex: %s (invalid manifest entry)" % name)
     unmanaged = codex_references(outside)
     apply_, _ = plan_owned("codex", want, unmanaged, set())
     final = dict((n, want[n]) for n in apply_)
-    block = render_codex(final) if final else []
+    block = render_codex(final, kept) if final or kept else []
     if start is not None:
         new = lines[:start] + block + lines[end + 1:]
         if not block and start > 0 and lines[start - 1] == "" and end + 1 >= len(lines):
@@ -464,21 +479,22 @@ def mcp_codex(path, want, owned, dry):
         new = lines + ([""] if lines and lines[-1] != "" else []) + block
     else:
         new = lines
+    final_all = set(final) | set(kept)
     for name in sorted(set(final) - old):
         print("%s  codex: %s" % ("would add" if dry else "added", name))
-    for name in sorted(old - set(final)):
+    for name in sorted(old - final_all):
         print("%s  codex: %s" % ("would remove" if dry else "removed", name))
     if new == lines:
         for name in sorted(final):
             print("unchanged  codex: %s" % name)
     else:
-        if old == set(final):
+        if old == final_all:
             print("%s  codex: managed block" % ("would update" if dry else "updated"))
         if not dry:
-            owned.update(final)  # record before the write
+            owned.update(final_all)  # record before the write
             write_text(path, "\n".join(new) + "\n")
     owned.clear()
-    owned.update(final)
+    owned.update(final_all)
 
 
 def run_cli(argv, dry):
@@ -495,7 +511,7 @@ def run_cli(argv, dry):
     print("ran  %s" % text)
 
 
-def mcp_claude(want, owned, dry):
+def mcp_claude(want, owned, dry, frozen):
     try:
         with open(os.path.join(home(), ".claude.json"), encoding="utf-8") as f:
             servers = (json.load(f).get("mcpServers") or {})
@@ -505,7 +521,7 @@ def mcp_claude(want, owned, dry):
         servers = {}
     except (OSError, ValueError, AttributeError) as e:
         raise RuntimeError("cannot parse ~/.claude.json: %s" % e)
-    apply_, drop = plan_owned("claude", want, servers, owned)
+    apply_, drop = plan_owned("claude", want, servers, owned, frozen)
     for name in apply_:
         rendered = render_json("claude", want[name])
         cur = servers.get(name)
@@ -562,7 +578,7 @@ def hermes_existing(path):
     return out
 
 
-def mcp_hermes(want, owned, dry):
+def mcp_hermes(want, owned, dry, frozen):
     cfg = os.path.join(hermes_home(), "config.yaml")
     try:
         existing = hermes_existing(cfg)
@@ -574,7 +590,7 @@ def mcp_hermes(want, owned, dry):
             remote[name] = e
         else:
             print("skip  hermes: %s (stdio MCPs are not written for hermes)" % name)
-    apply_, drop = plan_owned("hermes", remote, existing, owned)
+    apply_, drop = plan_owned("hermes", remote, existing, owned, frozen)
     for name in apply_:
         e = remote[name]
         values = [("url", e["url"]), ("enabled", "true")]
@@ -600,8 +616,8 @@ def mcp_hermes(want, owned, dry):
 
 def mcp(manifest, dry):
     h = home()
-    entries, bad = mcp_entries(manifest)
-    rc = 1 if bad else 0
+    entries, frozen = mcp_entries(manifest)
+    rc = 1 if frozen else 0
     state = load_state()
     recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
     present = {
@@ -621,17 +637,18 @@ def mcp(manifest, dry):
         owned = set(recorded.get(harness, []))
         try:
             if harness == "claude":
-                mcp_claude(want, owned, dry)
+                mcp_claude(want, owned, dry, frozen)
             elif harness == "codex":
-                mcp_codex(os.path.join(h, ".codex", "config.toml"), want, owned, dry)
+                mcp_codex(os.path.join(h, ".codex", "config.toml"), want, owned, dry,
+                          frozen)
             elif harness == "hermes":
-                mcp_hermes(want, owned, dry)
+                mcp_hermes(want, owned, dry, frozen)
             else:
                 path = {"cursor": os.path.join(h, ".cursor", "mcp.json"),
                         "omp": os.path.join(h, ".omp", "agent", "mcp.json"),
                         "opencode": os.path.join(h, ".config", "opencode",
                                                  "opencode.json")}[harness]
-                mcp_json_file(harness, path, want, owned, dry)
+                mcp_json_file(harness, path, want, owned, dry, frozen)
         except (OSError, RuntimeError, ValueError) as e:
             print("ERROR  %s: %s" % (harness, e))
             rc = 1
