@@ -53,14 +53,11 @@ plugins set to `true`, so it stops reporting aws-core).
 
 ## 3. Per machine: hand-added MCPs
 
-The sync never modifies an MCP it did not write. Decide per entry:
-
-| Harness | Entry | Action |
-|---|---|---|
-| Claude | `aws-mcp` (old `mcp-proxy-for-aws@latest`, no `--skip-auth`, fails without AWS creds) | remove, so the manifest version takes over: `claude mcp remove --scope user aws-mcp` |
-| opencode | `aws-mcp` in `~/.config/opencode/opencode.json` (same old form) | remove: `python3 -c "import json,os;p=os.path.expanduser('~/.config/opencode/opencode.json');d=json.load(open(p));d.get('mcp',{}).pop('aws-mcp',None);json.dump(d,open(p,'w'),indent=2)"` |
-| omp | `linear` with an OAuth callback port | keep (hand-managed, has settings the manifest lacks) |
-| Hermes | `firecrawl` (OAuth, already logged in) | keep (identical to the manifest entry) |
+Hand-added MCPs whose name is in the manifest are updated to the manifest
+definition automatically on the next sync, so nothing needs removing by hand.
+Note: omp's hand-made `linear` loses its custom OAuth callback port when the
+sync replaces it with the manifest entry. Hand-added MCPs whose name is not in
+the manifest are left alone.
 
 ## 4. Sync and verify
 
