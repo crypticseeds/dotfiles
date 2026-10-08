@@ -43,7 +43,6 @@ mac: pull
 	$(STOW) agents
 	$(STOW) $(COMMON) $(MACONLY)
 	$(STOW) --no-folding $(TOOLS)
-	$(MAKE) skills
 	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	$(MAKE) doctor
 
@@ -51,7 +50,6 @@ linux: pull
 	$(STOW) agents
 	$(STOW) $(COMMON) $(LINUXONLY)
 	$(STOW) --no-folding $(TOOLS)
-	$(MAKE) skills
 	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	$(MAKE) doctor
 
@@ -71,14 +69,12 @@ endif
 restow-mac: pull
 	$(STOW) -R agents $(COMMON) $(MACONLY)
 	$(STOW) -R --no-folding $(TOOLS)
-	$(MAKE) skills
 	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	@$(reload-hint)
 
 restow-linux: pull
 	$(STOW) -R agents $(COMMON) $(LINUXONLY)
 	$(STOW) -R --no-folding $(TOOLS)
-	$(MAKE) skills
 	$(MAKE) agents-sync || printf 'WARN: agents-sync failed (offline?); rerun make agents-sync\n'
 	@$(reload-hint)
 
@@ -99,16 +95,10 @@ tmux-off:
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
 # pi and opencode read it natively and need nothing here. Absolute links are
-# intentional (regenerated per machine, never committed). The find pass prunes
-# links whose skill was deleted from the repo.
+# intentional (regenerated per machine, never committed). Real dirs are never
+# touched; dangling links into ~/.agents/skills are pruned.
 skills:
-	@for t in $(HOME)/.claude/skills $(HOME)/.codex/skills; do \
-		mkdir -p $$t; \
-		find $$t -maxdepth 1 -type l ! -exec test -e {} \; -delete; \
-		for s in $(HOME)/.agents/skills/*/; do \
-			ln -sfn "$${s%/}" "$$t/$$(basename $$s)"; \
-		done; \
-	done
+	@python3 scripts/agents-sync.py link
 
 # Fetch manifest-pinned skills into ~/.agents/skills, then link, MCP and plugin
 # steps (agents/.agents/manifest.json; scripts/agents-sync.py).

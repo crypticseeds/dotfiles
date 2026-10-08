@@ -39,7 +39,7 @@ make install    # auto-detects OS, stows everything, runs health check
 | `make install` | Stow everything for this OS + `skills` + `doctor` |
 | `make restow` | Re-stow after adding/removing files in packages |
 | `make delete` | Remove all managed symlinks (safe; only touches links) |
-| `make skills` | Regenerate per-skill links for claude/codex |
+| `make skills` | Regenerate per-skill links for claude/codex/hermes |
 | `make agents-sync` | Fetch manifest-pinned skills into `~/.agents/skills` (`agents/.agents/manifest.json`) |
 | `make doctor` | Health check: links, skills, agents, credential scan |
 
@@ -75,7 +75,7 @@ harness reads it through symlinks committed to this repo:
 
 - **Skills** live in `agents/.agents/skills/` (Agent Skills standard). pi and
   opencode read `~/.agents/skills` natively; `make skills` links them into
-  claude/codex. Installing a new skill (e.g. `npx skills add ...`) writes
+  claude/codex/hermes. Installing a new skill (e.g. `npx skills add ...`) writes
   through `~/.agents` straight into the repo - commit it.
 - **Subagents**: `agents/.agents/subagents/` is shared by Claude Code and
   Cursor (same format). opencode agents live in

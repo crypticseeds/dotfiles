@@ -190,7 +190,78 @@ def stub(step):
     return run
 
 
-STEPS = [("fetch", fetch), ("link", stub("link")), ("mcp", stub("mcp")),
+HARNESSES = ("claude", "codex", "hermes")
+SYNC_SUFFIXES = (".tmp-sync", ".old-sync")
+
+
+def harness_filter(manifest, name, src):
+    """Harnesses a skill may link into: None = all, else the manifest list."""
+    marker = read_marker(src)
+    for entry in manifest.get("skills", []):
+        if "harnesses" not in entry:
+            continue
+        if "name" in entry:
+            if entry["name"] == name:
+                return entry["harnesses"]
+        elif (marker and marker.get("repo") == entry.get("repo")
+              and marker.get("path") == os.path.normpath(
+                  os.path.join(entry.get("path", "."), name))
+              and name in entry.get("only", [name])):
+            return entry["harnesses"]
+    return None
+
+
+def link(manifest, dry):
+    h = home()
+    src_dir = os.path.join(h, ".agents", "skills")
+    names = []
+    if os.path.isdir(src_dir):
+        names = sorted(n for n in os.listdir(src_dir)
+                       if not n.endswith(SYNC_SUFFIXES)
+                       and os.path.isfile(os.path.join(src_dir, n, "SKILL.md")))
+    targets = [("claude", os.path.join(h, ".claude", "skills"), True),
+               ("codex", os.path.join(h, ".codex", "skills"), True),
+               ("hermes", os.path.join(h, ".hermes", "skills"),
+                os.path.isdir(os.path.join(h, ".hermes")))]
+    for harness, tdir, enabled in targets:
+        if not enabled:
+            continue
+        if not os.path.isdir(tdir):
+            if dry:
+                print("would mkdir  %s" % tdir)
+            else:
+                os.makedirs(tdir)
+        # prune: dangling links that point into ~/.agents/skills/ only
+        if os.path.isdir(tdir):
+            for n in sorted(os.listdir(tdir)):
+                path = os.path.join(tdir, n)
+                if (os.path.islink(path) and not os.path.exists(path)
+                        and os.readlink(path).startswith(src_dir + os.sep)):
+                    print("%s  %s" % ("would prune" if dry else "pruned", path))
+                    if not dry:
+                        os.unlink(path)
+        for name in names:
+            src = os.path.join(src_dir, name)
+            allowed = harness_filter(manifest, name, src)
+            if allowed is not None and harness not in allowed:
+                continue
+            path = os.path.join(tdir, name)
+            if os.path.islink(path):
+                if os.readlink(path) == src:
+                    continue
+                print("WARN  %s is a symlink to elsewhere, not linked" % path)
+            elif os.path.lexists(path):
+                kind = "directory" if os.path.isdir(path) else "file"
+                print("WARN  %s is a real %s, not linked" % (path, kind))
+            elif dry:
+                print("would link  %s -> %s" % (path, src))
+            else:
+                os.symlink(src, path)
+                print("linked  %s" % path)
+    return 0
+
+
+STEPS = [("fetch", fetch), ("link", link), ("mcp", stub("mcp")),
          ("plugins", stub("plugins"))]
 
 

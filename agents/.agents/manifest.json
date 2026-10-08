@@ -32,6 +32,12 @@
       "all": true
     },
     {
+      "name": "setting-up-cloudwatch-observability",
+      "repo": "aws/agent-toolkit-for-aws",
+      "path": "skills/specialized-skills/operations-skills/setting-up-cloudwatch-observability",
+      "ref": "df2ab44e485b28358353d827e5ebafbe267cce9f"
+    },
+    {
       "group": "buzz",
       "repo": "tonbistudio/buzz-skills",
       "path": ".",
