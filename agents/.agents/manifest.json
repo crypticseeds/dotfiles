@@ -74,5 +74,51 @@
       "terraform-skill@antonbabenko"
     ]
   },
-  "mcp": {}
+  "mcp": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--headless=true",
+        "--isolated=true"
+      ]
+    },
+    "linear": {
+      "url": "https://mcp.linear.app/mcp",
+      "auth": "oauth",
+      "except": [
+        "claude"
+      ]
+    },
+    "firecrawl": {
+      "url": "https://mcp.firecrawl.dev/v2/mcp-oauth",
+      "auth": "oauth",
+      "except": [
+        "claude"
+      ]
+    },
+    "tinyfish": {
+      "url": "https://agent.tinyfish.ai/mcp",
+      "except": [
+        "claude"
+      ]
+    },
+    "aws-mcp": {
+      "command": "uvx",
+      "args": [
+        "mcp-proxy-for-aws-cli==1.7.0",
+        "https://aws-mcp.us-east-1.api.aws/mcp",
+        "--skip-auth"
+      ]
+    }
+  }
 }

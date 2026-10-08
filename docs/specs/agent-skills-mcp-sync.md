@@ -49,7 +49,7 @@ follow the account to every machine and are out of scope.
 |---|---|---|
 | Claude Code | per-skill links in `~/.claude/skills` (existing `make skills`) | `claude mcp add-json --scope user` |
 | Codex | per-skill links in `~/.codex/skills` (existing) | `[mcp_servers.*]` in `~/.codex/config.toml` |
-| Hermes | per-skill links in `~/.hermes/skills` (new, user decision) | `hermes config set mcp_servers.<name>...` |
+| Hermes | per-skill links in `~/.hermes/skills` (new, user decision) | remote MCPs via `hermes config set --force mcp_servers.<name>...`; stdio skipped |
 | opencode | native | untracked `~/.config/opencode/opencode.json` |
 | omp | native (verified: loads `.agents/skills` from user home) | `~/.omp/agent/mcp.json` |
 | pi | native | n/a until pi supports MCP; skip |
@@ -131,8 +131,9 @@ harness's format and merges only the keys it owns:
 - Claude: `claude mcp add-json --scope user <name> '<json>'` per entry;
   `claude mcp remove --scope user` for names previously written by the sync
   (tracked in `~/.cache/dotfiles-skills/state.json`) that left the manifest.
-- Hermes: `hermes config set` only; never rewrite `config.yaml` (it holds the
-  Buzz allowlist and other host state).
+- Hermes: remote MCPs only, via `hermes config set --force`; stdio entries are
+  skipped. Never rewrite `config.yaml` (it holds the Buzz allowlist and other
+  host state).
 - omp, Cursor, Codex: merge into the `mcpServers` / `[mcp_servers]` table,
   preserving unmanaged entries.
 - opencode: generated into the untracked `~/.config/opencode/opencode.json`
