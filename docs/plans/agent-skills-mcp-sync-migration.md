@@ -46,10 +46,9 @@ claude plugin disable aws-core@claude-plugins-official
 claude plugin uninstall superpowers@anthropic-plugin-directory
 ```
 
-`~/.claude/settings.json` is a symlink into the repo, so the disable writes
-`"aws-core@claude-plugins-official": false` into the tracked
-`claude/.claude/settings.json`: commit that change once (doctor only compares
-plugins set to `true`, so it stops reporting aws-core).
+The tracked `claude/.claude/settings.json` already sets
+`"aws-core@claude-plugins-official": false`; the command above removes the
+copy that is still installed on an existing machine.
 
 ## 3. Per machine: hand-added MCPs
 
