@@ -159,7 +159,9 @@ from known marketplaces on first launch, this step reduces to a check.)
 - per-harness MCP servers not in the manifest, and manifest MCPs missing;
 - enabled Claude plugins not installed, and installed plugins not enabled.
 
-Report only; it never deletes.
+Report only; it never deletes. It is produced by the read-only
+`agents-sync.py check` subcommand (not part of `all`), which prints one
+`WARN  drift: ...` line per finding or `OK    drift: none`, and always exits 0.
 
 ### 7. Entry point
 

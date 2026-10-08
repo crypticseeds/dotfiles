@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Sync agent skills, links and MCP servers (later plugins) from the manifest.
+"""Sync agent skills, links, MCP servers and Claude plugins from the manifest.
 
 Source of truth: agents/.agents/manifest.json. Stdlib only, Python 3.9 safe.
-Usage: agents-sync.py [--dry-run] {fetch|link|mcp|plugins|all}
+Usage: agents-sync.py [--dry-run] {fetch|link|mcp|plugins|all|check}
+`check` is a read-only drift report and is not part of `all`.
 """
 import argparse
 import json
@@ -232,7 +233,7 @@ def string_list(value):
             and all(isinstance(x, str) and x in MCP_HARNESSES for x in value))
 
 
-def mcp_entries(manifest):
+def mcp_entries(manifest, quiet=False):
     """Validated neutral entries; returns (entries, names that failed validation)."""
     entries, bad = {}, set()
     for name, e in (manifest.get("mcp") or {}).items():
@@ -249,7 +250,8 @@ def mcp_entries(manifest):
                 if key in e and not string_list(e[key]):
                     raise RuntimeError("'%s' must be a list of %s" % (key, "/".join(MCP_HARNESSES)))
         except RuntimeError as err:
-            print("ERROR  mcp %s: %s" % (name, err))
+            if not quiet:
+                print("ERROR  mcp %s: %s" % (name, err))
             bad.add(name)
             continue
         entries[name] = e
@@ -614,13 +616,9 @@ def mcp_hermes(want, owned, dry, frozen):
         owned.discard(name)  # only after the removal succeeded
 
 
-def mcp(manifest, dry):
+def mcp_present():
     h = home()
-    entries, frozen = mcp_entries(manifest)
-    rc = 1 if frozen else 0
-    state = load_state()
-    recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
-    present = {
+    return {
         "claude": shutil.which("claude") is not None,
         "codex": os.path.isdir(os.path.join(h, ".codex")),
         "cursor": os.path.isdir(os.path.join(h, ".cursor")),
@@ -629,6 +627,23 @@ def mcp(manifest, dry):
         "hermes": shutil.which("hermes") is not None
         and os.path.isdir(hermes_home()),
     }
+
+
+def mcp_json_path(harness):
+    h = home()
+    return {"cursor": os.path.join(h, ".cursor", "mcp.json"),
+            "omp": os.path.join(h, ".omp", "agent", "mcp.json"),
+            "opencode": os.path.join(h, ".config", "opencode",
+                                     "opencode.json")}[harness]
+
+
+def mcp(manifest, dry):
+    h = home()
+    entries, frozen = mcp_entries(manifest)
+    rc = 1 if frozen else 0
+    state = load_state()
+    recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
+    present = mcp_present()
     for harness in MCP_HARNESSES:
         if not present[harness]:
             print("skip  %s (not installed)" % harness)
@@ -644,11 +659,8 @@ def mcp(manifest, dry):
             elif harness == "hermes":
                 mcp_hermes(want, owned, dry, frozen)
             else:
-                path = {"cursor": os.path.join(h, ".cursor", "mcp.json"),
-                        "omp": os.path.join(h, ".omp", "agent", "mcp.json"),
-                        "opencode": os.path.join(h, ".config", "opencode",
-                                                 "opencode.json")}[harness]
-                mcp_json_file(harness, path, want, owned, dry, frozen)
+                mcp_json_file(harness, mcp_json_path(harness), want, owned, dry,
+                              frozen)
         except (OSError, RuntimeError, ValueError) as e:
             print("ERROR  %s: %s" % (harness, e))
             rc = 1
@@ -660,13 +672,6 @@ def mcp(manifest, dry):
                 if state != load_state():
                     write_json(state_path(), state)
     return rc
-
-
-def stub(step):
-    def run(manifest, dry):
-        print("%s: not implemented yet (T2/T3/T4)" % step)
-        return 0
-    return run
 
 
 HARNESSES = ("claude", "codex", "hermes")
@@ -755,26 +760,253 @@ def link_target(manifest, dry, harness, tdir, src_dir, names):
             print("linked  %s" % path)
 
 
-STEPS = [("fetch", fetch), ("link", link), ("mcp", mcp),
-         ("plugins", stub("plugins"))]
+def read_json_keys(path, *keys):
+    """Keys of the object at path[keys...]; missing file or key = empty set."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            node = json.load(f)
+    except FileNotFoundError:
+        return set()
+    except (OSError, ValueError) as e:
+        raise RuntimeError("cannot parse %s: %s" % (path, e))
+    for k in keys:
+        node = node.get(k) if isinstance(node, dict) else None
+    if node is None:
+        return set()
+    if not isinstance(node, dict):
+        raise RuntimeError("%s: unexpected structure" % path)
+    return set(node)
+
+
+def plugin_state():
+    """(installed marketplaces, installed plugins) from Claude's own state files."""
+    d = os.path.join(home(), ".claude", "plugins")
+    return (read_json_keys(os.path.join(d, "known_marketplaces.json")),
+            read_json_keys(os.path.join(d, "installed_plugins.json"), "plugins"))
+
+
+def plugins(manifest, dry):
+    if shutil.which("claude") is None:
+        print("skip  plugins (claude not on PATH)")
+        return 0
+    cfg = manifest.get("plugins") or {}
+    try:
+        known, installed = plugin_state()
+    except RuntimeError as e:
+        print("ERROR  plugins: %s" % e)
+        return 1
+    rc = 0
+    todo = [(["claude", "plugin", "marketplace", "add", repo], name)
+            for name, repo in sorted((cfg.get("marketplaces") or {}).items())
+            if name not in known]
+    todo += [(["claude", "plugin", "install", p], p)
+             for p in cfg.get("enabled") or [] if p not in installed]
+    for argv, _ in todo:
+        try:
+            run_cli(argv, dry)
+        except RuntimeError as e:
+            print("ERROR  plugins: %s" % e)
+            rc = 1
+    if not todo:
+        print("unchanged  plugins")
+    return rc
+
+
+def manifest_skills(manifest, skills_dir):
+    """Skills the manifest expects on this host.
+
+    Returns (expected, markers): expected = {name: (repo, path|None, ref|None)};
+    markers = {name: marker} for every dir in skills_dir that has one. Group
+    members are known only by `only` or, for `all` groups, by their marker.
+    """
+    host = socket.gethostname()
+    markers = {}
+    if os.path.isdir(skills_dir):
+        for n in os.listdir(skills_dir):
+            m = read_marker(os.path.join(skills_dir, n))
+            if m is not None:
+                markers[n] = m
+    expected = {}
+    for e in manifest.get("skills", []):
+        if "hosts" in e and host not in e["hosts"]:
+            continue
+        if e.get("local"):
+            expected[e["name"]] = None
+        elif "name" in e:
+            expected[e["name"]] = (e.get("repo"), e.get("path"), e.get("ref"))
+        elif "only" in e:
+            for n in e["only"]:
+                expected[n] = (e.get("repo"), os.path.normpath(
+                    os.path.join(e.get("path", "."), n)), e.get("ref"))
+        else:
+            for n, m in markers.items():
+                if (m.get("repo") == e.get("repo")
+                        and os.path.normpath(os.path.dirname(m.get("path", "")) or ".")
+                        == os.path.normpath(e.get("path", "."))):
+                    expected[n] = (e.get("repo"), None, e.get("ref"))
+    return expected, markers
+
+
+def tracked_in_repo(name):
+    r = subprocess.run(["git", "ls-files", "agents/.agents/skills/" + name],
+                       cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    return bool(r.stdout.strip())
+
+
+def drift_skills(manifest, out):
+    h = home()
+    sdir = os.path.join(h, ".agents", "skills")
+    expected, markers = manifest_skills(manifest, sdir)
+    on_disk = []
+    if os.path.isdir(sdir):
+        on_disk = sorted(n for n in os.listdir(sdir)
+                         if not n.startswith(".") and not n.endswith(SYNC_SUFFIXES)
+                         and os.path.isdir(os.path.join(sdir, n)))
+    for n in on_disk:
+        if n not in expected and not tracked_in_repo(n):
+            out.append("unmanaged skill: %s (not in repo or manifest)" % n)
+    for n, exp in sorted(expected.items()):
+        if n not in on_disk:
+            out.append("missing skill: %s (in manifest, not in %s)" % (n, sdir))
+        elif exp is not None:
+            m = markers.get(n)
+            if m is None:
+                out.append("skill %s has no %s marker" % (n, MARKER))
+                continue
+            for key, want in zip(("repo", "path", "ref"), exp):
+                if want is not None and m.get(key) != want:
+                    out.append("skill %s: marker %s %s differs from manifest %s"
+                               % (n, key, m.get(key), want))
+    links = [("claude", os.path.join(h, ".claude", "skills"), True),
+             ("codex", os.path.join(h, ".codex", "skills"), True),
+             ("hermes", os.path.join(h, ".hermes", "skills"),
+              os.path.isdir(os.path.join(h, ".hermes")))]
+    names = [n for n in on_disk if os.path.isfile(os.path.join(sdir, n, "SKILL.md"))]
+    for harness, tdir, enabled in links:
+        if not enabled:
+            continue
+        for n in names:
+            allowed = harness_filter(manifest, n, os.path.join(sdir, n))
+            path = os.path.join(tdir, n)
+            if ((allowed is None or harness in allowed)
+                    and os.path.lexists(path) and not os.path.islink(path)):
+                out.append("real %s occupies link slot: %s"
+                           % ("directory" if os.path.isdir(path) else "file", path))
+
+
+def mcp_existing(harness):
+    """Read-only: server names currently configured for a harness."""
+    h = home()
+    if harness == "claude":
+        return read_json_keys(os.path.join(h, ".claude.json"), "mcpServers")
+    if harness == "codex":
+        try:
+            with open(os.path.join(h, ".codex", "config.toml"), encoding="utf-8") as f:
+                return codex_references(f.read().split("\n"))
+        except FileNotFoundError:
+            return set()
+    if harness == "hermes":
+        try:
+            return set(hermes_existing(os.path.join(hermes_home(), "config.yaml")))
+        except FileNotFoundError:
+            return set()
+    key = "mcp" if harness == "opencode" else "mcpServers"
+    return read_json_keys(mcp_json_path(harness), key)
+
+
+def drift_mcp(manifest, out):
+    entries, bad = mcp_entries(manifest, quiet=True)
+    for n in sorted(bad):
+        out.append("invalid manifest MCP entry: %s" % n)
+    state = load_state()
+    recorded = state.get("mcp") if isinstance(state.get("mcp"), dict) else {}
+    present = mcp_present()
+    names = set(entries) | bad
+    for harness in MCP_HARNESSES:
+        if not present[harness]:
+            continue
+        try:
+            existing = mcp_existing(harness)
+        except (OSError, RuntimeError, ValueError) as e:
+            out.append("cannot read %s MCP config: %s" % (harness, e))
+            continue
+        owned = set(recorded.get(harness, []))
+        for n in sorted(existing - owned - names):
+            out.append("unmanaged MCP: %s in %s" % (n, harness))
+        want = applicable(entries, harness)
+        if harness == "hermes":
+            want = dict((n, e) for n, e in want.items() if "url" in e)
+        for n in sorted(set(want) - existing):
+            out.append("missing MCP: %s in %s" % (n, harness))
+
+
+def drift_plugins(manifest, out):
+    cfg = manifest.get("plugins") or {}
+    enabled = set(cfg.get("enabled") or [])
+    if shutil.which("claude") is not None:
+        try:
+            known, installed = plugin_state()
+        except RuntimeError as e:
+            out.append("cannot read Claude plugin state: %s" % e)
+        else:
+            for m in sorted(set(cfg.get("marketplaces") or {}) - known):
+                out.append("marketplace not added: %s" % m)
+            for p in sorted(enabled - installed):
+                out.append("plugin not installed: %s" % p)
+            for p in sorted(installed - enabled):
+                out.append("unmanaged plugin installed: %s (not in manifest)" % p)
+    path = os.path.join(REPO, "claude", ".claude", "settings.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            ep = json.load(f).get("enabledPlugins") or {}
+    except (OSError, ValueError, AttributeError):
+        return
+    in_settings = set(k for k, v in ep.items() if v is True)
+    for p in sorted(in_settings - enabled):
+        out.append("settings.json enables %s, not in manifest" % p)
+    for p in sorted(enabled - in_settings):
+        out.append("manifest enables %s, not enabled in settings.json" % p)
+
+
+def check(manifest):
+    """Read-only drift report: WARN lines, or OK; never writes, always exit 0."""
+    out = []
+    for fn in (drift_skills, drift_mcp, drift_plugins):
+        try:
+            fn(manifest, out)
+        except (OSError, RuntimeError, ValueError) as e:
+            out.append("%s failed: %s" % (fn.__name__, e))
+    for line in out:
+        print("WARN  drift: %s" % line)
+    if not out:
+        print("OK    drift: none")
+    return 0
+
+
+STEPS = [("fetch", fetch), ("link", link), ("mcp", mcp), ("plugins", plugins)]
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--dry-run", action="store_true",
                    help="print what would change, write nothing")
-    p.add_argument("step", choices=[s for s, _ in STEPS] + ["all"])
+    p.add_argument("step", choices=[s for s, _ in STEPS] + ["all", "check"])
     p.add_argument("--manifest", default=MANIFEST, help=argparse.SUPPRESS)
     args = p.parse_args()
     try:
         with open(args.manifest) as f:
             manifest = json.load(f)
     except (OSError, ValueError) as e:
+        if args.step == "check":
+            print("WARN  drift: manifest %s unreadable: %s" % (args.manifest, e))
+            return 0
         print("ERROR  manifest %s: %s" % (args.manifest, e))
         if args.step in ("link", "all"):
             print("WARN  manifest unreadable, linking without harness filters")
             link({}, args.dry_run)
         return 1
+    if args.step == "check":
+        return check(manifest)
     rc = 0
     for name, fn in STEPS:
         if args.step in (name, "all"):

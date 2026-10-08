@@ -61,6 +61,7 @@
   ],
   "plugins": {
     "marketplaces": {
+      "claude-plugins-official": "anthropics/claude-plugins-official",
       "claude-code-warp": "warpdotdev/claude-code-warp",
       "antonbabenko": "antonbabenko/agent-plugins"
     },
