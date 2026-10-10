@@ -11,7 +11,7 @@
 # installed into ~/.agents/skills land directly in the repo.
 
 COMMON    := zsh nvim starship wezterm
-TOOLS     := claude codex cursor opencode pi herdr
+TOOLS     := claude codex cursor opencode pi herdr hermes
 MACONLY   := hammerspoon aerospace sketchybar
 LINUXONLY := hyprland niri
 MINIMAL   := zsh starship
