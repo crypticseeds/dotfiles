@@ -48,15 +48,15 @@ Run from your own checkout, one task at a time:
 
     git merge agent/<slug>                 # stop and ask on any conflict you cannot resolve trivially
     # re-run the task's acceptance checks on the merged result
-    git worktree remove .worktrees/<slug>  # never --force: a refusal means uncommitted work
-    git branch -d agent/<slug>             # never -D: a refusal means it is not merged
+    # close its pane or workspace first (see Pane lifecycle): a process inside keeps the worktree
+    agent-clean .worktrees/<slug>          # removes worktree, branch and its /tmp dir; "keep ..." = not safe yet
 
-Then close its pane or workspace (see Pane lifecycle). You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round.
+Without `agent-clean`: `git worktree remove .worktrees/<slug>` (never --force) and `git branch -d agent/<slug>` (never -D). You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round.
 - Never weaken a criterion or a test to get a pass. If a criterion is wrong, say so and ask.
 
 ## 5. Finish
 
-Report: what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), open concerns. Run the pane sweep (see Pane lifecycle) first and confirm `git worktree list` shows no leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
+Report: what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), open concerns. Run the pane sweep (see Pane lifecycle) first, then `agent-clean`, and confirm `git worktree list` shows no leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
 
 ## Pane lifecycle (you decide; panes are shared space)
 

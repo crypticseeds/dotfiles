@@ -58,7 +58,7 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | Package | Deploys to | Notes |
 |---|---|---|
 | `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
-| `claude/` `codex/` `cursor/` `opencode/` `pi/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
+| `claude/` `codex/` `cursor/` `opencode/` `pi/` `hermes/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
 | `zsh/` `nvim/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
 | `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
 | `hyprland/` `niri/` | `~/.config/hypr` `~/.config/niri` | Linux only (Wayland compositors) |

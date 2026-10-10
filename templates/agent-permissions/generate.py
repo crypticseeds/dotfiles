@@ -518,9 +518,13 @@ ALLOW_LIVE = [
 #  - herdr: its socket (~/.config/herdr/sessions/<session>/herdr.sock) is blocked by the sandbox's
 #    seccomp filter, and Linux has no per-path socket allowance (allowUnixSockets is macOS only).
 #  - kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden.
+#  - agent-clean (bin/agent-clean, installed root-owned like git-in): agents remove their finished
+#    worktrees, stale agent tmp/scratch and rebuildable caches (~/.cache, ~/.terraform.d) without
+#    asking the owner. It deletes only fixed agent-owned locations and takes no path to delete.
 # The guard hook (agent_host_guard.py) checks the destructive and secret-reading forms of all of
 # these except herdr; the deny rules still apply.
-AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "kubectl *", "helm *"]
+AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "kubectl *", "helm *",
+                       "agent-clean", "agent-clean *"]
 AGENT_HOST_WRITE = ["~/REPOS", "~/.cache/pre-commit"]
 # NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
 # the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
@@ -542,7 +546,7 @@ AGENT_HOST_ALLOW_BASH = [
     "gh pr diff", "gh pr checkout", "gh run rerun", "gh run cancel", "gh run watch", "gh issue create",
     "gh issue comment", "gh issue close", "gh issue edit", "gh api", "gh secret list", "gh secret set",
     "gh repo clone", "gh repo create",
-    "pre-commit", "herdr",
+    "pre-commit", "herdr", "agent-clean",
     # Doppler: list projects, configs and environments (names, never values)
     "doppler projects", "doppler configs", "doppler environments",
 ]
@@ -1085,6 +1089,7 @@ AGENT_HOST_DESTRUCTIVE = [
 ]
 AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in Claude
     ("git push -u origin feat/x", "clean", "allow"), ("git-in . push origin feat/x", "clean", "allow"),
+    ("agent-clean", "clean", "allow"), ("agent-clean --caches .worktrees/x", "clean", "allow"),
     ("git-in . push --force-with-lease origin feat/x", "clean", "allow"),
     ("git-in . commit -m 'feat: x'", "clean", "allow"), ("git-in . branch feat/y origin/main", "clean", "allow"),
     ("git-in . -c user.name=x commit -m x", "clean", "allow"), ("git -C . status", "clean", "allow"),
@@ -1216,7 +1221,8 @@ def check():
     expect("[agent-host] no unsandboxed retry", False, host["sandbox"]["allowUnsandboxedCommands"])
     expect("[agent-host] repo settings cannot add rules", True, host["allowManagedPermissionRulesOnly"])
     excluded = host["sandbox"]["excludedCommands"]
-    for tool in ("git *", "gh *", "git-in *", "herdr *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *"):
+    for tool in ("git *", "gh *", "git-in *", "herdr *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *",
+                 "agent-clean", "agent-clean *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])

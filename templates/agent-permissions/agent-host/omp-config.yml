@@ -2614,6 +2614,10 @@ bash:
       approval: allow
     - match: "herdr *"
       approval: allow
+    - match: "agent-clean"
+      approval: allow
+    - match: "agent-clean *"
+      approval: allow
     - match: "doppler projects"
       approval: allow
     - match: "doppler projects *"

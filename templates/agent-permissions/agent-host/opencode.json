@@ -192,6 +192,8 @@
       "pre-commit *": "allow",
       "herdr": "allow",
       "herdr *": "allow",
+      "agent-clean": "allow",
+      "agent-clean *": "allow",
       "doppler projects": "allow",
       "doppler projects *": "allow",
       "doppler configs": "allow",

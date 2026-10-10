@@ -7,6 +7,7 @@
 #     opencode -> /etc/opencode/opencode.json              (root-owned managed config, every project)
 #     omp      -> ~/.omp/agent/config.yml                  (merged: your other omp settings are kept)
 #     git-in   -> /usr/local/bin/git-in                    (root-owned: git in another repo, see bin/git-in)
+#     agent-clean -> /usr/local/bin/agent-clean            (root-owned: agents clean up, see bin/agent-clean)
 #   with DIR: write the three files into DIR instead, without sudo, for a dry run
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -56,6 +57,7 @@ else
   sudo install -D -m 0644 -o root -g root "$tmp/claude.json" /etc/claude-code/managed-settings.json
   sudo install -D -m 0644 -o root -g root "$here/agent-host/opencode.json" /etc/opencode/opencode.json
   sudo install -D -m 0755 -o root -g root "$here/bin/git-in" /usr/local/bin/git-in
+  sudo install -D -m 0755 -o root -g root "$here/bin/agent-clean" /usr/local/bin/agent-clean
   install -D -m 0600 "$tmp/omp.yml" "$omp_target"
-  echo "regen-agent-host: done, installed Claude, opencode and omp policies and git-in (restart their sessions)"
+  echo "regen-agent-host: done, installed Claude, opencode and omp policies, git-in and agent-clean (restart their sessions)"
 fi
