@@ -136,7 +136,8 @@ If something does leak, say so immediately and rotate; deletion does not undo ex
 - Never hand-edit generated files (CHANGELOG.md, lockfiles, generated code). Change the source that generates them.
 - Never commit secrets. Keep credentials out of code, logs, and command output.
 - Never run destructive operations (rm -rf, git reset --hard, force push, dropping data) without explicit approval.
-- Deletions are listed for the owner to run, not run by you: put the exact commands (`git rm ...`, `rm ...`) in your report.
+- Deletions are listed for the owner to run, not run by you: put the exact commands (`git rm ...`, `rm ...`) in your report. Exception: your own leftovers. Clean them yourself, never leave them to the owner.
+- Cleanup (any harness): when you finish with a worktree, run `agent-clean <worktree-path>` from outside it; at the end of every task run `agent-clean`. When disk or memory is low (`/tmp` is RAM on the Pi), run `agent-clean --caches`. It removes only clean, merged, unused agent worktrees (`.worktrees/`, `.claude/worktrees/`, `~/.herdr/worktrees/`), agent tmp/scratch untouched for a day (`/tmp/claude-*`, `~/.cache/agent-scratch`, `/tmp/agent-*`), and rebuildable caches. A `keep ...` line means work would be lost: deal with it, do not delete around it. Where `agent-clean` is not installed, use `git worktree remove` (never `--force`) and `git branch -d`, and delete only files you created under `/tmp` or `~/.cache/agent-scratch`.
 - Never apply or destroy infrastructure (`terraform apply|destroy`, `kubectl delete|apply`, mutating `aws` calls): the owner applies. Plan and validate only.
 - Never merge a PR and never push to `main`/`master`: push a feature branch and open a PR; the owner reviews and merges.
 - No force push, except `git push --force-with-lease` to your own feature branch (e.g. after a rebase). Never `--force`, `+refspec`, `--delete` or `--mirror`.

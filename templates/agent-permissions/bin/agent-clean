@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Agents clean up after themselves on the agent host, in any harness (Claude, opencode, omp, hermes...).
+# Installed root-owned in /usr/local/bin by regen-agent-host.sh and listed in Claude's excludedCommands,
+# so it runs outside the sandbox. It deletes only the fixed agent-owned locations below and takes no
+# free path to delete, so it is not a way around the `rm -rf` deny.
+#   agent-clean               remove finished agent worktrees, then agent tmp/scratch untouched for a day
+#   agent-clean <worktree>... remove those worktrees now (same safety checks)
+#   agent-clean --caches      also prune the big rebuildable caches (uv, go, pnpm, pre-commit, terraform)
+# A worktree is removed only when it lives in .worktrees/, .claude/worktrees/ or ~/.herdr/worktrees/,
+# has no uncommitted or untracked changes, no process has its cwd inside it, and its branch is merged
+# into the default branch or its pushed branch is gone from origin (squash-merged on GitHub).
+set -uo pipefail
+shopt -s nullglob
+tmpd="/tmp/claude-$(id -u)"
+caches=0
+targets=()
+for a in "$@"; do
+  case "$a" in
+    --caches) caches=1 ;;
+    -*) echo "usage: agent-clean [--caches] [worktree...]" >&2; exit 2 ;;
+    *) t="$(realpath -e "$a")" || exit 2; targets+=("$t") ;;
+  esac
+done
+cd /
+cwds="$(for p in /proc/[0-9]*/cwd; do readlink "$p"; done 2>/dev/null)"
+
+# <repo> <worktree> <branch, empty if detached>
+clean_worktree() {
+  local repo=$1 wt=$2 br=$3 ref=${3:-HEAD} del=-d base merged=""
+  case "$wt/" in */.worktrees/*|*/.claude/worktrees/*|"$HOME"/.herdr/worktrees/*) ;;
+    *) [ -n "$explicit" ] && echo "keep $wt: not in an agent worktree dir"; return ;; esac
+  if awk -v w="$wt" '$0 == w || index($0, w "/") == 1 { f = 1 } END { exit !f }' <<<"$cwds"; then
+    echo "keep $wt: in use (a process has its cwd there)"; return
+  fi
+  if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
+    echo "keep $wt: uncommitted changes"; return
+  fi
+  [ "$ref" = HEAD ] && ref="$(git -C "$wt" rev-parse HEAD)"
+  for base in "$(git -C "$repo" symbolic-ref -q --short refs/remotes/origin/HEAD)" main master; do
+    [ -n "$base" ] && git -C "$repo" merge-base --is-ancestor "$ref" "$base" 2>/dev/null && { merged=1; break; }
+  done
+  if [ -z "$merged" ] && [ -n "$br" ] &&
+     [ "$(git -C "$repo" for-each-ref --format='%(upstream:track)' "refs/heads/$br")" = "[gone]" ]; then
+    merged=1 del=-D
+  fi
+  [ -n "$merged" ] || { echo "keep $wt: branch not merged"; return; }
+  git -C "$repo" worktree remove "$wt" || return
+  [ -n "$br" ] && git -C "$repo" branch -q "$del" "$br"
+  rm -rf -- "${tmpd:?}/$(printf %s "$wt" | tr -c 'A-Za-z0-9' -)"
+  echo "removed $wt${br:+ and branch $br}"
+}
+
+# <repo>: every linked worktree, or only the requested ones
+clean_repo() {
+  local repo=$1 wt="" br="" line
+  timeout 30 git -C "$repo" fetch -q --prune origin 2>/dev/null
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) wt=${line#worktree }; br="" ;;
+      "branch refs/heads/"*) br=${line#branch refs/heads/} ;;
+      "")
+        if [ -n "$wt" ] && [ "$wt" != "$repo" ] &&
+           { [ -z "$explicit" ] || printf '%s\n' "${targets[@]}" | grep -qxF -- "$wt"; }; then
+          clean_worktree "$repo" "$wt" "$br"
+        fi
+        wt="" ;;
+    esac
+  done < <(git -C "$repo" worktree list --porcelain; echo)
+  git -C "$repo" worktree prune
+}
+
+explicit="${targets[*]:+1}"
+if [ -n "$explicit" ]; then
+  for t in "${targets[@]}"; do
+    common="$(git -C "$t" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ||
+      { echo "keep $t: not a git worktree"; continue; }
+    clean_repo "${common%/.git}"
+  done
+else
+  for repo in "$HOME"/REPOS/*/ "$HOME"/dotfiles/; do
+    [ -d "$repo.git" ] && clean_repo "${repo%/}"
+  done
+fi
+
+# Agent tmp and scratch (/tmp is RAM on the Pi): drop each entry nothing has touched for a day
+for e in "$HOME"/.cache/agent-scratch/* /tmp/agent-prompts/* /tmp/agent-reports/* /tmp/pre-commit/* \
+         "$tmpd"/-*/* "$tmpd"/[!-]*; do
+  [ -z "$(find "$e" -mmin -1440 -print -quit 2>/dev/null)" ] && rm -rf -- "$e"
+done
+rmdir "$tmpd"/-*/ 2>/dev/null
+
+if [ "$caches" = 1 ]; then
+  cd "$HOME" || exit 1
+  command -v uv >/dev/null && uv cache prune -q
+  if command -v go >/dev/null; then
+    go clean -cache
+    [ -d "$HOME/.cache/llm-d-gobuildcache" ] && GOCACHE="$HOME/.cache/llm-d-gobuildcache" go clean -cache
+    [ -d "$HOME/.cache/llm-d-gomodcache" ] && GOMODCACHE="$HOME/.cache/llm-d-gomodcache" go clean -modcache
+  fi
+  command -v pnpm >/dev/null && pnpm store prune >/dev/null 2>&1
+  command -v pre-commit >/dev/null && pre-commit gc >/dev/null
+  # terraform plugin cache: keep only the newest version of each provider
+  for p in "$HOME"/.terraform.d/plugin-cache/*/*/*/; do
+    ls -1 "$p" | sort -V | head -n -1 | while IFS= read -r v; do rm -rf -- "$p$v"; done
+  done
+fi
+df -h / /tmp | awk 'NR > 1 { print "free: " $4 " on " $6 }'
