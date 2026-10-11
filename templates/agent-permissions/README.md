@@ -190,8 +190,9 @@ denials: `cat ~/.doppler/.doppler.yaml`, `git push --force origin <branch>`.
 
 Start every agent as `doppler run --only-secrets GH_TOKEN -- <agent command>`. Then `GH_TOKEN` is in its
 environment, `git` (through the doppler credential helper) and `gh` authenticate from it, and nothing has
-to fetch the token from `~/.doppler`, which the sandbox hides. On Linux the zsh aliases do this for
-`claude`, `opencode`, `oc` (`opencode --auto`) and `omp` (`--approval-mode=yolo`); see
+to fetch the token from `~/.doppler`, which the sandbox hides. The `github` MCP server in the agents
+manifest authenticates from the same `GH_TOKEN`. On Linux the zsh aliases do this for
+`claude`, `opencode`, `oc` (`opencode --auto`), `omp` (`--approval-mode=yolo`) and `codex`; see
 `zsh/.config/zsh/aliases.zsh`.
 
 **Agents starting other agents** (new herdr panes, worktrees, delegated sessions): spell out the full

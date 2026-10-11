@@ -262,20 +262,46 @@ MCP_HARNESSES = ("claude", "codex", "cursor", "omp", "opencode", "hermes")
 SCHEMA = "https://opencode.ai/config.json"
 CODEX_TABLE = re.compile(
     r'^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|([A-Za-z0-9_-]+))\s*(?:\]|\.)', re.M)
+# ${VAR} in a header value names an env var (a Doppler name); it is rendered
+# into each harness's own reference syntax and never resolved by the sync.
+ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def mcp_error(e):
     if not isinstance(e, dict):
         return "entry must be an object"
-    if "${" in json.dumps(e):
-        return "contains '${': env/header substitution is not supported"
+    headers = e.get("headers", {})
+    if not isinstance(headers, dict) or not all(isinstance(v, str) for v in headers.values()):
+        return "'headers' must be an object of strings"
+    rest = dict((k, v) for k, v in e.items() if k != "headers")
+    if "${" in json.dumps(rest) or any("${" in ENV_REF.sub("", v) for v in headers.values()):
+        return "'${' is only allowed as ${VAR} inside header values"
     if ("command" in e) == ("url" in e):
         return "needs exactly one of 'command' or 'url'"
+    if headers and "url" not in e:
+        return "'headers' needs 'url'"
     for key in ("args", "except", "harnesses"):
         v = e.get(key, [])
         if not isinstance(v, list) or (key != "args" and any(x not in MCP_HARNESSES for x in v)):
             return "'%s' must be a list%s" % (key, "" if key == "args" else " of harness names")
+    targets = set(e.get("harnesses", MCP_HARNESSES)) - set(e.get("except", []))
+    if headers and "hermes" in targets:
+        # `hermes config get` prints resolved values, so ${VAR} headers can't be compared
+        return "hermes does not support 'headers' here; add \"hermes\" to 'except'"
+    if "codex" in targets and any(ENV_REF.search(v) and not codex_env(k, v)
+                                  for k, v in headers.items()):
+        return ("codex takes only a whole ${VAR} header value or 'Authorization: Bearer "
+                "${VAR}'; add \"codex\" to 'except'")
     return None
+
+
+def codex_env(header, value):
+    """('bearer'|'env', VAR) when codex can express this header from an env var, else None."""
+    m = re.fullmatch(r"Bearer " + ENV_REF.pattern, value)
+    if header.lower() == "authorization" and m:
+        return "bearer", m.group(1)
+    m = ENV_REF.fullmatch(value)
+    return ("env", m.group(1)) if m else None
 
 
 def mcp_entries(manifest):
@@ -317,17 +343,29 @@ def say(dry, verb, harness, name):
     print("%s  %s: %s" % ("would " + verb if dry else past, harness, name))
 
 
+def env_headers(e, fmt):
+    """Header dict with each ${VAR} rewritten as fmt % VAR ({} without headers)."""
+    h = e.get("headers")
+    if not h:
+        return {}
+    return {"headers": dict((k, ENV_REF.sub(lambda m: fmt % m.group(1), v))
+                            for k, v in h.items())}
+
+
 def render_json(harness, e):
     cmd, args = e.get("command"), e.get("args", [])
     if harness == "opencode":
         if cmd:
             return {"type": "local", "command": [cmd] + args, "enabled": True}
-        return {"type": "remote", "url": e["url"], "enabled": True}
+        return dict({"type": "remote", "url": e["url"], "enabled": True},
+                    **env_headers(e, "{env:%s}"))
     if harness == "cursor":
-        return {"command": cmd, "args": args} if cmd else {"url": e["url"]}
+        if cmd:
+            return {"command": cmd, "args": args}
+        return dict({"url": e["url"]}, **env_headers(e, "${env:%s}"))
     if cmd:  # claude, omp
         return {"type": "stdio", "command": cmd, "args": args}
-    return {"type": "http", "url": e["url"]}
+    return dict({"type": "http", "url": e["url"]}, **env_headers(e, "${%s}"))
 
 
 def same(harness, current, wanted):
@@ -336,13 +374,26 @@ def same(harness, current, wanted):
     return current == wanted
 
 
+def claude_config():
+    """The global config file Claude Code actually uses: a legacy <config dir>/.config.json,
+    when present, wins over .claude.json (Claude's own rule)."""
+    cfg_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    legacy = os.path.join(cfg_dir or os.path.join(home(), ".claude"), ".config.json")
+    if os.path.exists(legacy):
+        return legacy
+    return os.path.join(cfg_dir or home(), ".claude.json")
+
+
 def load_servers(harness):
     """(path, document, key, servers) of a JSON-config harness; missing file = empty."""
     h = home()
-    path = {"claude": os.path.join(h, ".claude.json"),
+    path = {"claude": claude_config(),
             "cursor": os.path.join(h, ".cursor", "mcp.json"),
             "omp": os.path.join(h, ".omp", "agent", "mcp.json"),
             "opencode": os.path.join(h, ".config", "opencode", "opencode.json")}[harness]
+    if harness == "claude" and path.endswith(".config.json"):
+        print("WARN  claude: uses %s, so .claude.json (and the MCPs in it) is ignored; an "
+              "empty or stray one is usually a sandbox leftover" % path)
     key = "mcp" if harness == "opencode" else "mcpServers"
     try:
         with open(path, encoding="utf-8") as f:
@@ -390,6 +441,19 @@ def codex_chunk(name, e):
         lines.append("args = [%s]" % ", ".join(json.dumps(a) for a in e.get("args", [])))
     else:
         lines.append("url = %s" % json.dumps(e["url"]))
+        static, env = [], []
+        for k, v in sorted((e.get("headers") or {}).items()):
+            kind, var = codex_env(k, v) or (None, None)
+            if kind == "bearer":
+                lines.append("bearer_token_env_var = %s" % json.dumps(var))
+            elif kind == "env":
+                env.append((k, var))
+            else:
+                static.append((k, v))
+        for key, pairs in (("http_headers", static), ("env_http_headers", env)):
+            if pairs:
+                lines.append("%s = { %s }" % (key, ", ".join(
+                    "%s = %s" % (json.dumps(k), json.dumps(v)) for k, v in pairs)))
     return lines
 
 
