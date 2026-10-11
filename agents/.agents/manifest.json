@@ -121,14 +121,6 @@
         "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions"
       }
     },
-    "aws-mcp": {
-      "command": "uvx",
-      "args": [
-        "mcp-proxy-for-aws-cli==1.7.0",
-        "https://aws-mcp.us-east-1.api.aws/mcp",
-        "--skip-auth"
-      ]
-    },
     "aws": {
       "project": true,
       "command": "uvx",

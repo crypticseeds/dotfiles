@@ -83,7 +83,7 @@ without new dependencies.
     "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@<version>"] },
     "linear":     { "url": "https://mcp.linear.app/mcp", "auth": "oauth", "except": ["claude"] },
     "firecrawl":  { "url": "https://mcp.firecrawl.dev/v2/mcp-oauth", "auth": "oauth", "except": ["claude"] },
-    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] },
+    "aws":        { "project": true, "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.eu-west-2.api.aws/mcp", "--profile", "agent-readonly", "..."] },
     "github":     { "url": "https://api.githubcopilot.com/mcp/", "except": ["hermes"],
                     "headers": { "Authorization": "Bearer ${GH_TOKEN}", "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions" } }
   }
@@ -241,9 +241,10 @@ See `docs/plans/agent-skills-mcp-sync-migration.md`.
 
 1. **opencode MCP block**: generated into the untracked `opencode.json`;
    `opencode.jsonc` keeps no `mcp` block. Cleaner git history.
-2. **aws-mcp**: one form everywhere, with `--skip-auth` (as the aws-core
-   plugin ships it). Not host-restricted. If credentialed access is ever
-   needed, the owner commits a separate MCP file for it by hand.
+2. **AWS**: no global AWS MCP. The authenticated AWS MCP Server (`aws`, a
+   project entry) already serves the docs, skills and region tools as well
+   as API access, so a separate unauthenticated docs-only `aws-mcp` (removed
+   2026-10-11) only duplicated it and exposed API tools that always failed.
 3. **Firecrawl/TinyFish/Linear/Sentry in Claude**: the claude.ai connectors
    cover these for Claude, and the owner logs in once per service anyway, so
    these entries carry `"except": ["claude"]` to avoid duplicate tools in
