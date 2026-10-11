@@ -85,7 +85,10 @@ fi
 # Agent tmp and scratch (/tmp is RAM on the Pi): drop each entry nothing has touched for a day
 for e in "$HOME"/.cache/agent-scratch/* /tmp/agent-prompts/* /tmp/agent-reports/* /tmp/pre-commit/* \
          "$tmpd"/-*/* "$tmpd"/[!-]*; do
-  [ -z "$(find "$e" -mmin -1440 -print -quit 2>/dev/null)" ] && rm -rf -- "$e"
+  [ -n "$(find "$e" -mmin -1440 -print -quit 2>/dev/null)" ] && continue
+  # Go module caches (e.g. pre-commit's golangenv) are read-only: make them writable first
+  [ -L "$e" ] || chmod -R u+w -- "$e" 2>/dev/null
+  rm -rf -- "$e"
 done
 rmdir "$tmpd"/-*/ 2>/dev/null
 
