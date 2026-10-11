@@ -29,8 +29,16 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -f "$tmp"/*; rmdir "$tmp"' EXIT
 step 3 "generating the Claude, opencode and omp configs"
+# Claude approves project .mcp.json servers by name: every "project": true manifest MCP.
+names="$(python3 -c '
+import json, sys
+for n, e in json.load(open(sys.argv[1]))["mcp"].items():
+    if isinstance(e, dict) and e.get("project") is True:
+        print(n)' "$here/../../agents/.agents/manifest.json")"
+mcpjson=()
+for name in $names; do mcpjson+=(--mcpjson-server "$name"); done
 python3 "$here/generate.py" --claude-out "$tmp/claude.json" --os linux --agent-host \
-  --mcpjson-server aws --mcpjson-server eks >/dev/null
+  "${mcpjson[@]}" >/dev/null
 omp_target="${dir:-$HOME/.omp/agent}/config.yml"
 # omp has no managed config: merge the policy keys into the user's file, keeping everything else
 python3 - "$here/agent-host/omp-config.yml" "$HOME/.omp/agent/config.yml" "$tmp/omp.yml" <<'PY'

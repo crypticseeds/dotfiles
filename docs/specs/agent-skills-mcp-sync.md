@@ -173,6 +173,35 @@ One function per harness renders the neutral entry into that harness's format:
 JSON files are written atomically and only when something changed; an
 unparseable file is an ERROR and stays untouched.
 
+### 4b. Project MCPs
+
+Servers only some repos need (aws, eks) are manifest entries with
+`"project": true`. They are never installed globally. A repo opts in with
+`.agents/project.json`:
+
+```json
+{ "mcp": ["aws", "eks"] }
+```
+
+`agents-sync.py project` (part of `all`, so `make agents-sync`) finds opted-in
+repos one level below `~/REPOS` (or only the ones given with `--project DIR`)
+and writes each harness's project file:
+
+| File in the repo | Read by |
+|---|---|
+| `.mcp.json` | Claude, omp |
+| `.cursor/mcp.json` | Cursor |
+| `opencode.json` (`mcp` key, merged) | opencode |
+| `.codex/config.toml` (managed block) | Codex, trusted projects only |
+
+A file is written only when a harness that reads it is present. In an opted-in
+repo the project entries are managed exactly: a listed name is added or
+updated, an unlisted one is removed. Other servers in these files are never
+touched. Listing a name that is not a project entry is an ERROR for that repo.
+Hermes has no project config. Claude only connects approved `.mcp.json`
+servers: `regen-agent-host.sh` approves every project entry by name. `make
+doctor` reports project drift with the global drift.
+
 ### 5. Claude plugins
 
 `settings.json` stays the record of `enabledPlugins` and

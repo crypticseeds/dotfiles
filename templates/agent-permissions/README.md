@@ -174,7 +174,8 @@ boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch prote
 **Install on the Pi** only with `bash regen-agent-host.sh`, run by you (it uses sudo). It runs
 `git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either fails), then:
 - Claude: `/etc/claude-code/managed-settings.json` (root-owned managed settings, every project),
-  generated with `--os linux --agent-host --mcpjson-server aws --mcpjson-server eks`. A hand-run
+  generated with `--os linux --agent-host` and one `--mcpjson-server <name>` per `"project": true`
+  MCP in the agents manifest (so Claude approves those `.mcp.json` servers). A hand-run
   `generate.py --claude-out` without those flags silently drops the host rules.
 - opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority).
 - omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
