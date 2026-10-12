@@ -554,14 +554,10 @@ def hermes_todo(name, e):
 
 
 def mcp_hermes(want, dry):
-    todo = [(name, k, v) for name in sorted(want) for k, v in hermes_todo(name, want[name])]
-    if not todo:
-        return
-    # --force (write keys this Hermes version does not know) only exists in newer releases
-    r = cli(["hermes", "config", "set", "--help"])
-    force = ["--force"] if b"--force" in r.stdout + r.stderr else []
-    for name, k, v in todo:
-        run_cli(["hermes", "config", "set"] + force + ["mcp_servers.%s.%s" % (name, k), v], dry)
+    for name in sorted(want):
+        for k, v in hermes_todo(name, want[name]):
+            run_cli(["hermes", "config", "set", "--force",
+                     "mcp_servers.%s.%s" % (name, k), v], dry)
 
 
 def mcp(manifest, dry):
@@ -708,18 +704,6 @@ def plugins(manifest, dry):
             if name not in known]
     todo += [["claude", "plugin", "install", p]
              for p in cfg.get("enabled") or [] if p not in installed]
-    settings = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(home(), ".claude"),
-                            "settings.json")
-    if todo and os.path.exists(settings):
-        try:
-            with open(settings, encoding="utf-8") as f:
-                json.load(f)
-        except (OSError, ValueError) as e:
-            link = os.readlink(settings) if os.path.islink(settings) else "not a stow link"
-            print("ERROR  plugins: %s is not valid JSON (%s; %d bytes; %s), so Claude cannot "
-                  "record plugins; fix or restow it, then rerun"
-                  % (settings, e, os.path.getsize(settings), link))
-            return 1
     rc = 0
     for argv in todo:
         try:
