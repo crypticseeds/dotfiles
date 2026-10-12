@@ -371,11 +371,13 @@ def env_headers(e, fmt):
 
 def render_json(harness, e):
     cmd, args = e.get("command"), e.get("args", [])
-    if harness == "opencode":
+    if harness == "opencode":  # v2 shape, under mcp.servers
         if cmd:
-            return {"type": "local", "command": [cmd] + args, "enabled": True}
-        return dict({"type": "remote", "url": e["url"], "enabled": True},
-                    **env_headers(e, "{env:%s}"))
+            return {"type": "local", "command": [cmd] + args}
+        out = dict({"type": "remote", "url": e["url"]}, **env_headers(e, "{env:%s}"))
+        if "headers" in e and e.get("auth") != "oauth":
+            out["oauth"] = False  # header credential only: skip v2's default OAuth discovery
+        return out
     if harness == "cursor":
         if cmd:
             return {"command": cmd, "args": args}
@@ -402,7 +404,7 @@ def claude_config():
 
 
 def load_servers(harness):
-    """(path, document, key, servers) of a JSON-config harness; missing file = empty."""
+    """(path, document, legacy, servers) of a JSON-config harness; missing file = empty."""
     h = home()
     path = {"claude": claude_config(),
             "cursor": os.path.join(h, ".cursor", "mcp.json"),
@@ -412,12 +414,14 @@ def load_servers(harness):
         print("WARN  claude: uses %s, so .claude.json (and the MCPs in it) is ignored; an "
               "empty or stray one is usually a sandbox leftover" % path)
     key = "mcp" if harness == "opencode" else "mcpServers"
-    doc, servers = read_servers(path, key, harness == "opencode")
-    return path, doc, key, servers
+    doc, servers, legacy = read_servers(path, key, harness == "opencode")
+    return path, doc, legacy, servers
 
 
 def read_servers(path, key, opencode):
-    """(document, servers) of a JSON MCP file; a missing file is empty."""
+    """(document, servers, legacy) of a JSON MCP file; a missing file is empty. `servers` is the
+    live dict inside the document. opencode v2 keeps servers under mcp.servers; `legacy` is the
+    mcp object itself, where v1 kept them (None for other harnesses)."""
     try:
         with open(path, encoding="utf-8") as f:
             doc = json.load(f)
@@ -425,17 +429,29 @@ def read_servers(path, key, opencode):
         doc = {"$schema": SCHEMA} if opencode else {}
     except (OSError, ValueError) as e:
         raise RuntimeError("cannot parse %s: %s" % (path, e))
-    servers = doc.get(key) or {} if isinstance(doc, dict) else None
+    parent = doc.setdefault(key, {}) if isinstance(doc, dict) else None
+    servers = parent.setdefault("servers", {}) if opencode and isinstance(parent, dict) else parent
     if not isinstance(servers, dict):
         raise RuntimeError("%s: unexpected structure" % path)
-    return doc, servers
+    return doc, servers, (parent if opencode else None)
+
+
+def drop_legacy(legacy, name, dry, where):
+    """Remove a v1 opencode entry (mcp.<name>) that mcp.servers.<name> now replaces."""
+    if legacy is not None and isinstance(legacy.get(name), dict) and name not in ("servers", "timeout"):
+        print("%s  %s: %s (v1 entry moved to mcp.servers)" % ("would migrate" if dry else "migrated",
+                                                             where, name))
+        del legacy[name]
+        return True
+    return False
 
 
 def mcp_json(harness, want, dry):
     """claude (via its CLI), cursor, omp, opencode: create or update manifest names."""
-    path, doc, key, servers = load_servers(harness)
+    path, doc, legacy, servers = load_servers(harness)
     changed = False
     for name in sorted(want):
+        changed = drop_legacy(legacy, name, dry, harness) or changed
         new = render_json(harness, want[name])
         if same(harness, servers.get(name), new):
             continue
@@ -449,7 +465,6 @@ def mcp_json(harness, want, dry):
             servers[name] = new
             changed = True
     if changed and not dry:
-        doc[key] = servers
         atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
 
@@ -560,13 +575,40 @@ def mcp_hermes(want, dry):
                      "mcp_servers.%s.%s" % (name, k), v], dry)
 
 
+_OPENCODE_V1 = []
+
+
+def opencode_v1():
+    """True when the installed opencode is v1: the sync writes v2's mcp.servers layout, which v1
+    cannot read. Unknown or missing counts as v2."""
+    if not _OPENCODE_V1:
+        exe = shutil.which("opencode") or os.path.join(home(), ".opencode", "bin", "opencode")
+        try:
+            out = subprocess.run([exe, "--version"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                 timeout=60).stdout.decode(errors="replace")
+        except (OSError, subprocess.TimeoutExpired):
+            out = ""
+        m = re.search(r"(\d+)\.\d+", out)
+        _OPENCODE_V1.append(bool(m) and int(m.group(1)) < 2)
+    return _OPENCODE_V1[0]
+
+
+def opencode_v1_skip(present):
+    if present["opencode"] and opencode_v1():
+        print("WARN  opencode: v1 installed; this sync writes the v2 layout, so opencode is skipped "
+              "(upgrade: curl -fsSL https://opencode.ai/v2/install | bash)")
+        present["opencode"] = False
+
+
 def mcp(manifest, dry):
     entries, bad = mcp_entries(manifest)
     rc = 1 if bad else 0
     present = mcp_present()
+    opencode_v1_skip(present)
     for harness in MCP_HARNESSES:
         if not present[harness]:
-            print("skip  %s (not installed)" % harness)
+            if harness != "opencode" or not opencode_v1():  # v1 already has its WARN
+                print("skip  %s (not installed)" % harness)
             continue
         want = applicable(entries, harness)
         try:
@@ -624,9 +666,10 @@ def project_json(d, readers, rel, key, render_as, want, managed, dry):
     """Merge `want` into one JSON file of a repo; managed names not wanted are removed."""
     path = os.path.join(d, rel)
     where = os.path.join(os.path.basename(d), rel)
-    doc, servers = read_servers(path, key, render_as == "opencode")
+    doc, servers, legacy = read_servers(path, key, render_as == "opencode")
     changed = False
     for name in sorted(managed):
+        changed = drop_legacy(legacy, name, dry, where) or changed
         e = want.get(name)
         if e is not None and mcp_targets(e) & set(readers):
             new = render_json(render_as, e)
@@ -639,7 +682,6 @@ def project_json(d, readers, rel, key, render_as, want, managed, dry):
             del servers[name]
             changed = True
     if changed and not dry:
-        doc[key] = servers
         atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
 
@@ -661,6 +703,7 @@ def projects(manifest, dry, dirs=None):
     entries = mcp_entries(manifest, report=False)[0]  # the mcp step reports invalid entries
     rc = 0
     present = mcp_present()
+    opencode_v1_skip(present)
     for d in dirs if dirs is not None else project_dirs():
         try:
             project(os.path.abspath(d), entries, present, dry)

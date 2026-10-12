@@ -1,0 +1,16 @@
+[Unit]
+Description=opencode v2 shared background server (GH_TOKEN from Doppler)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# PATH for opencode itself and the local MCP servers it spawns (npx, uvx).
+Environment=PATH=%h/.opencode/bin:%h/.local/bin:%h/.bun/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/opencode-shared-server
+# always: `opencode service restart` from a client exits this server cleanly and starts a
+# token-less one; restarting here takes the shared server back (see opencode-shared-server).
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

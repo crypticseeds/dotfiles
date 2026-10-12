@@ -158,15 +158,22 @@ One function per harness renders the neutral entry into that harness's format:
   differ are written with `hermes config set --force`. Never rewrite
   `config.yaml` (it holds the Buzz allowlist and other host state).
 - omp, Cursor: merge the entry into the `mcpServers` object of their JSON file.
-- opencode: same merge into the `mcp` object of the untracked
+- opencode (v2): entries go under `mcp.servers` of the untracked
   `~/.config/opencode/opencode.json` (opencode merges it with the tracked
   `opencode.jsonc`, which has no `mcp` block, so no generated content enters
-  git history).
-  The entries stay in the v1 shape (`mcp.<name>` with `enabled`), which
-  opencode v2 still reads (verified with v2.0.27: servers listed and `github`
-  connected), so one file serves v1 and v2 machines. v2 resolves `{env:VAR}`
-  in its shared background service, so `GH_TOKEN` must be in the environment
-  of whichever command started that service.
+  git history). A v1 entry with the same name directly under `mcp` is moved
+  there ("migrated"). Header-credential remotes get `oauth: false`. If the
+  installed opencode is v1, which cannot read `mcp.servers`, opencode is
+  skipped with a WARN.
+  v2 resolves `{env:VAR}` and runs MCP servers and tools in one shared
+  background server, so that server needs `GH_TOKEN` and the tool PATH, not
+  the client. On Linux `make opencode-service` runs it as a systemd user unit
+  (`opencode.service` -> `opencode-shared-server`: `doppler run ... opencode
+  serve --service`). The wrapper first stops any server a client started
+  without the token, and `Restart=always` takes the server back after a
+  client's `opencode service restart`. Verified with v2.0.27: one server,
+  `github` connected from a client without `GH_TOKEN`, after a boot race, a
+  client restart and a crash.
 - Codex: the block between the `# >>> agents-sync managed MCP` and
   `# <<< agents-sync managed MCP` markers in `~/.codex/config.toml` is
   regenerated from the manifest; tables already in the block for other names are

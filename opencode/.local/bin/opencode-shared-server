@@ -1,0 +1,14 @@
+#!/bin/sh
+# opencode v2's shared background server, run by systemd (opencode.service) instead of by whichever
+# client happens to start it first. The server resolves {env:GH_TOKEN} in MCP headers and spawns the
+# local MCP servers, so it needs GH_TOKEN (from Doppler, never on disk), the tool PATH (set by the
+# unit) and the machine-local config overlay. Clients find the one server via its service file.
+set -eu
+overlay="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.local.json"
+if [ -f "$overlay" ]; then
+  export OPENCODE_CONFIG="$overlay"
+fi
+# A client starts its own server (without GH_TOKEN) whenever none is running, e.g. after
+# `opencode service restart` stops this one. Stop it so the service file points back at us.
+opencode service stop >/dev/null 2>&1 || true
+exec doppler run -p harness -c dev --only-secrets GH_TOKEN -- opencode serve --service
