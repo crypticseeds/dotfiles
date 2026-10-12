@@ -337,12 +337,21 @@ def hermes_home():
 
 
 def mcp_present():
+    """A harness counts as present when its CLI is installed (on PATH or in its installer's
+    default dir) or its config dir exists: a fresh install has no config dir until first run."""
     h = home()
+
+    def cli_or_dir(names, bindirs, cfg):
+        return (any(shutil.which(n) for n in names)
+                or any(os.access(os.path.join(h, d, n), os.X_OK) for d in bindirs for n in names)
+                or os.path.isdir(os.path.join(h, *cfg)))
+    local = [os.path.join(".local", "bin")]
     return {"claude": shutil.which("claude") is not None,
-            "codex": os.path.isdir(os.path.join(h, ".codex")),
-            "cursor": os.path.isdir(os.path.join(h, ".cursor")),
-            "omp": shutil.which("omp") is not None or os.path.isdir(os.path.join(h, ".omp")),
-            "opencode": os.path.isdir(os.path.join(h, ".config", "opencode")),
+            "codex": cli_or_dir(["codex"], local, [".codex"]),
+            "cursor": cli_or_dir(["cursor-agent", "cursor"], local, [".cursor"]),
+            "omp": cli_or_dir(["omp"], local, [".omp"]),
+            "opencode": cli_or_dir(["opencode"], [os.path.join(".opencode", "bin")] + local,
+                                   [".config", "opencode"]),
             "hermes": shutil.which("hermes") is not None and os.path.isdir(hermes_home())}
 
 
