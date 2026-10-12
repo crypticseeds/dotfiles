@@ -162,6 +162,11 @@ One function per harness renders the neutral entry into that harness's format:
   `~/.config/opencode/opencode.json` (opencode merges it with the tracked
   `opencode.jsonc`, which has no `mcp` block, so no generated content enters
   git history).
+  The entries stay in the v1 shape (`mcp.<name>` with `enabled`), which
+  opencode v2 still reads (verified with v2.0.27: servers listed and `github`
+  connected), so one file serves v1 and v2 machines. v2 resolves `{env:VAR}`
+  in its shared background service, so `GH_TOKEN` must be in the environment
+  of whichever command started that service.
 - Codex: the block between the `# >>> agents-sync managed MCP` and
   `# <<< agents-sync managed MCP` markers in `~/.codex/config.toml` is
   regenerated from the manifest; tables already in the block for other names are

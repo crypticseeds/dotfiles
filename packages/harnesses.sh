@@ -9,8 +9,9 @@ export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# opencode - https://opencode.ai
-have opencode || curl -fsSL https://opencode.ai/install | bash
+# opencode v2 - https://opencode.ai/v2/docs (same `opencode` command and config locations as v1;
+# the v2 installer replaces a v1 binary in ~/.opencode/bin)
+have opencode || curl -fsSL https://opencode.ai/v2/install | bash
 
 # Claude Code - https://claude.ai/code
 have claude || curl -fsSL https://claude.ai/install.sh | bash
