@@ -24,7 +24,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills agents-sync doctor setup shell nvim
+.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills agents-sync doctor setup shell nvim hypr-omarchy hypr-omarchy-off
 
 # Mac and the Pi share this repo: rebase onto upstream before deploying or rewriting tracked
 # files (nvim's Lazy sync rewrites lazy-lock.json), so no machine works from a stale checkout.
@@ -80,6 +80,7 @@ restow-linux: pull
 
 delete:
 	$(STOW) -D agents $(COMMON) $(MACONLY) $(LINUXONLY) $(TOOLS) tmux
+	-$(STOW) -D hypr-omarchy
 
 # tmux is opt-in, not default (herdr is the daily multiplexer). The config,
 # keybindings and plugins stay in the repo; these targets flip deployment.
@@ -92,6 +93,17 @@ tmux-on:
 
 tmux-off:
 	$(STOW) -D tmux
+
+# Opt-in Omarchy-style Hyprland session (Fedora), kept beside the regular one in
+# ~/.config/hypr: ~/.config/hypr-omarchy + a pinned Omarchy checkout + the Omarchy
+# shell (bar, notifications, launcher, dock). Start it from a TTY with `hypr-omarchy`.
+# See docs/hypr-omarchy.md.
+hypr-omarchy:
+	$(STOW) --no-folding hypr-omarchy
+	bash scripts/hypr-omarchy.sh
+
+hypr-omarchy-off:
+	$(STOW) -D hypr-omarchy
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
 # pi and opencode read it natively and need nothing here. Absolute links are
