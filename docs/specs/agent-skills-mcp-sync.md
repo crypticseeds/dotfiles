@@ -83,7 +83,9 @@ without new dependencies.
     "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@<version>"] },
     "linear":     { "url": "https://mcp.linear.app/mcp", "auth": "oauth", "except": ["claude"] },
     "firecrawl":  { "url": "https://mcp.firecrawl.dev/v2/mcp-oauth", "auth": "oauth", "except": ["claude"] },
-    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] }
+    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] },
+    "github":     { "url": "https://api.githubcopilot.com/mcp/", "except": ["hermes"],
+                    "headers": { "Authorization": "Bearer ${GH_TOKEN}", "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions" } }
   }
 }
 ```
@@ -95,10 +97,16 @@ Rules:
 - `local: true` marks a skill whose files live only on the listed hosts; the
   sync never fetches it and doctor does not flag it there.
 - `harnesses` / `except` restrict an entry; default is all installed harnesses.
-- Secrets as `${VAR}` references to Doppler names, and a `headers` entry,
-  are not implemented (future). Any entry containing `${` is rejected today.
-  Harnesses already launch under `doppler run`; the generator never resolves
-  values.
+- A remote entry may carry `headers`. Inside header values only, `${VAR}` names
+  an environment variable (a Doppler name); `${` anywhere else is rejected.
+  Each harness gets its own reference syntax and the sync never resolves or
+  writes a value: Claude and omp `${VAR}`, Cursor `${env:VAR}`, opencode
+  `{env:VAR}`, Codex `bearer_token_env_var` (for `Authorization: Bearer
+  ${VAR}`) or `env_http_headers` (for a whole `${VAR}` value). Codex cannot
+  express a reference mixed into other text, and Hermes cannot be compared
+  (`hermes config get` prints resolved values), so such entries must list them
+  in `except` or are rejected. The variable must be in the harness's
+  environment: launch it under `doppler run`.
 - `harnesses` restricts per-skill LINKS only. Skills in `~/.agents/skills` are
   still visible to harnesses that read it natively (pi, opencode, omp, cursor).
 - Repo-owned skills (`delegate-visibly`, `orchestrate`, ...) are not listed:
@@ -140,9 +148,11 @@ invalid manifest entry is skipped with an ERROR line and the rest still sync.
 
 One function per harness renders the neutral entry into that harness's format:
 
-- Claude: reads `mcpServers` in `~/.claude.json`; a missing entry is created
-  with `claude mcp add-json --scope user <name> '<json>'`, a different one is
-  replaced with `claude mcp remove --scope user <name>` then the add.
+- Claude: reads `mcpServers` from the global config Claude itself uses
+  (`~/.claude.json`, or a legacy `~/.claude/.config.json` when that exists,
+  reported with a WARN because it hides `~/.claude.json`); a missing entry is
+  created with `claude mcp add-json --scope user <name> '<json>'`, a different
+  one is replaced with `claude mcp remove --scope user <name>` then the add.
 - Hermes: remote MCPs only (stdio is skipped). Each key is compared with the
   read-only `hermes config get mcp_servers.<name>.<key>`, and only keys that
   differ are written with `hermes config set --force`. Never rewrite

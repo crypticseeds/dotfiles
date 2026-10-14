@@ -113,6 +113,14 @@
         "claude"
       ]
     },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "except": ["hermes"],
+      "headers": {
+        "Authorization": "Bearer ${GH_TOKEN}",
+        "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions"
+      }
+    },
     "aws-mcp": {
       "command": "uvx",
       "args": [

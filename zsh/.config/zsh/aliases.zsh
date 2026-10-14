@@ -160,6 +160,7 @@ else
   alias opencode='doppler run --only-secrets GH_TOKEN -- opencode'
   alias claude='doppler run --only-secrets GH_TOKEN -- claude'
   alias omp='doppler run --only-secrets GH_TOKEN -- omp --approval-mode=yolo'
+  alias codex='doppler run --only-secrets GH_TOKEN -- codex'
 fi
 alias oca='doppler run --only-secrets OPENCODE_SERVER_PASSWORD,OPENCODE_SERVER_USERNAME -- opencode attach https://opencode.internal.devopsfoundry.com'
 
