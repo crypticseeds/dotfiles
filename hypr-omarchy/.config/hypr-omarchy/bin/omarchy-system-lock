@@ -1,0 +1,5 @@
+#!/bin/sh
+# Replaces Omarchy's lock (the shell's lock screen needs an Arch-only PAM setup) with
+# hyprlock. Called by SUPER + CTRL + L, the system menu, the idle timer and lid close.
+hyprctl switchxkblayout all 0 >/dev/null 2>&1
+pidof hyprlock >/dev/null || exec hyprlock -c "$HOME/.config/hypr-omarchy/hyprlock.conf"

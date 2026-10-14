@@ -1,0 +1,34 @@
+# Omarchy's gruvbox theme on the darker "Gruvbox Dark Hard Seeds" backgrounds used by
+# the Zed theme (zed/themes) and Neovim's gruvbox-material hard. Only these colours
+# differ from Omarchy's gruvbox; backgrounds and icons come from it.
+mode = "dark"
+
+accent = "#7daea3"
+selection = "#504945"
+muted = "#665c54"
+
+background = "#1d2021"
+dark_background = "#141617"
+darker_background = "#000000"
+lighter_background = "#282828"
+
+foreground = "#d4be98"
+dark_foreground = "#7c6f64"
+light_foreground = "#bdae93"
+bright_foreground = "#d4be98"
+
+red = "#ea6962"
+yellow = "#d8a657"
+orange = "#e1875c"
+green = "#a9b665"
+cyan = "#89b482"
+blue = "#7daea3"
+magenta = "#d3869b"
+brown = "#70432e"
+
+bright_red = "#ea6962"
+bright_yellow = "#d8a657"
+bright_green = "#a9b665"
+bright_cyan = "#89b482"
+bright_blue = "#7daea3"
+bright_magenta = "#d3869b"
