@@ -65,6 +65,12 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
   (either, left, right) maps to Super.
 - **Blur is off** (niri layer rule + `compositor_blur = false`): the virtual GPU renders
   every pass. Noctalia runs on the hardware renderer (`SVGA3D`, OpenGL ES 3.1).
+- **Copy/paste with the Mac**: VMware's helper (`vmtoolsd -n vmusr`) is a windowless X11
+  client, and xwayland-satellite only syncs the clipboard while an X11 window has focus,
+  so Mac copies never reached Wayland apps. `niri/.config/niri/scripts/clipboard-bridge.py`
+  (started by niri) syncs the X11 and Wayland text clipboards both ways. Text only:
+  images and files copied between the Mac and the VM do not carry over. Check it runs:
+  `pgrep -af clipboard-bridge`.
 
 ## Workspaces
 
@@ -80,8 +86,8 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 - New windows open at half width, starting from the left edge.
 - The Herdr GUI (`Mod+A`) opens maximized, filling its workspace; `Mod+F` toggles it.
 - **Floating**: Strata and Nautilus always float, centered. `Mod+V` floats or tiles any
-  window, `Mod+Shift+V` jumps focus between the floating and tiled layers.
-- `Mod+O` shows the overview of all workspaces.
+  window, `Mod+Ctrl+V` jumps focus between the floating and tiled layers.
+- `Mod+O` (or the mouse in the top-left corner) shows the overview of all workspaces.
 
 ## Keys
 
@@ -95,6 +101,9 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | `Mod+S` | Control center (audio, network, notifications, calendar) |
 | `Mod+Shift+Comma` | Noctalia settings (palette, bar, wallpaper) |
 | `Mod+Shift+N` | Do not disturb |
+| `Mod+Shift+V` | Clipboard history (text and images; click an entry to paste it) |
+| `Mod+O` | Overview of all workspaces |
+| `Mod+V` / `Mod+Ctrl+V` | Float or tile the window / jump between floating and tiled |
 | `Super+Alt+L` | Lock screen |
 | `Mod+Shift+E` | Session menu (log out, reboot, power off); `Ctrl+Alt+Delete` quits niri |
 | `Alt+Tab` | Recent windows switcher |
