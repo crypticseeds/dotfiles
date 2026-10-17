@@ -26,11 +26,20 @@ mode = "dark"
 #            noctalia msg color-scheme-set custom "Gruvbox Hard"
 source = "custom"
 custom_palette = "Gruvbox Hard"
+# Pure black backgrounds for every palette (accents and text keep the palette colors).
+# Flows into the templates below, so niri, Ghostty, GTK, Strata and Herdr UI follow.
+pure_black_dark = true
 
 [theme.templates]
 # Recolor these on every palette change: niri borders (niri/noctalia.kdl), Ghostty
-# (ghostty/themes/noctalia), and GTK 3/4 apps (gtk-3.0, gtk-4.0 noctalia.css).
+# (ghostty/themes/noctalia, also used by Herdr UI), and GTK 3/4 apps (gtk-*/noctalia.css).
 builtin_ids = ["niri", "ghostty", "gtk3", "gtk4"]
+
+# Strata ignores GTK styling; it reloads this theme file live (theme = "noctalia" in
+# ~/.config/strata/settings.toml).
+[theme.templates.user.strata]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/strata.toml"
+output_path = "$XDG_CONFIG_HOME/strata/themes/noctalia.toml"
 
 [bar.main]
 # Blur is off in niri too: the VM's virtual GPU pays for every pass.

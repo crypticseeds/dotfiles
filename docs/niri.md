@@ -121,8 +121,20 @@ noctalia msg color-scheme-set builtin Catppuccin
 noctalia msg color-scheme-set custom "Gruvbox Hard"
 ```
 
-niri borders, Ghostty, Noctalia and GTK apps recolor live. The switch is stored in
-`settings.toml`; to change the default for every machine, edit `[theme]` in `config.toml`.
+niri borders, Ghostty, Noctalia, GTK apps, Strata and Herdr UI recolor live. The switch is
+stored in `settings.toml`; to change the default for every machine, edit `[theme]` in
+`config.toml`.
+
+`pure_black_dark = true` makes every palette's backgrounds pure black; accents and text
+keep the palette colors. Per-app wiring (the last three are machine-local settings, not
+in the repo):
+
+| App | Follows the palette via |
+|---|---|
+| niri, Ghostty, GTK | Noctalia built-in templates |
+| Strata | `noctalia/.config/noctalia/templates/strata.toml` renders `~/.config/strata/themes/noctalia.toml` (Strata reloads it live); `theme = "noctalia"` in `~/.config/strata/settings.toml` |
+| Herdr UI | `theme = "~/.config/ghostty/themes/noctalia"` in `~/.config/herdr/config-gpui.local.toml` |
+| Zed | not palette-driven: `theme_overrides` for "Gruvbox Dark Hard Seeds" in `~/.config/zed/settings.json` sets the backgrounds black |
 
 ## Wallpaper
 
