@@ -29,7 +29,7 @@ keybind = cmd+d=unbind
 keybind = cmd+shift+d=unbind
 keybind = cmd+w=unbind
 
-# niri's Cmd+C / Cmd+V send Ctrl+Shift+C / Ctrl+Shift+V to terminals (docs/niri.md). The
-# physical Cmd is still held at that moment, so Ghostty sees Super added: bind those too.
+# niri's Cmd+C / Cmd+V send Ctrl+Shift+C / Ctrl+Shift+V to terminals (docs/niri.md).
+# Fallback in case the still-held Cmd reaches Ghostty as Super.
 keybind = super+ctrl+shift+c=copy_to_clipboard
 keybind = super+ctrl+shift+v=paste_from_clipboard

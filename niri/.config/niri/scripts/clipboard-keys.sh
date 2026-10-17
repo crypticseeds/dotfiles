@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# Mac-style Cmd+C / Cmd+X / Cmd+V (niri binds, docs/niri.md): type the focused app's own
+# Mac-style Cmd+C / X / V / A (niri binds, docs/niri.md): type the focused app's own
 # copy/cut/paste/select-all keys through wtype.
 # Usage: clipboard-keys.sh copy|cut|paste|select
 #
-# Keys per app (the app's own standard keys; see docs/niri.md for what was tested):
+# Keys per app:
 #   GUI apps (GTK, Firefox, Strata): Ctrl+C / Ctrl+X / Ctrl+V / Ctrl+A
 #   Zed: Ctrl+Insert / Shift+Delete / Shift+Insert (vim mode owns Ctrl+C/X/V/A); select
 #     all is Ctrl+Alt+Shift+A, bound to editor::SelectAll in ~/.config/zed/keymap.json
