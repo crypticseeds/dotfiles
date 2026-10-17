@@ -4,8 +4,16 @@
 
 working-directory = ~/MEGA
 
-font-family = JetBrainsMono NFM
-font-size = 15
+background = #000000
+
+# Drop the folder icon from the title bar; the default transparent style
+# keeps the red/yellow/green buttons and native window tiling.
+macos-titlebar-proxy-icon = hidden
+# Blank title text (also blanks the window name in Mission Control / AeroSpace).
+title = " "
+
+font-family = JetBrainsMono Nerd Font
+font-size = 16
 cursor-style = underline
 mouse-hide-while-typing = true
 copy-on-select = true

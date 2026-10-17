@@ -5,7 +5,8 @@
 theme = noctalia
 
 font-family = JetBrainsMono Nerd Font
-font-size = 12
+font-size = 16
+cursor-style = underline
 
 window-padding-x = 10
 window-padding-y = 8
@@ -16,6 +17,17 @@ gtk-titlebar = false
 confirm-close-surface = false
 copy-on-select = clipboard
 mouse-hide-while-typing = true
+selection-clear-on-copy = true
+
+# Shell integration's "cursor" feature forces a bar cursor at the prompt,
+# overriding cursor-style. Disable it so the underline sticks.
+shell-integration-features = no-cursor
+
+# Splits are handled by herdr (bound to cmd+d / cmd+shift+d / cmd+w in its config).
+# Unbind them here so Ghostty passes the keys through instead of splitting/closing.
+keybind = cmd+d=unbind
+keybind = cmd+shift+d=unbind
+keybind = cmd+w=unbind
 
 # niri's Cmd+C / Cmd+V send Ctrl+Shift+C / Ctrl+Shift+V to terminals (docs/niri.md). The
 # physical Cmd is still held at that moment, so Ghostty sees Super added: bind those too.
