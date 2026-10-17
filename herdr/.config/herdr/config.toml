@@ -60,7 +60,7 @@ auto_switch = false
 # Named punctuation such as minus, comma, ampersand, plus, and backtick is also accepted.
 # Most reliable direct bindings are ctrl+letter, function keys, and explicit modified chords.
 # alt+..., cmd/super, and punctuation-with-modifiers may depend on your terminal/tmux setup.
-prefix = "ctrl+a"
+prefix = "ctrl+space"
 
 # Prefix-mode actions
 # help = "prefix+?"
@@ -98,9 +98,9 @@ new_tab = "prefix+t"
 # cycle_pane_next = "prefix+tab"
 # cycle_pane_previous = "prefix+shift+tab"
 # last_pane = ""          # optional, unset by default; bind e.g. "prefix+tab" for global back-and-forth
-split_vertical = "prefix+|"
-# split_horizontal = "prefix+minus"
-# close_pane = "prefix+x"
+split_vertical = ["prefix+v", "cmd+d"]
+split_horizontal = ["prefix+minus", "cmd+shift+d"]
+close_pane = ["prefix+x", "cmd+w"]
 # zoom = "prefix+z"       # legacy alias: fullscreen
 # resize_mode = "prefix+r"
 # toggle_sidebar = "prefix+b"
@@ -233,6 +233,8 @@ description = "review the agent's last reply"
 # Accepts: hex (#89b4fa), named colors (cyan, blue, magenta), or rgb(r,g,b)
 # accent = "cyan"
 
+status_indicators = "symbols"
+
 # Background notification popup delivery
 show_agent_labels_on_pane_borders = true
 [ui.toast]
@@ -243,9 +245,9 @@ show_agent_labels_on_pane_borders = true
 # delivery = "off"
 # delay_seconds = 1
 
-delivery = "terminal"
+delivery = "herdr"
 [ui.toast.herdr]
-# position = "bottom-right"
+position = "top-right"
 
 [ui.toast.clipboard]
 # enabled = true
