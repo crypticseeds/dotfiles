@@ -29,9 +29,10 @@ only installs what is missing. `bootstrap.sh` runs the same script on Fedora.
 Log out, click the gear on the GDM password screen, pick **Niri**, log in. GNOME stays
 installed as a fallback session.
 
-niri gets its PATH from the systemd user manager (`/usr/local/bin:/usr/bin`), not from
-zsh. `niri/.config/environment.d/10-local-bin.conf` adds `~/.local/bin` so binds for
-per-user installs (Zed, Strata) work. It is read at login.
+niri-session starts niri through the zsh login shell and imports its environment; zsh
+only adds `~/.local/bin` in `.zshrc` (interactive shells), so niri would not find
+per-user installs (Zed, Strata). `niri/.config/systemd/user/niri.service.d/10-local-bin.conf`
+sets PATH on the niri service itself. It applies at the next login.
 
 ### Generated files (not in the repo)
 
@@ -131,8 +132,8 @@ Settings -> Wallpaper. With none set, the desktop is the palette's surface color
 ## Troubleshooting
 
 - niri config errors: `niri validate`; live log: `journalctl --user -b -u niri`.
-- A bind does nothing but the command works in a terminal: the binary is outside the
-  session PATH. Check with `systemctl --user show-environment | grep PATH`.
+- A bind does nothing but the command works in a terminal: the binary is outside niri's
+  PATH. Check with `tr '\0' '\n' < /proc/$(pgrep -x niri)/environ | grep ^PATH`.
 - Noctalia: `noctalia config validate`, log at `~/.cache/noctalia/noctalia.log`,
   restart with `pkill -x noctalia; noctalia --daemon`.
 - Do not install mako, dunst or swaync: they compete with Noctalia for notifications.
