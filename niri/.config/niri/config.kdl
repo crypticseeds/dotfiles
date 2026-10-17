@@ -179,7 +179,7 @@ binds {
     Mod+Z hotkey-overlay-title="Editor: Zed" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec zed"; }
     Mod+E hotkey-overlay-title="Files: Strata" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec strata"; }
     // Herdr GUI: opened on demand only, nothing autostarts it.
-    Mod+H hotkey-overlay-title="Agents: Herdr" { spawn "herdr-gpui"; }
+    Mod+G hotkey-overlay-title="Agents: Herdr" { spawn "herdr-gpui"; }
 
     // Noctalia
     Mod+Space hotkey-overlay-title="App launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
@@ -215,6 +215,7 @@ binds {
     Mod+Down  { focus-window-down; }
     Mod+Up    { focus-window-up; }
     Mod+Right { focus-column-right; }
+    Mod+H     { focus-column-left; }
     Mod+J     { focus-window-down; }
     Mod+K     { focus-window-up; }
     Mod+L     { focus-column-right; }

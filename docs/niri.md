@@ -84,7 +84,7 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 - Move a window elsewhere with `Mod+Ctrl+<n>` (e.g. Firefox next to the terminal:
   `Mod+Ctrl+1`).
 - New windows open at half width, starting from the left edge.
-- The Herdr GUI (`Mod+H`) opens maximized, filling its workspace; `Mod+F` toggles it.
+- The Herdr GUI (`Mod+G`) opens maximized, filling its workspace; `Mod+F` toggles it.
 - **Floating**: Strata and Nautilus always float, centered. `Mod+Alt+V` floats or tiles
   any window, `Mod+Ctrl+V` jumps focus between the floating and tiled layers.
 - `Mod+O` (or the mouse in the top-left corner) shows the overview of all workspaces.
@@ -96,7 +96,7 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | Keys | Action |
 |---|---|
 | `Mod+Return` / `Mod+T` | Ghostty |
-| `Mod+B` / `Mod+Z` / `Mod+E` / `Mod+H` | Firefox / Zed / Strata / Herdr GUI (on demand, never autostarted) |
+| `Mod+B` / `Mod+Z` / `Mod+E` / `Mod+G` | Firefox / Zed / Strata / Herdr GUI (on demand, never autostarted) |
 | `Mod+Space` / `Mod+D` | App launcher (`/calc`, `/emo`, `/wall`, `/win` prefixes) |
 | `Mod+S` | Control center (audio, network, notifications, calendar) |
 | `Mod+Shift+Comma` | Noctalia settings (palette, bar, wallpaper) |
@@ -112,7 +112,7 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | `Mod+Shift+S` | Screenshot region, annotate, then `Ctrl+C` copy / `Ctrl+S` save |
 | `Mod+Ctrl+S` / `Mod+Alt+S` | Screenshot screen / window (clipboard + `~/Pictures/Screenshots`) |
 | `Mod+Q` | Close window |
-| `Mod+J/K/L`, arrows | Focus down/up/right (`Mod+Left` for left: `Mod+H` opens Herdr); add `Ctrl` to move (`Mod+Ctrl+H` moves left) |
+| `Mod+H/J/K/L`, arrows | Focus left/down/up/right; add `Ctrl` to move |
 | `Mod+1..9` / `Mod+Ctrl+1..9` | Go to / move column to workspace |
 | `Mod+Tab` | Previous workspace |
 | `Mod+F` / `Mod+Shift+F` / `Mod+M` | Maximize column / fullscreen / maximize to edges |
