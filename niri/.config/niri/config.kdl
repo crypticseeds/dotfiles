@@ -183,7 +183,6 @@ binds {
 
     // Noctalia
     Mod+Space hotkey-overlay-title="App launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
-    Mod+D hotkey-overlay-title=null { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
     Mod+S hotkey-overlay-title="Control center" { spawn "noctalia" "msg" "panel-toggle" "control-center"; }
     Mod+Shift+Comma hotkey-overlay-title="Noctalia settings (theme, bar, wallpaper)" { spawn "noctalia" "msg" "settings-toggle"; }
     Mod+Shift+N hotkey-overlay-title="Do not disturb" { spawn "noctalia" "msg" "notification-dnd-toggle"; }
@@ -308,7 +307,6 @@ binds {
     Mod+Alt+V  { toggle-window-floating; }
     Mod+Ctrl+V { switch-focus-between-floating-and-tiling; }
     Mod+Shift+V hotkey-overlay-title="Clipboard history" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
-    Mod+W { toggle-column-tabbed-display; }
 
     // Escape hatch if an app grabs the keyboard shortcuts.
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }

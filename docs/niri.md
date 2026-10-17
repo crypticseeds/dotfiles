@@ -97,7 +97,7 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 |---|---|
 | `Mod+Return` / `Mod+T` | Ghostty |
 | `Mod+B` / `Mod+Z` / `Mod+E` / `Mod+G` | Firefox / Zed / Strata / Herdr GUI (on demand, never autostarted) |
-| `Mod+Space` / `Mod+D` | App launcher (`/calc`, `/emo`, `/wall`, `/win` prefixes) |
+| `Mod+Space` | App launcher (`/calc`, `/emo`, `/wall`, `/win` prefixes) |
 | `Mod+S` | Control center (audio, network, notifications, calendar) |
 | `Mod+Shift+Comma` | Noctalia settings (palette, bar, wallpaper) |
 | `Mod+Shift+N` | Do not disturb |
@@ -120,7 +120,6 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | `Mod+F` / `Mod+Shift+F` / `Mod+M` | Maximize column / fullscreen / maximize to edges |
 | `Mod+R`, `Mod+Minus`, `Mod+Equal` | Column width presets, -10%, +10% |
 | `Mod+[` / `Mod+]` | Stack window into / out of the neighboring column |
-| `Mod+W` | Tabbed column |
 | `Mod+Escape` | Release shortcuts an app is holding |
 
 ## Palette
