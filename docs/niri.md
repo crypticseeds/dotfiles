@@ -112,7 +112,9 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | `Mod+Shift+S` | Screenshot region, annotate, then `Ctrl+C` copy / `Ctrl+S` save |
 | `Mod+Ctrl+S` / `Mod+Alt+S` | Screenshot screen / window (clipboard + `~/Pictures/Screenshots`) |
 | `Mod+Q` | Close window |
-| `Mod+H/J/K/L`, arrows | Focus left/down/up/right; add `Ctrl` to move |
+| `Mod+H` / `Mod+L` | Focus column left / right; `Mod+Ctrl+H/L` moves the column |
+| `Mod+J` / `Mod+K` | Workspace down / up; `Mod+Ctrl+J/K` moves the column there, `Mod+Shift+J/K` moves the whole workspace in the stack |
+| Arrows | `Mod+Left/Right` columns, `Mod+Up/Down` windows stacked in one column; add `Ctrl` to move |
 | `Mod+1..9` / `Mod+Ctrl+1..9` | Go to / move column to workspace |
 | `Mod+Tab` | Previous workspace |
 | `Mod+F` / `Mod+Shift+F` / `Mod+M` | Maximize column / fullscreen / maximize to edges |
