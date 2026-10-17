@@ -42,6 +42,12 @@ SAVEHIST=50000
 setopt SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS
 setopt AUTO_CD INTERACTIVE_COMMENTS
 bindkey -e  # emacs keybindings
+# Alt+arrows (ESC[1;3X): Left/Right jump by word like Option+arrows on the Mac; Up/Down
+# do nothing. Unbound, zsh printed the leftover ";3A" etc.
+bindkey '^[[1;3D' backward-word
+bindkey '^[[1;3C' forward-word
+bindkey '^[[1;3A' redisplay
+bindkey '^[[1;3B' redisplay
 
 # ----------------------------------------------------------------------------
 # Completions (fpath additions must come before compinit)
