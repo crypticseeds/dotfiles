@@ -14,6 +14,8 @@ xdg-desktop-portal-gnome
 gnome-keyring
 wl-clipboard
 qt5-qtwayland
+# Mac-style Cmd+C/X/V in niri's binds type the app's clipboard keys through wtype
+wtype
 qt6-qtwayland
 firefox
 # Noctalia's gtk3 template switches GTK3 apps to adw-gtk3 so they follow the palette

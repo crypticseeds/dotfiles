@@ -84,9 +84,9 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 - Move a window elsewhere with `Mod+Ctrl+<n>` (e.g. Firefox next to the terminal:
   `Mod+Ctrl+1`).
 - New windows open at half width, starting from the left edge.
-- The Herdr GUI (`Mod+A`) opens maximized, filling its workspace; `Mod+F` toggles it.
-- **Floating**: Strata and Nautilus always float, centered. `Mod+V` floats or tiles any
-  window, `Mod+Ctrl+V` jumps focus between the floating and tiled layers.
+- The Herdr GUI (`Mod+G`) opens maximized, filling its workspace; `Mod+F` toggles it.
+- **Floating**: Strata and Nautilus always float, centered. `Mod+Alt+V` floats or tiles
+  any window, `Mod+Ctrl+V` jumps focus between the floating and tiled layers.
 - `Mod+O` (or the mouse in the top-left corner) shows the overview of all workspaces.
 
 ## Keys
@@ -96,27 +96,30 @@ which overrides `config.toml`. Copy anything worth keeping into `config.toml`.
 | Keys | Action |
 |---|---|
 | `Mod+Return` / `Mod+T` | Ghostty |
-| `Mod+B` / `Mod+Z` / `Mod+E` / `Mod+A` | Firefox / Zed / Strata / Herdr GUI (on demand, never autostarted) |
-| `Mod+Space` / `Mod+D` | App launcher (`/calc`, `/emo`, `/wall`, `/win` prefixes) |
+| `Mod+B` / `Mod+Z` / `Mod+E` / `Mod+G` | Firefox / Zed / Strata / Herdr GUI (on demand, never autostarted) |
+| `Mod+Space` | App launcher (`/calc`, `/emo`, `/wall`, `/win` prefixes) |
 | `Mod+S` | Control center (audio, network, notifications, calendar) |
 | `Mod+Shift+Comma` | Noctalia settings (palette, bar, wallpaper) |
 | `Mod+Shift+N` | Do not disturb |
+| `Mod+C` / `Mod+X` / `Mod+V` / `Mod+A` | Copy / cut / paste / select all, Mac-style. `niri/.config/niri/scripts/clipboard-keys.sh` types the focused app's own keys through `wtype`: Ctrl+C/X/V/A in GUI apps; in Zed (vim mode owns those) Ctrl+Insert / Shift+Delete / Shift+Insert, and Ctrl+Alt+Shift+A, bound to select all in `zed/keymap.json`; Ctrl+Shift+C/V/A in Ghostty and Herdr UI (so Ctrl+C still interrupts). Ctrl+C / Ctrl+V keep working as usual |
 | `Mod+Shift+V` | Clipboard history (text and images; click an entry to paste it) |
 | `Mod+O` | Overview of all workspaces |
-| `Mod+V` / `Mod+Ctrl+V` | Float or tile the window / jump between floating and tiled |
+| `Mod+Alt+V` / `Mod+Ctrl+V` | Float or tile the window / jump between floating and tiled |
+| `Mod+Alt+C` | Center the focused column |
 | `Super+Alt+L` | Lock screen |
 | `Mod+Shift+E` | Session menu (log out, reboot, power off); `Ctrl+Alt+Delete` quits niri |
 | `Alt+Tab` | Recent windows switcher |
 | `Mod+Shift+S` | Screenshot region, annotate, then `Ctrl+C` copy / `Ctrl+S` save |
 | `Mod+Ctrl+S` / `Mod+Alt+S` | Screenshot screen / window (clipboard + `~/Pictures/Screenshots`) |
 | `Mod+Q` | Close window |
-| `Mod+H/J/K/L`, arrows | Focus left/down/up/right; add `Ctrl` to move |
+| `Mod+H` / `Mod+L` | Focus column left / right; `Mod+Ctrl+H/L` moves the column |
+| `Mod+J` / `Mod+K` | Workspace down / up; `Mod+Ctrl+J/K` moves the column there, `Mod+Shift+J/K` moves the whole workspace in the stack |
+| Arrows | `Mod+Left/Right` columns, `Mod+Up/Down` windows stacked in one column; add `Ctrl` to move |
 | `Mod+1..9` / `Mod+Ctrl+1..9` | Go to / move column to workspace |
 | `Mod+Tab` | Previous workspace |
 | `Mod+F` / `Mod+Shift+F` / `Mod+M` | Maximize column / fullscreen / maximize to edges |
 | `Mod+R`, `Mod+Minus`, `Mod+Equal` | Column width presets, -10%, +10% |
 | `Mod+[` / `Mod+]` | Stack window into / out of the neighboring column |
-| `Mod+W` | Tabbed column |
 | `Mod+Escape` | Release shortcuts an app is holding |
 
 ## Palette
