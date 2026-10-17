@@ -296,8 +296,7 @@ binds {
     Mod+Shift+Minus { set-window-height "-10%"; }
     Mod+Shift+Equal { set-window-height "+10%"; }
 
-    // Mac-style copy/cut/paste: the script types the focused app's own keys (Ctrl+C/X/V,
-    // Ctrl+Shift+C/V in terminals) through wtype. See the script header.
+    // Mac-style copy/cut/paste/select all; the script picks each app's own keys.
     Mod+C repeat=false hotkey-overlay-title="Copy" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh copy"; }
     Mod+X repeat=false hotkey-overlay-title="Cut" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh cut"; }
     Mod+V repeat=false hotkey-overlay-title="Paste" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh paste"; }
