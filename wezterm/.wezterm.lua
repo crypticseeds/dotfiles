@@ -20,6 +20,10 @@ end
 config.font = wezterm.font 'JetBrainsMono Nerd Font'
 config.font_size = 16
 config.color_scheme = 'Catppuccin Mocha'
+-- Black background on the Mac only (overrides the scheme's background)
+if wezterm.target_triple:find('apple%-darwin') then
+  config.colors = { background = '#000000' }
+end
 -- config.color_scheme = 'Gruvbox dark, hard (base16)'
 config.window_decorations = 'RESIZE'
 config.hide_tab_bar_if_only_one_tab = true

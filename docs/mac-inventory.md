@@ -14,7 +14,7 @@ installer. Restore hint in the last column.
 | Software | Install | Restore |
 |---|---|---|
 | WezTerm (primary terminal) | brew | `cask wezterm` |
-| Ghostty | manual (brew* `ghostty`) | |
+| Ghostty | manual (brew* `ghostty`) | config in `ghostty-mac/` |
 | cmux | manual (brew* `cmux`) | |
 | iTerm2 | manual (brew* `iterm2`) | |
 | Warp | manual (brew* `warp`) | |

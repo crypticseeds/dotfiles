@@ -1,0 +1,30 @@
+# Ghostty on macOS. The Linux/niri config lives in the ghostty/ package;
+# both deploy to ~/.config/ghostty/config, so stow only one per machine.
+# Run `ghostty +show-config --default --docs` for every option.
+
+working-directory = ~/MEGA
+
+background = #000000
+
+# Drop the folder icon from the title bar; the default transparent style
+# keeps the red/yellow/green buttons and native window tiling.
+macos-titlebar-proxy-icon = hidden
+# Blank title text (also blanks the window name in Mission Control / AeroSpace).
+title = " "
+
+font-family = JetBrainsMono Nerd Font
+font-size = 16
+cursor-style = underline
+mouse-hide-while-typing = true
+copy-on-select = true
+selection-clear-on-copy = true
+
+# Shell integration's "cursor" feature forces a bar cursor at the prompt,
+# overriding cursor-style. Disable it so the underline sticks.
+shell-integration-features = no-cursor
+
+# Splits are handled by herdr (bound to cmd+d / cmd+shift+d / cmd+w in its config).
+# Unbind them here so Ghostty passes the keys through instead of splitting/closing.
+keybind = cmd+d=unbind
+keybind = cmd+shift+d=unbind
+keybind = cmd+w=unbind
