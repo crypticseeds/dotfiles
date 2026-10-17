@@ -8,12 +8,15 @@
 # TOOLS are stowed with --no-folding so runtime state (sessions, auth, caches,
 # node_modules, logs) stays in the real ~/.claude, ~/.codex, ~/.config/herdr
 # etc. and never enters the repo. `agents` deliberately folds so new skills
-# installed into ~/.agents/skills land directly in the repo.
+# installed into ~/.agents/skills land directly in the repo. LINUXONLY is
+# --no-folding too: Noctalia writes generated theme files (niri/noctalia.kdl,
+# ghostty/themes/noctalia) next to the stowed configs, and those must not
+# land in the repo.
 
 COMMON    := zsh nvim starship wezterm
 TOOLS     := claude codex cursor opencode pi herdr hermes
 MACONLY   := hammerspoon aerospace sketchybar
-LINUXONLY := hyprland niri
+LINUXONLY := niri ghostty noctalia
 MINIMAL   := zsh starship
 
 UNAME := $(shell uname -s)
@@ -24,7 +27,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off skills agents-sync doctor setup shell nvim hypr-omarchy hypr-omarchy-off
+.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off niri skills agents-sync doctor setup shell nvim
 
 # Mac and the Pi share this repo: rebase onto upstream before deploying or rewriting tracked
 # files (nvim's Lazy sync rewrites lazy-lock.json), so no machine works from a stale checkout.
@@ -48,8 +51,8 @@ mac: pull
 
 linux: pull
 	$(STOW) agents
-	$(STOW) $(COMMON) $(LINUXONLY)
-	$(STOW) --no-folding $(TOOLS)
+	$(STOW) $(COMMON)
+	$(STOW) --no-folding $(LINUXONLY) $(TOOLS)
 	$(MAKE) agents-sync || printf 'WARN: agents-sync reported errors (see above); rerun make agents-sync\n'
 	$(MAKE) doctor
 
@@ -73,14 +76,13 @@ restow-mac: pull
 	@$(reload-hint)
 
 restow-linux: pull
-	$(STOW) -R agents $(COMMON) $(LINUXONLY)
-	$(STOW) -R --no-folding $(TOOLS)
+	$(STOW) -R agents $(COMMON)
+	$(STOW) -R --no-folding $(LINUXONLY) $(TOOLS)
 	$(MAKE) agents-sync || printf 'WARN: agents-sync reported errors (see above); rerun make agents-sync\n'
 	@$(reload-hint)
 
 delete:
 	$(STOW) -D agents $(COMMON) $(MACONLY) $(LINUXONLY) $(TOOLS) tmux
-	-$(STOW) -D hypr-omarchy
 
 # tmux is opt-in, not default (herdr is the daily multiplexer). The config,
 # keybindings and plugins stay in the repo; these targets flip deployment.
@@ -94,16 +96,14 @@ tmux-on:
 tmux-off:
 	$(STOW) -D tmux
 
-# Opt-in Omarchy-style Hyprland session (Fedora), kept beside the regular one in
-# ~/.config/hypr: ~/.config/hypr-omarchy + a pinned Omarchy checkout + the Omarchy
-# shell (bar, notifications, launcher, dock). Start it from a TTY with `hypr-omarchy`.
-# See docs/hypr-omarchy.md.
-hypr-omarchy:
-	$(STOW) --no-folding hypr-omarchy
-	bash scripts/hypr-omarchy.sh
-
-hypr-omarchy-off:
-	$(STOW) -D hypr-omarchy
+# niri desktop on a Fedora machine, end to end: packages/niri.txt (+ ghostty COPR),
+# Zed, Strata and Herdr UI, then the niri/ghostty/noctalia configs. Idempotent.
+# Log out afterwards and pick Niri on the login screen. See docs/niri.md.
+niri: pull
+	sh scripts/niri.sh
+	$(STOW) -R --no-folding $(LINUXONLY)
+	niri validate
+	@printf '\nniri desktop ready. Log out and pick Niri from the gear on the login screen.\n'
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
 # pi and opencode read it natively and need nothing here. Absolute links are

@@ -1,0 +1,18 @@
+# Ghostty on the Fedora niri desktop (docs/niri.md).
+# Colors follow Noctalia: its ghostty template writes ~/.config/ghostty/themes/noctalia
+# (generated, not in the repo) and reloads running terminals on every palette change.
+# Keep this line exactly as is, or Noctalia rewrites this file to put it back.
+theme = noctalia
+
+font-family = JetBrainsMono Nerd Font
+font-size = 12
+
+window-padding-x = 10
+window-padding-y = 8
+window-padding-balance = true
+# niri draws the border; drop GTK's header bar (tabs still show when there are several).
+gtk-titlebar = false
+
+confirm-close-surface = false
+copy-on-select = clipboard
+mouse-hide-while-typing = true

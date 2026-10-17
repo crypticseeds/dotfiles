@@ -24,13 +24,9 @@ case "$(uname -s)" in
         grep -vE '^\s*(#|$)' packages/apt.txt | xargs sudo apt-get install -y
         ;;
       fedora)
-        # COPRs first: hyprland's official Fedora package is orphaned (wiki
-        # points at lionheartp/Hyprland), wezterm's documented Fedora path
-        # is the author's nightly COPR, and lazygit has never been in the
-        # official repos (its README points at dejan/lazygit). Idempotent.
+        # lazygit is not in the official repos (its README points at the
+        # dejan/lazygit COPR). Idempotent.
         sudo dnf install -y dnf5-plugins
-        sudo dnf -y copr enable lionheartp/Hyprland
-        sudo dnf -y copr enable wezfurlong/wezterm-nightly
         sudo dnf -y copr enable dejan/lazygit
         grep -vE '^\s*(#|$)' packages/dnf.txt | xargs sudo dnf install -y
         ;;
@@ -48,6 +44,12 @@ sh scripts/nvim.sh
 
 # 3. AI harnesses (guarded installers, skip anything already present)
 sh packages/harnesses.sh
+
+# 3b. Fedora: the niri desktop (packages/niri.txt, Zed, Strata, Herdr UI). After the
+#     harnesses: Herdr UI needs herdr. Its configs are stowed by make install below.
+if [ "$(uname -s)" = Linux ] && [ "$ID" = fedora ]; then
+  sh scripts/niri.sh
+fi
 
 # 4. Back up conflicting distro defaults instead of failing the stow
 for f in "$HOME/.zshrc" "$HOME/.bashrc"; do
