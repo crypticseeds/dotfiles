@@ -179,7 +179,7 @@ binds {
     Mod+Z hotkey-overlay-title="Editor: Zed" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec zed"; }
     Mod+E hotkey-overlay-title="Files: Strata" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec strata"; }
     // Herdr GUI: opened on demand only, nothing autostarts it.
-    Mod+A hotkey-overlay-title="Agents: Herdr" { spawn "herdr-gpui"; }
+    Mod+H hotkey-overlay-title="Agents: Herdr" { spawn "herdr-gpui"; }
 
     // Noctalia
     Mod+Space hotkey-overlay-title="App launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
@@ -215,7 +215,6 @@ binds {
     Mod+Down  { focus-window-down; }
     Mod+Up    { focus-window-up; }
     Mod+Right { focus-column-right; }
-    Mod+H     { focus-column-left; }
     Mod+J     { focus-window-down; }
     Mod+K     { focus-window-up; }
     Mod+L     { focus-column-right; }
@@ -293,15 +292,22 @@ binds {
     Mod+Shift+F { fullscreen-window; }
     Mod+M { maximize-window-to-edges; }
     Mod+Ctrl+F { expand-column-to-available-width; }
-    Mod+C { center-column; }
+    Mod+Alt+C { center-column; }
     Mod+Ctrl+C { center-visible-columns; }
     Mod+Minus { set-column-width "-10%"; }
     Mod+Equal { set-column-width "+10%"; }
     Mod+Shift+Minus { set-window-height "-10%"; }
     Mod+Shift+Equal { set-window-height "+10%"; }
 
-    // Floating: Mod+V floats/tiles the focused window, Mod+Ctrl+V jumps between layers.
-    Mod+V      { toggle-window-floating; }
+    // Mac-style copy/cut/paste: the script types the focused app's own keys (Ctrl+C/X/V,
+    // Ctrl+Shift+C/V in terminals) through wtype. See the script header.
+    Mod+C repeat=false hotkey-overlay-title="Copy" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh copy"; }
+    Mod+X repeat=false hotkey-overlay-title="Cut" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh cut"; }
+    Mod+V repeat=false hotkey-overlay-title="Paste" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh paste"; }
+    Mod+A repeat=false hotkey-overlay-title="Select all" { spawn-sh "exec ~/.config/niri/scripts/clipboard-keys.sh select"; }
+
+    // Floating: Mod+Alt+V floats/tiles the focused window, Mod+Ctrl+V jumps between layers.
+    Mod+Alt+V  { toggle-window-floating; }
     Mod+Ctrl+V { switch-focus-between-floating-and-tiling; }
     Mod+Shift+V hotkey-overlay-title="Clipboard history" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
     Mod+W { toggle-column-tabbed-display; }
