@@ -171,8 +171,10 @@ binds {
     Mod+Return hotkey-overlay-title="Terminal: Ghostty" { spawn "ghostty"; }
     Mod+T hotkey-overlay-title=null { spawn "ghostty"; }
     Mod+B hotkey-overlay-title="Browser: Firefox" { spawn "firefox"; }
-    Mod+Z hotkey-overlay-title="Editor: Zed" { spawn "zed"; }
-    Mod+E hotkey-overlay-title="Files: Strata" { spawn "strata"; }
+    // Zed and Strata install per user into ~/.local/bin, which niri's PATH lacks (the
+    // login session's PATH is /usr/local/bin:/usr/bin), so add it for these two only.
+    Mod+Z hotkey-overlay-title="Editor: Zed" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec zed"; }
+    Mod+E hotkey-overlay-title="Files: Strata" { spawn-sh "PATH=$HOME/.local/bin:$PATH exec strata"; }
     // Herdr GUI: opened on demand only, nothing autostarts it.
     Mod+A hotkey-overlay-title="Agents: Herdr" { spawn "herdr-gpui"; }
 

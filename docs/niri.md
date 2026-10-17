@@ -29,10 +29,10 @@ only installs what is missing. `bootstrap.sh` runs the same script on Fedora.
 Log out, click the gear on the GDM password screen, pick **Niri**, log in. GNOME stays
 installed as a fallback session.
 
-niri-session starts niri through the zsh login shell and imports its environment; zsh
-only adds `~/.local/bin` in `.zshrc` (interactive shells), so niri would not find
-per-user installs (Zed, Strata). `niri/.config/systemd/user/niri.service.d/10-local-bin.conf`
-sets PATH on the niri service itself. It applies at the next login.
+niri runs with the login session's PATH (`/usr/local/bin:/usr/bin`); zsh only adds
+`~/.local/bin` in `.zshrc`, for terminals. The binds for per-user installs (Zed, Strata)
+therefore prepend it themselves: `spawn-sh "PATH=$HOME/.local/bin:$PATH exec zed"`. Do
+the same for any new bind to an app in `~/.local/bin`.
 
 ### Generated files (not in the repo)
 

@@ -63,7 +63,7 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | `claude/` `codex/` `cursor/` `opencode/` `pi/` `hermes/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
 | `zsh/` `nvim/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
 | `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
-| `niri/` `ghostty/` `noctalia/` | `~/.config/niri` `~/.config/systemd/user/niri.service.d` `~/.config/ghostty` `~/.config/noctalia` | Linux only: niri desktop with the Noctalia shell, see [docs/niri.md](docs/niri.md); stowed `--no-folding` so Noctalia's generated theme files stay out of the repo |
+| `niri/` `ghostty/` `noctalia/` | `~/.config/niri` `~/.config/ghostty` `~/.config/noctalia` | Linux only: niri desktop with the Noctalia shell, see [docs/niri.md](docs/niri.md); stowed `--no-folding` so Noctalia's generated theme files stay out of the repo |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
 | `docs/` | not stowed | Reference notes, e.g. [local Kubernetes](docs/kubernetes/README.md) |
 | `templates/` | not stowed | Per-project starter files to copy, e.g. [agent permissions](templates/agent-permissions/README.md) (secret hygiene + write boundary for Claude Code, opencode, omp) |
