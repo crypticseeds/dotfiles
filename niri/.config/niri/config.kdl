@@ -82,6 +82,9 @@ hotkey-overlay {
 screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 
 spawn-at-startup "noctalia"
+// Text clipboard sync between X11 (incl. VMware's Mac copy/paste helper) and Wayland
+// apps; xwayland-satellite skips it for windowless X11 clients. See the script header.
+spawn-sh-at-startup "exec python3 ~/.config/niri/scripts/clipboard-bridge.py"
 
 debug {
     // vmwgfx's hardware cursor plane leaves the pointer invisible or offset; draw it in
@@ -297,9 +300,10 @@ binds {
     Mod+Shift+Minus { set-window-height "-10%"; }
     Mod+Shift+Equal { set-window-height "+10%"; }
 
-    // Floating: Mod+V floats/tiles the focused window, Mod+Shift+V jumps between layers.
-    Mod+V       { toggle-window-floating; }
-    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    // Floating: Mod+V floats/tiles the focused window, Mod+Ctrl+V jumps between layers.
+    Mod+V      { toggle-window-floating; }
+    Mod+Ctrl+V { switch-focus-between-floating-and-tiling; }
+    Mod+Shift+V hotkey-overlay-title="Clipboard history" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
     Mod+W { toggle-column-tabbed-display; }
 
     // Escape hatch if an app grabs the keyboard shortcuts.
