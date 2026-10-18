@@ -69,7 +69,9 @@
         "via the `superpowers:using-git-worktrees` skill": "via `herdr worktree` (see the herdr skill)",
         "superpowers:using-git-worktrees": "`herdr worktree` (see the herdr skill)",
         "See `using-git-worktrees` Step 0 and `finishing-a-development-branch`\nStep 1 for how each skill uses these signals.": "See `finishing-a-development-branch` Step 1 for how it uses these\nsignals.",
-        "### 1. Dispatch the implementer\n\n": "### 1. Dispatch the implementer\n\nInside Herdr (`HERDR_ENV=1`), use the delegate-visibly skill to decide\nwhether the implementer runs in a visible Herdr pane or as a hidden\nsubagent. Reviewers stay hidden.\n\n"
+        "### 1. Dispatch the implementer\n\n": "### 1. Dispatch the implementer\n\nInside Herdr (`HERDR_ENV=1`), use the delegate-visibly skill to decide\nwhether the implementer runs in a visible Herdr pane or as a hidden\nsubagent. Reviewers stay hidden.\n\n",
+        "**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers\ncreated this worktree": "**If `WORKTREE_PATH` is under `~/.herdr/worktrees/`:** a Herdr worktree\n(created via `herdr worktree`, see the delegate-visibly skill) - we own\ncleanup. Close the panes that run inside it first, then:\n\n```bash\nherdr worktree remove --workspace <worktree-workspace-id>  # never --force\n```\n\n**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers\ncreated this worktree",
+        "Clean up only worktrees under `.worktrees/` or `worktrees/`.": "Clean up only worktrees under `.worktrees/`, `worktrees/` or `~/.herdr/worktrees/`."
       }
     },
     {
