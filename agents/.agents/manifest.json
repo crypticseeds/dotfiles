@@ -49,9 +49,27 @@
       "repo": "obra/superpowers",
       "path": "skills",
       "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
-      "all": true,
+      "only": [
+        "brainstorming",
+        "dispatching-parallel-agents",
+        "executing-plans",
+        "finishing-a-development-branch",
+        "receiving-code-review",
+        "requesting-code-review",
+        "subagent-driven-development",
+        "systematic-debugging",
+        "test-driven-development",
+        "using-superpowers",
+        "verification-before-completion",
+        "writing-plans",
+        "writing-skills"
+      ],
       "rewrite": {
-        "docs/superpowers/": "docs/"
+        "docs/superpowers/": "docs/",
+        "via the `superpowers:using-git-worktrees` skill": "via `herdr worktree` (see the herdr skill)",
+        "superpowers:using-git-worktrees": "`herdr worktree` (see the herdr skill)",
+        "See `using-git-worktrees` Step 0 and `finishing-a-development-branch`\nStep 1 for how each skill uses these signals.": "See `finishing-a-development-branch` Step 1 for how it uses these\nsignals.",
+        "### 1. Dispatch the implementer\n\n": "### 1. Dispatch the implementer\n\nInside Herdr (`HERDR_ENV=1`), use the delegate-visibly skill to decide\nwhether the implementer runs in a visible Herdr pane or as a hidden\nsubagent. Reviewers stay hidden.\n\n"
       }
     },
     {
