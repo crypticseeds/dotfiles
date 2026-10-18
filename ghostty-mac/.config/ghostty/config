@@ -41,9 +41,10 @@ cursor-style = underline
 mouse-hide-while-typing = true
 copy-on-select = true
 selection-clear-on-copy = true
-# Treat Option as Alt so Option+Backspace/arrows reach the shell as word
-# commands (the ABC layout defaults this to false).
-macos-option-as-alt = true
+# Treat Left Option as Alt so Option+Backspace/arrows reach the shell as word
+# commands (the ABC layout defaults this to false). Right Option still types
+# characters: the Corne sends Right Option+3 for the pound sign.
+macos-option-as-alt = left
 
 # Shell integration's "cursor" feature forces a bar cursor at the prompt,
 # overriding cursor-style. Disable it so the underline sticks.
