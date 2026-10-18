@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corne layers - cheat sheet v2</title>
+<style>
+:root{
+  --mono:'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --bg:#faf5ec; --surface:#f4ecdf; --ink:#000000; --muted:#4d4947; --ink-body:#1a1a1a;
+  --accent:#e07000; --on-accent:#000000; --border:#202020; --hairline:#00000022;
+}
+html[data-mode="dark"]{
+  --bg:#0a0a0a; --surface:#141414; --ink:#eeeae4; --muted:#a8a29b; --ink-body:#cfc9c0;
+  --accent:#ff8100; --border:#4d4947; --hairline:#ffffff24;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.45;display:flex;flex-direction:column;overflow:hidden}
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+
+.bar{flex:none;display:flex;align-items:center;gap:18px;padding:0 14px;min-height:40px;border-bottom:1px solid var(--border);background:var(--surface)}
+.bar .t{font-size:12px;color:var(--muted)} .bar .t b{color:var(--ink)}
+.bar .sp{flex:1}
+.lg{display:flex;gap:18px;font-size:11px;color:var(--muted);align-items:center}
+.lg i{display:inline-block;width:12px;height:12px;border:1px solid var(--border);background:var(--bg);margin-right:6px;vertical-align:-2px}
+.lg i.a{border-color:var(--accent);border-width:1.5px}
+.lg i.h{border-color:var(--accent);background:var(--accent);opacity:.7}
+.lg i.f{border-color:var(--hairline);background:var(--surface)}
+.ico-btn{background:none;border:0;padding:4px;margin:0;cursor:pointer;color:var(--ink);display:flex;align-items:center}
+.ico-btn:hover{color:var(--accent)}
+.i-sun{display:block}.i-moon{display:none}
+html[data-mode="dark"] .i-sun{display:none}
+html[data-mode="dark"] .i-moon{display:block}
+
+.grid{flex:1;min-height:0;display:grid;padding:10px;
+  grid-template-columns:minmax(0,var(--c1,1fr)) 10px minmax(0,var(--c2,1fr));
+  grid-template-rows:minmax(0,var(--r1,1fr)) 10px minmax(0,var(--r2,1fr)) 10px minmax(0,var(--r3,1fr))}
+.p1{grid-area:1/1}.p2{grid-area:1/3}.p3{grid-area:3/1}.p4{grid-area:3/3}.p5{grid-area:5/1}.p6{grid-area:5/3}
+.rs{position:relative;touch-action:none;user-select:none;z-index:1}
+.rs::after{content:"";position:absolute;background:var(--accent);opacity:0;transition:opacity .15s}
+.rs:hover::after,.rs.on::after{opacity:.75}
+.rs-v{grid-area:1/2/6/3;cursor:col-resize}
+.rs-v::after{left:4px;right:4px;top:0;bottom:0}
+.rs-h{cursor:row-resize;z-index:2}
+.rs-h1{grid-area:2/1/3/4}.rs-h2{grid-area:4/1/5/4}
+.rs-h::after{top:4px;bottom:4px;left:0;right:0}
+.btn{--c:var(--accent);--btn-bw:1.5px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  display:inline-block;padding:0 15px;height:2.6em;line-height:calc(2.6em - (var(--btn-bw)*2));cursor:pointer;color:var(--c);
+  background:transparent;border:var(--btn-bw) solid var(--c);border-radius:0}
+.btn:hover{background:var(--c);color:var(--on-accent)}
+.card{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;border:1px solid var(--border);background:var(--surface)}
+.hd{flex:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding:7px 12px 6px;border-bottom:1px solid var(--hairline)}
+.hd .n{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.hd .n b{color:var(--accent)}
+.hd .how{font-size:12px;color:var(--accent);font-weight:700}
+.hd .rule{font-size:12px;color:var(--muted);flex-basis:100%;line-height:1.4}
+.hd .rule b{color:var(--ink-body);font-weight:600}
+.kb{flex:1;min-height:0;padding:4px 8px 6px}
+.kb svg{display:block;width:100%;height:100%}
+
+.k{fill:var(--bg);stroke:var(--border);stroke-width:1}
+.k.trans{stroke:var(--hairline)}
+.k.act{stroke:var(--accent);stroke-width:1.5}
+.k.held{fill:var(--accent);fill-opacity:.16;stroke:var(--accent);stroke-width:1.5}
+.kt{fill:var(--ink);font-family:var(--mono);font-weight:700;font-size:15px;text-anchor:middle}
+.kt.s1{font-size:12.5px}.kt.s2{font-size:10.5px}
+.kt.tr{fill:var(--muted);opacity:.4;font-weight:600}
+.kt.acc{fill:var(--accent)}
+.kh{fill:var(--muted);font-family:var(--mono);font-weight:600;font-size:9.5px;text-anchor:middle;letter-spacing:.03em}
+.kh.acc{fill:var(--accent)}
+
+.ch{flex:1;min-height:0;overflow:auto;padding:4px 14px 10px;display:grid;grid-template-columns:1fr 1fr;gap:0 26px;align-content:start;font-size:12.5px}
+.ch h4{margin:8px 0 3px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.ch .col>div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-bottom:1px solid var(--hairline)}
+.ch span:first-child{color:var(--ink-body)}
+.ch span:last-child{color:var(--ink);font-weight:700;text-align:right;white-space:nowrap}
+
+@media (max-width:1300px){
+  body{overflow:auto;height:auto}
+  .grid{grid-template-columns:1fr;grid-template-rows:none}
+  .grid .card{grid-area:auto}
+  .rs{display:none}
+  .kb svg{height:auto}
+  .ch{grid-template-columns:1fr;overflow:visible}
+}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="t"><b>CORNE · LAYERS</b> &nbsp;·&nbsp; cheat sheet v2 &nbsp;·&nbsp; matches corne-keymap-v2.vil</div>
+  <div class="sp"></div>
+  <div class="lg">
+    <span><i class="a"></i>hold to open a layer</span>
+    <span><i class="h"></i>the key you are holding</span>
+    <span><i class="f"></i>same as base</span>
+    <span>drag the gap between two cards to resize them</span>
+  </div>
+  <button class="btn" id="reset">Reset layout</button>
+  <button class="ico-btn" id="mode" aria-label="Toggle colour mode">
+    <svg class="i-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    <svg class="i-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+  </button>
+</div>
+
+<div class="grid">
+  <div class="card p1">
+    <div class="hd"><span class="n">0 · <b>Base</b></span><span class="how">always on</span>
+      <span class="rule"><b>Cmd · Alt · Enter</b> under the left thumb, <b>Space · Backspace · Ctrl</b> under the right. Orange-edged keys open the other layers. Esc, Caps Lock, both Shifts, Backspace and ' on the outer columns.</span></div>
+    <div class="kb" id="kb-base"></div>
+  </div>
+
+  <div class="card p2">
+    <div class="hd"><span class="n">1 · <b>Nav</b></span><span class="how">HOLD Nav: left upper inner key, left index</span>
+      <span class="rule">Screenshots: <b>Nav + W</b> selected area; <b>Nav + E</b> toolbar (Cmd+Shift+5), then choose <b>Capture Selected Window</b>; <b>Nav + R</b> full screen. Release Nav after tapping. Arrows: <b>H J K L</b>; word jumps: <b>Y O</b>; <b>Home PgDn PgUp End</b> below. <b>Nav + Space</b> turns mouse mode on. <b>Nav + Backspace thumb</b> locks numbers on; Backspace stays on the outer top-right key.</span></div>
+    <div class="kb" id="kb-nav"></div>
+  </div>
+
+  <div class="card p3">
+    <div class="hd"><span class="n">2 · <b>Num + Sym</b></span><span class="how">HOLD the Backspace thumb &nbsp;·&nbsp; or LOCK: Nav + Backspace thumb, tap the Backspace thumb to unlock &nbsp;·&nbsp; or HOLD Alt+Num (right lower inner key) = same keys with Alt held</span>
+      <span class="rule"><b>Hold Backspace, tap the Fn-position key: !=</b> (no spaces). Use plain NumSym, not Alt+Num, for code. Left: numpad, <b>0 on A</b>, <b>+ . -</b> inner; <b>&pound; on Nav</b> (Right Option+3), <b>$ on Tab</b>. Right: <b>{ } ( ) [ ]</b> top to bottom; <b>! : &amp;</b> inner, <b># = *</b> ring, <b>_ | @</b> pinky, <b>^</b> on the outer home key. Alt+3 is now free; workspace 7 uses <b>Alt+Num + W</b>.</span></div>
+    <div class="kb" id="kb-num"></div>
+  </div>
+
+  <div class="card p4">
+    <div class="hd"><span class="n">3 · <b>Fn</b></span><span class="how">HOLD Fn: right upper inner key</span>
+      <span class="rule"><b>F1-F9</b> in the numpad grid, <b>F10 F11 F12</b> down the inner column. <b>Vol- Vol+</b> on Y U, <b>Prev Next</b> on I O, <b>Play Mute</b> on K L. Fn + Esc swaps Ctrl and Cmd for Linux.</span></div>
+    <div class="kb" id="kb-fn"></div>
+  </div>
+
+  <div class="card p5">
+    <div class="hd"><span class="n">4 · <b>Mouse</b></span><span class="how">Nav + Space = ON &nbsp;·&nbsp; Esc or Nav = OFF</span>
+      <span class="rule">Pointer on <b>H J K L</b>, wheel on <b>N M , .</b> (M pulls the page toward you). Thumbs: <b>Space</b> left click, <b>Backspace</b> right click, <b>Ctrl</b> middle click. Hold Space and move to drag. Left hand still types; Cmd+click and Shift+click work.</span></div>
+    <div class="kb" id="kb-mouse"></div>
+  </div>
+
+  <div class="card p6">
+    <div class="hd"><span class="n"><b>Chords</b></span><span class="how">thumb first, then the key</span></div>
+    <div class="ch">
+      <div class="col">
+      <h4>Mac</h4>
+      <div><span>Copy, paste, select all, save</span><span>Cmd thumb + C V A S</span></div>
+      <div><span>Spotlight / Raycast</span><span>Cmd thumb + Space</span></div>
+      <div><span>App switcher</span><span>Cmd thumb + Tab</span></div>
+      <div><span>Browser tab 1-6</span><span>Cmd thumb + Bspc thumb + digit</span></div>
+      <div><span>New line in chat</span><span>Shift + Enter</span></div>
+      <div><span>Delete a word back</span><span>Alt thumb + Bspc thumb</span></div>
+      <h4>Text</h4>
+      <div><span>Word left / right</span><span>Nav + Y / O</span></div>
+      <div><span>Select</span><span>Shift + Nav + arrow</span></div>
+      <div><span>Line start / end (Mac)</span><span>Cmd thumb + Nav + H / L</span></div>
+      <div><span>Repeat Backspace</span><span>Nav + Bspc thumb, or outer Bspc</span></div>
+      </div>
+      <div class="col">
+      <h4>AeroSpace</h4>
+      <div><span>Focus window</span><span>Alt thumb + H J K L</span></div>
+      <div><span>Move window</span><span>Alt thumb + Shift + H J K L</span></div>
+      <div><span>Workspace 1, 2, 4, 5, 6, 7</span><span>Alt+Num + X C S D F W</span></div>
+      <div><span>Move to workspace 1-7</span><span>Alt+Num + Shift + digit</span></div>
+      <div><span>Workspace B D E G I M N P T</span><span>Alt thumb + letter</span></div>
+      <div><span>Resize smaller / larger</span><span>Alt+Num + B / L</span></div>
+      <h4>Shift still does</h4>
+      <div><span>" &nbsp; ? &nbsp; &lt; &nbsp; &gt;</span><span>Shift + ' / , .</span></div>
+      <div><span>&pound; / ^</span><span>Bspc thumb + Nav / ' position</span></div>
+      <div><span>Ctrl+C R A E W D in the terminal</span><span>Ctrl thumb + letter</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="rs rs-v" aria-hidden="true"></div>
+  <div class="rs rs-h rs-h1" aria-hidden="true"></div>
+  <div class="rs rs-h rs-h2" aria-hidden="true"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var U=56,PAD=8,STAG=[0.3,0.3,0.1,0,0.1,0.2],HALF=7.0,GAP=0.7;
+  function leftKeys(){
+    var L=[];
+    for(var r=0;r<3;r++)for(var c=0;c<6;c++)L.push({x:c,y:r+STAG[c],w:1,h:1,rot:0});
+    L.push({x:6,y:0.7,w:1,h:1,rot:0});L.push({x:6,y:1.7,w:1,h:1,rot:0});
+    L.push({x:3.45,y:3.35,w:1,h:1,rot:0});L.push({x:4.5,y:3.45,w:1,h:1,rot:8});L.push({x:5.6,y:3.5,w:1,h:1.5,rot:22});
+    return L;
+  }
+  function mirror(k){return{x:HALF+GAP+(HALF-k.x-k.w),y:k.y,w:k.w,h:k.h,rot:-k.rot}}
+  function geometry(){
+    var L=leftKeys(),R=[];
+    for(var r=0;r<3;r++)for(var c=0;c<6;c++)R.push(mirror(L[r*6+(5-c)]));
+    R.push(mirror(L[18]));R.push(mirror(L[19]));R.push(mirror(L[22]));R.push(mirror(L[21]));R.push(mirror(L[20]));
+    return L.concat(R);
+  }
+  var GEO=geometry(),W=(2*HALF+GAP)*U+2*PAD,H=5.25*U+2*PAD;
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  function norm(k){if(k===null||k===undefined)return{t:"",c:"trans"};if(typeof k==="string")return{t:k,c:""};return k}
+  function sizeClass(t){var n=t.length;return n<=4?"":(n<=6?" s1":" s2")}
+  function render(layer,base,label){
+    var out=['<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(label)+'">'];
+    for(var i=0;i<46;i++){
+      var g=GEO[i],k=norm(layer[i]);
+      var x=PAD+g.x*U+2,y=PAD+g.y*U+2,w=g.w*U-4,h=g.h*U-4,cx=x+w/2,cy=y+h/2;
+      var cls="k"+(k.c==="trans"?" trans":"")+(k.c==="held"?" held":"")+(k.c==="act"?" act":"");
+      out.push('<g transform="rotate('+g.rot+' '+cx+' '+cy+')">');
+      out.push('<rect class="'+cls+'" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'"/>');
+      var lab=k.t,sub="";
+      if(k.c==="trans"&&base)lab=norm(base[i]).t;
+      if(k.h)sub=k.h;else if(k.c==="mod"||k.c==="act")sub="hold";else if(k.c==="held")sub="held";
+      var tcls="kt"+(k.c==="trans"?" tr":"")+(k.c==="held"?" acc":"")+sizeClass(lab);
+      var parts=lab.indexOf(" ")>0?lab.split(" "):[lab];
+      var ty=sub?cy-1:(parts.length>1?cy-2:cy+5);
+      if(parts.length>1){
+        out.push('<text class="'+tcls+'" x="'+cx+'" y="'+(ty-1)+'">');
+        parts.forEach(function(p,j){out.push('<tspan x="'+cx+'" dy="'+(j===0?0:12)+'">'+esc(p)+'</tspan>')});
+        out.push('</text>');
+      }else out.push('<text class="'+tcls+'" x="'+cx+'" y="'+ty+'">'+esc(lab)+'</text>');
+      if(sub)out.push('<text class="kh'+(k.c==="held"?" acc":"")+'" x="'+cx+'" y="'+(cy+h/2-7)+'">'+esc(sub)+'</text>');
+      out.push('</g>');
+    }
+    out.push('</svg>');return out.join("");
+  }
+
+  /* order: left rows (outer..inner) x3, left extras [upper, lower], left thumbs [outer, middle, inner],
+            right rows (inner..outer) x3, right extras [upper, lower], right thumbs [inner, middle, outer] */
+  var T=null;
+  var BASE=[
+    "Esc","Q","W","E","R","T",
+    "Caps","A","S","D","F","G",
+    {t:"Shift",c:"mod"},"Z","X","C","V","B",
+    {t:"Nav",c:"act"},"Tab",
+    {t:"Cmd",c:"mod"},{t:"Alt",c:"mod"},"Enter",
+    "Y","U","I","O","P","Bspc",
+    "H","J","K","L",";","'",
+    "N","M",",",".","/",{t:"Shift",c:"mod"},
+    {t:"Fn",c:"act"},{t:"Alt+Num",c:"act"},
+    "Space",{t:"Bspc",h:"NumSym",c:"act"},{t:"Ctrl",c:"mod"}
+  ];
+  var NAV=[
+    T,T,"Shot area","Shot menu","Shot full",T,
+    T,T,T,T,T,T,
+    T,T,T,T,T,T,
+    {t:"Nav",c:"held"},T,
+    T,T,T,
+    "Word \u2190",T,T,"Word \u2192",T,"Bspc",
+    "\u2190","\u2193","\u2191","\u2192",T,T,
+    "Home","PgDn","PgUp","End",T,T,
+    T,T,
+    {t:"Mouse",h:"toggle on",c:"act"},{t:"Num",h:"lock on",c:"act"},T
+  ];
+  var NUM=[
+    "~","`","7","8","9","+",
+    T,"0","4","5","6",".",
+    T,"\\","1","2","3","-",
+    "\u00a3","$",
+    T,T,T,
+    "!","{","}","#","_",T,
+    ":","(",")","=","|","^",
+    "&","[","]","*","@","%",
+    {t:"!=",h:"tap",c:"lt"},{t:"Alt+Num",h:"or hold",c:"held"},
+    T,{t:"NumSym",h:"unlock",c:"held"},T
+  ];
+  var FN=[
+    "OS swap",T,"F7","F8","F9","F12",
+    T,T,"F4","F5","F6","F11",
+    T,T,"F1","F2","F3","F10",
+    T,T,
+    T,T,T,
+    "Vol-","Vol+","Prev","Next",T,T,
+    T,T,"Play","Mute",T,T,
+    T,T,T,T,T,T,
+    {t:"Fn",c:"held"},T,
+    T,T,T
+  ];
+  var MOUSE=[
+    {t:"Exit",h:"tap",c:"lt"},T,T,T,T,T,
+    T,T,T,T,T,T,
+    T,T,T,T,T,T,
+    {t:"Exit",h:"tap",c:"lt"},T,
+    T,T,T,
+    T,T,T,T,T,T,
+    "Ms \u2190","Ms \u2193","Ms \u2191","Ms \u2192",T,T,
+    "Wh \u2190","Wh \u2191","Wh \u2193","Wh \u2192",T,T,
+    T,T,
+    "Left click","Right click","Mid click"
+  ];
+  document.getElementById("kb-base").innerHTML=render(BASE,null,"Layer 0, base");
+  document.getElementById("kb-nav").innerHTML=render(NAV,BASE,"Layer 1, navigation");
+  document.getElementById("kb-num").innerHTML=render(NUM,BASE,"Layer 2, numbers and symbols");
+  document.getElementById("kb-fn").innerHTML=render(FN,BASE,"Layer 3, function keys and media");
+  document.getElementById("kb-mouse").innerHTML=render(MOUSE,BASE,"Layer 4, mouse");
+
+  var grid=document.querySelector(".grid"),LKEY="corne-cheatsheet-v2-layout";
+  var fr={c:[1,1],r:[1,1,1]};
+  try{var sv=JSON.parse(localStorage.getItem(LKEY));if(sv&&sv.c&&sv.r)fr=sv}catch(e){}
+  function apply(){
+    grid.style.setProperty("--c1",fr.c[0]+"fr");grid.style.setProperty("--c2",fr.c[1]+"fr");
+    grid.style.setProperty("--r1",fr.r[0]+"fr");grid.style.setProperty("--r2",fr.r[1]+"fr");grid.style.setProperty("--r3",fr.r[2]+"fr");
+  }
+  apply();
+  function drag(handle,axis,i){
+    handle.addEventListener("pointerdown",function(ev){
+      ev.preventDefault();
+      try{handle.setPointerCapture(ev.pointerId)}catch(e){}
+      handle.classList.add("on");
+      var arr=fr[axis],start=axis==="c"?ev.clientX:ev.clientY,a0=arr[i],b0=arr[i+1];
+      var rect=grid.getBoundingClientRect();
+      var px=(axis==="c"?rect.width:rect.height)-20-(arr.length-1)*10;   /* padding and handle tracks */
+      var total=arr.reduce(function(s,v){return s+v},0),perFr=px/total;
+      function move(e){
+        var d=((axis==="c"?e.clientX:e.clientY)-start)/perFr;
+        var a=Math.max(.2,Math.min(a0+b0-.2,a0+d));
+        arr[i]=a;arr[i+1]=a0+b0-a;apply();
+      }
+      function up(){
+        handle.removeEventListener("pointermove",move);handle.classList.remove("on");
+        try{localStorage.setItem(LKEY,JSON.stringify(fr))}catch(e){}
+      }
+      handle.addEventListener("pointermove",move);
+      handle.addEventListener("pointerup",up,{once:true});
+      handle.addEventListener("pointercancel",up,{once:true});
+    });
+  }
+  drag(document.querySelector(".rs-v"),"c",0);
+  drag(document.querySelector(".rs-h1"),"r",0);
+  drag(document.querySelector(".rs-h2"),"r",1);
+  document.getElementById("reset").addEventListener("click",function(){
+    fr={c:[1,1],r:[1,1,1]};apply();try{localStorage.removeItem(LKEY)}catch(e){}
+  });
+
+  var KEY="corne-cheatsheet-v2",root=document.documentElement;
+  try{var m=localStorage.getItem(KEY);if(m)root.dataset.mode=m}catch(e){}
+  document.getElementById("mode").addEventListener("click",function(){
+    root.dataset.mode=root.dataset.mode==="dark"?"light":"dark";
+    try{localStorage.setItem(KEY,root.dataset.mode)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

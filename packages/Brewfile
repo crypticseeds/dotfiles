@@ -96,6 +96,8 @@ cask "jordanbaird-ice"
 cask "kiro-cli"
 # Tool that provides consistent, highly configurable symbols for apps
 cask "sf-symbols"
+# Keyboard configurator for the Corne (corne-keymap/)
+cask "vial"
 # GPU-accelerated cross-platform terminal emulator and multiplexer
 cask "wezterm"
 go "github.com/air-verse/air"
