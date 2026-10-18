@@ -69,6 +69,7 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | `templates/` | not stowed | Per-project starter files to copy, e.g. [agent permissions](templates/agent-permissions/README.md) (secret hygiene + write boundary for Claude Code, opencode, omp) |
 | `tmux/` | `~/.config/tmux` | Opt-in, not stowed by default: `make tmux-on` / `make tmux-off` (herdr is the daily multiplexer) |
 | `cursor-themes/` `zed/` | not stowed | Reference copies |
+| `corne-keymap/` | not stowed | Corne keyboard layout for Vial, cheat sheet and build script, see [corne-keymap/README.md](corne-keymap/README.md) |
 
 ## AI harness config (one source of truth)
 

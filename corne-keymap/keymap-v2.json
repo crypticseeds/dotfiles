@@ -1,0 +1,389 @@
+{
+  "_notes": [
+    "Corne keymap v2. Edit this file, then run: python3 make_vil.py",
+    "Keycodes are Vial spellings. Common ones: KC_A..KC_Z, KC_1..KC_0, KC_F1..KC_F12,",
+    "KC_TRNS (transparent, does what the layer below does), KC_NO (dead key),",
+    "LSFT(KC_1) for ! (shifted symbols are Shift + the base key: LSFT(KC_9) is '('),",
+    "MO(3) hold for layer 3, LT1(KC_ESC) tap Esc / hold layer 1, LGUI_T(KC_CAPS) tap Caps Lock / hold Cmd.",
+    "Row order: top, home, bottom. Left rows read outer -> pinky -> ring -> middle -> index -> inner.",
+    "Right rows read inner -> index -> middle -> ring -> pinky -> outer.",
+    "extra = [upper, lower]. left_thumbs = [outer, middle, inner]. right_thumbs = [inner, middle, outer].",
+    "Layers not listed here are written as all KC_TRNS.",
+    "Layer 4 mouse: Nav + Space toggles it on; Esc or a tap of the Nav key toggles it off.",
+    "Number lock: Nav + Backspace thumb toggles layer 2 on; a tap of the Backspace thumb toggles it off.",
+    "TD(0) is the Ctrl thumb: tap or hold for Ctrl, double tap for Ctrl+Space."
+  ],
+  "macros": {
+    "0": [["text", "!="]]
+  },
+  "tap_dances": {
+    "0": {"tap": "KC_LCTL", "hold": "KC_LCTL", "double_tap": "LCTL(KC_SPC)", "tap_hold": "KC_LCTL", "term": 200}
+  },
+  "layers": [
+    {
+      "name": "0 base",
+      "left": [
+        [
+          "KC_ESC",
+          "KC_Q",
+          "KC_W",
+          "KC_E",
+          "KC_R",
+          "KC_T"
+        ],
+        [
+          "KC_CAPS",
+          "KC_A",
+          "KC_S",
+          "KC_D",
+          "KC_F",
+          "KC_G"
+        ],
+        [
+          "KC_LSFT",
+          "KC_Z",
+          "KC_X",
+          "KC_C",
+          "KC_V",
+          "KC_B"
+        ]
+      ],
+      "left_extra": [
+        "MO(1)",
+        "KC_TAB"
+      ],
+      "left_thumbs": [
+        "KC_LGUI",
+        "KC_LALT",
+        "KC_ENT"
+      ],
+      "right": [
+        [
+          "KC_Y",
+          "KC_U",
+          "KC_I",
+          "KC_O",
+          "KC_P",
+          "KC_BSPC"
+        ],
+        [
+          "KC_H",
+          "KC_J",
+          "KC_K",
+          "KC_L",
+          "KC_SCLN",
+          "KC_QUOT"
+        ],
+        [
+          "KC_N",
+          "KC_M",
+          "KC_COMM",
+          "KC_DOT",
+          "KC_SLSH",
+          "KC_RSFT"
+        ]
+      ],
+      "right_extra": [
+        "MO(3)",
+        "LM(2, MOD_LALT)"
+      ],
+      "right_thumbs": [
+        "KC_SPC",
+        "LT2(KC_BSPC)",
+        "TD(0)"
+      ]
+    },
+    {
+      "name": "1 nav",
+      "left": [
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "LGUI(LSFT(KC_4))",
+          "LGUI(LSFT(KC_5))",
+          "LGUI(LSFT(KC_3))",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ]
+      ],
+      "left_extra": [
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "left_thumbs": [
+        "KC_TRNS",
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right": [
+        [
+          "LALT(KC_LEFT)",
+          "KC_TRNS",
+          "KC_TRNS",
+          "LALT(KC_RIGHT)",
+          "KC_TRNS",
+          "KC_BSPC"
+        ],
+        [
+          "KC_LEFT",
+          "KC_DOWN",
+          "KC_UP",
+          "KC_RGHT",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_HOME",
+          "KC_PGDN",
+          "KC_PGUP",
+          "KC_END",
+          "KC_TRNS",
+          "KC_TRNS"
+        ]
+      ],
+      "right_extra": [
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right_thumbs": [
+        "TG(4)",
+        "TG(2)",
+        "KC_TRNS"
+      ]
+    },
+    {
+      "name": "2 numsym",
+      "left": [
+        [
+          "LSFT(KC_GRV)",
+          "KC_GRV",
+          "KC_7",
+          "KC_8",
+          "KC_9",
+          "LSFT(KC_EQL)"
+        ],
+        [
+          "KC_TRNS",
+          "KC_0",
+          "KC_4",
+          "KC_5",
+          "KC_6",
+          "KC_DOT"
+        ],
+        [
+          "KC_TRNS",
+          "KC_BSLS",
+          "KC_1",
+          "KC_2",
+          "KC_3",
+          "KC_MINS"
+        ]
+      ],
+      "left_extra": [
+        "RALT(KC_3)",
+        "LSFT(KC_4)"
+      ],
+      "left_thumbs": [
+        "KC_TRNS",
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right": [
+        [
+          "LSFT(KC_1)",
+          "LSFT(KC_LBRC)",
+          "LSFT(KC_RBRC)",
+          "LSFT(KC_3)",
+          "LSFT(KC_MINS)",
+          "KC_TRNS"
+        ],
+        [
+          "LSFT(KC_SCLN)",
+          "LSFT(KC_9)",
+          "LSFT(KC_0)",
+          "KC_EQL",
+          "LSFT(KC_BSLS)",
+          "LSFT(KC_6)"
+        ],
+        [
+          "LSFT(KC_7)",
+          "KC_LBRC",
+          "KC_RBRC",
+          "LSFT(KC_8)",
+          "LSFT(KC_2)",
+          "LSFT(KC_5)"
+        ]
+      ],
+      "right_extra": [
+        "M0",
+        "KC_TRNS"
+      ],
+      "right_thumbs": [
+        "KC_TRNS",
+        "TG(2)",
+        "KC_TRNS"
+      ]
+    },
+    {
+      "name": "3 fn",
+      "left": [
+        [
+          "MAGIC_TOGGLE_CTL_GUI",
+          "KC_TRNS",
+          "KC_F7",
+          "KC_F8",
+          "KC_F9",
+          "KC_F12"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_F4",
+          "KC_F5",
+          "KC_F6",
+          "KC_F11"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_F1",
+          "KC_F2",
+          "KC_F3",
+          "KC_F10"
+        ]
+      ],
+      "left_extra": [
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "left_thumbs": [
+        "KC_TRNS",
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right": [
+        [
+          "KC_VOLD",
+          "KC_VOLU",
+          "KC_MPRV",
+          "KC_MNXT",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_MPLY",
+          "KC_MUTE",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ]
+      ],
+      "right_extra": [
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right_thumbs": [
+        "KC_TRNS",
+        "KC_TRNS",
+        "KC_TRNS"
+      ]
+    },
+    {
+      "name": "4 mouse",
+      "left": [
+        [
+          "TG(4)",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ]
+      ],
+      "left_extra": [
+        "TG(4)",
+        "KC_TRNS"
+      ],
+      "left_thumbs": [
+        "KC_TRNS",
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right": [
+        [
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_MS_L",
+          "KC_MS_D",
+          "KC_MS_U",
+          "KC_MS_R",
+          "KC_TRNS",
+          "KC_TRNS"
+        ],
+        [
+          "KC_WH_L",
+          "KC_WH_U",
+          "KC_WH_D",
+          "KC_WH_R",
+          "KC_TRNS",
+          "KC_TRNS"
+        ]
+      ],
+      "right_extra": [
+        "KC_TRNS",
+        "KC_TRNS"
+      ],
+      "right_thumbs": [
+        "KC_BTN1",
+        "KC_BTN2",
+        "KC_BTN3"
+      ]
+    }
+  ]
+}
