@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, route each task to the cheapest capable model tier (Haiku, Sonnet, or yourself), delegate to implementer/reviewer agents in their own worktrees (in visible herdr panes for write or long work), verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
+description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, route each task to the cheapest capable model tier (Haiku, Sonnet, or yourself), delegate implementers to visible herdr panes or worktrees and reviewers to hidden subagents, verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
 ---
 
 # orchestrate
@@ -24,8 +24,8 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
   - `codebase-researcher`: `haiku` for quick lookups, `sonnet` for medium or very thorough.
   - `code-reviewer`: `sonnet`; `opus` when the diff touches auth, IAM, secrets, Terraform, or exposes a service.
   - `security-reviewer`: `opus`.
-- Implementation, test runs, builds, long or approval-prone work: `claude --agent implementer --model <haiku|sonnet>` in its own git worktree on branch `agent/<slug>`, launched via the `delegate-visibly` skill. It picks grid pane (worker likely needs the user) or background workspace (autonomous). One writer per worktree.
-- Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the worktree path and branch, the report path, and the contract below.
+- Implementation, fixes, builds, long or approval-prone work: an `implementer` worker started via the `delegate-visibly` skill (default Sonnet 5.5 at high effort; Haiku only for small-tier tasks). It places the worker in a delegation tab (single writer) or a Herdr worktree on branch `agent/<slug>` (parallel writers or own-branch work). One writer per checkout. Quick edits you can verify yourself need no worker.
+- Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the checkout or worktree path and branch, the report path, and the contract below.
 - Do not do mid- or small-tier work yourself to save a round trip. Your tokens go to planning, specs, verification, and the tasks the table reserves for the top tier.
 
 ## 3. Verify (never skip)
@@ -48,10 +48,11 @@ Run from your own checkout, one task at a time:
 
     git merge agent/<slug>                 # stop and ask on any conflict you cannot resolve trivially
     # re-run the task's acceptance checks on the merged result
-    # close its pane or workspace first (see Pane lifecycle): a process inside keeps the worktree
-    agent-clean .worktrees/<slug>          # removes worktree, branch and its /tmp dir; "keep ..." = not safe yet
+    # close the worker's panes first (see Pane lifecycle): a process inside keeps the worktree
+    herdr worktree remove --workspace <worktree-ws>   # never --force
+    git branch -d agent/<slug>             # never -D
 
-Without `agent-clean`: `git worktree remove .worktrees/<slug>` (never --force) and `git branch -d agent/<slug>` (never -D). You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round.
+Where `agent-clean` is installed, run `agent-clean <worktree-path>` afterwards for leftovers. You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round. Workers that ran in your own checkout have no worktree or branch to merge: verify their diff in place.
 - Never weaken a criterion or a test to get a pass. If a criterion is wrong, say so and ask.
 
 ## 5. Finish
@@ -62,12 +63,12 @@ Report: what changed, the criteria table with evidence, review verdicts, which t
 
 After each verification pass, decide for every pane you spawned. Never touch panes you did not spawn.
 
-- **Close** when the task is verified PASS on every criterion and its review is clean, and the agent has no further role in this plan. Read its report first (`herdr pane read`), then `herdr pane close`, so the space returns to you and the 4-pane grid stays usable.
+- **Close** when the task is verified PASS on every criterion and its review is clean, and the agent has no further role in this plan. Read its report first (`herdr agent read`), then `herdr pane close`, so the space returns to you and the 2x2 tab stays usable.
 - **Keep** when the agent will plausibly be needed again for the same task: a FAIL, UNVERIFIED criterion, or review finding is going back to it (its loaded context makes the fix cheaper), the user is mid-conversation with it, or it is blocked on an approval. Tell the user the pane id and why it stays open.
-- **Free a slot early** if you need a pane and all 4 are held: close the pane whose task is verified and least likely to need rework, never one that is blocked or mid-heal.
-- **Sweep at finish**: before your final report, list your panes (`herdr pane list`) and close every one still open that you no longer need. Anything left open must be named in the report with the reason.
+- **Need more room**: when a tab is at 4 panes, open a new tab (see `delegate-visibly`), or close a pane whose task is verified and least likely to need rework, never one that is blocked or mid-heal.
+- **Sweep at finish**: before your final report, check your list of created tabs and panes (and `herdr pane list`) and close every one still open that you no longer need. Anything left open must be named in the report with the reason.
 - A pane that is `idle` is not automatically done. Only your own verification result closes it.
 
 ## Worker contract (include in every delegation)
 
-Work only inside the given worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.
+Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.

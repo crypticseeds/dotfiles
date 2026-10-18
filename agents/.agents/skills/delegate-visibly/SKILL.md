@@ -1,136 +1,129 @@
 ---
 name: delegate-visibly
-description: Use when delegating a task to another agent that is likely to block on permission approvals or clarifying questions, or that runs long (test suites, builds, scanners, servers, implementation work). Spawns the agent in a visible herdr pane via "claude --agent" (or "opencode --agent" when running in opencode) so the user can watch and unblock it, monitors its status, collects its report, and closes the pane on success. Requires HERDR_ENV=1. Do NOT use for quick read-only lookups, scans, or web research - keep those inline via the normal task tool.
+description: Use inside Herdr (HERDR_ENV=1) when delegating work that will likely block on approvals or questions or that runs long - implementation, fixes from review feedback, builds, full test suites, servers. Starts the worker with herdr agent start in a delegation tab or a Herdr worktree (never the main tab, max 2x2 per tab), on Sonnet 5.5 at high effort by default, for Claude Code, opencode or omp. Waits with herdr agent wait, reads with herdr agent read, keeps a report file as a crash backup, and cleans up what it created. Overrides the herdr skill's "sibling pane in the current tab" default; load the herdr skill for CLI syntax. Do NOT use for quick edits you can do yourself or for read-only review, test or research agents - those stay hidden background subagents.
 ---
 
 # delegate-visibly
 
-Run a delegated agent in its own herdr pane instead of an invisible background task, so blocking prompts (permission approvals, clarifying questions) are visible and answerable by the user. You remain the delegator: you spawn, monitor, judge the result, and clean up.
+Run delegated workers in Herdr panes the user can see, so approvals and questions are answerable, without cluttering the tab that hosts this conversation. You stay the delegator: you place, start, brief, monitor, judge and clean up. The `herdr` skill (or `herdr --skill`) is the CLI reference; these rules override its default layout.
 
-## Preconditions
+Precondition: `test "${HERDR_ENV:-}" = 1`. If it fails, you are not inside Herdr: say so and delegate with the normal task tool instead.
 
-- `HERDR_ENV` is `1`. If not, this skill does not apply - delegate with the normal task tool and say so.
-- Spawn one pane per delegated agent. Never run two writing agents in the same worktree at once; read-only agents may run in parallel in current pane.
+## Does this task earn a pane?
 
-## Decide first: does this task earn a pane?
+| Work | Where it goes |
+|---|---|
+| Quick edit you can do and verify yourself | Do it yourself. No worker. |
+| Read-only: code review, security review, research, lookups, a test or build run that only reports | Hidden background subagent (Agent tool, explicit `model`). No pane, no worktree. |
+| Writer or long runner that will likely block (approvals, questions, judgment calls) or run long | A visible worker, placed per the topology below. |
+| Fixer for review feedback, when the fix is long or needs permissions | Prefer the original worker's pane (same session keeps its context). Otherwise a new pane in the same tab or worktree as the work it fixes. |
+| User asks to watch something | A visible worker, even if it would otherwise stay hidden. |
 
-Default to the normal inline task tool. Spawn a pane ONLY when at least one blocking or long-running signal applies:
+A pane must earn its existence. When in doubt, keep it inline.
 
-- The target agent will likely hit an approval prompt (its permissions use `ask` for bash/edit and the task needs those tools - running tests, builds, scanners, git operations, file edits).
-- The task is ambiguous enough that the agent will likely need to ask the user a clarifying question.
-- Expected runtime is long: full test suites, builds, servers, repository-wide audits, implementation work.
-- The user explicitly wants to watch.
+## Topology
 
-Keep inline (NO pane): quick/medium read-only codebase research, inspect-only reviews, web lookups, anything expected to finish in about a minute without prompts. Panes are for unblocking, not for spectacle - unnecessary panes are clutter.
+Hard rules:
 
-## Spawn
+1. **Main tab stays clean.** The main tab hosts this conversation (`$HERDR_TAB_ID`). Never split it or start workers in it, unless the user explicitly says "same tab" / "next to me" (then still max 2x2).
+2. **Max 2x2 per tab.** At 4 panes (the user's panes count too), open a new tab. Check `pane_count` before splitting: `herdr tab list --workspace <ws> | jq -c '.result.tabs[] | {tab_id,label,pane_count}'`.
+3. **Workers on the same work share a tab**, one per pane: e.g. implementer, its test runner and its fixer side by side.
+4. **One writer per checkout.** While a worker writes in your checkout, you do not edit files it may touch.
 
-1. Find your own pane id (ids look like `w7:p1` in herdr 0.9, not `1-1`; take the pane marked `focused`):
+| Situation | Placement |
+|---|---|
+| Single writer, nothing else editing the repo | A pane in a delegation tab in the current workspace, cwd = your checkout |
+| Parallel writers on the same repo, or work that belongs on its own branch | A Herdr worktree (its own linked workspace, branch `agent/<slug>`); the worker runs in its root pane |
+| More workers for that same worktree | 2x2 fill inside that worktree workspace's tab, then a new tab there |
+| Unclear whether isolation is needed | Ask the user |
 
-       herdr pane list
+Fill order inside a tab (always `--no-focus`, parse every ID from the JSON):
 
-2. Write the delegation prompt to a file (avoids shell-quoting bugs). Include: objective, scope and boundaries, expected output format, and this mandatory closing instruction:
+```
++---------+---------+
+| 1 root  | 2       |   2 = split 1 --direction right
++---------+---------+   3 = split 1 --direction down
+| 3       | 4       |   4 = split 2 --direction down
++---------+---------+
+```
 
-       When finished, write your complete final report to /tmp/agent-reports/<slug>.md
-       then state DONE. If anything blocks you, ask in this session and wait.
+```bash
+# New delegation tab in the current workspace (pane 1 = .result.root_pane.pane_id)
+herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$PWD" --label agents --no-focus
+# Panes 2-4 (.result.pane.pane_id)
+herdr pane split <pane1> --direction right --cwd "$PWD" --no-focus
+herdr pane split <pane1> --direction down  --cwd "$PWD" --no-focus
+herdr pane split <pane2> --direction down  --cwd "$PWD" --no-focus
 
-       mkdir -p /tmp/agent-prompts /tmp/agent-reports
-       rm -f /tmp/agent-reports/<slug>.md   # stale report = instant false completion signal
-       # write the prompt to /tmp/agent-prompts/<slug>.md
+# Herdr worktree (check `herdr worktree list --cwd "$PWD"` first; reuse with `herdr worktree open`)
+herdr worktree create --cwd "$PWD" --branch agent/<slug> --label <slug> --no-focus
+```
 
-   **Run every `herdr` command as a plain command of its own.** On the agent host, herdr only runs outside the sandbox that way; inside a pipe, `&&` chain, loop, or `$(...)` it hits the sandbox and fails with `PermissionDenied`. Read the JSON it prints and copy the ids into the next command literally (shell variables do not persist between tool calls anyway).
+Label extra tabs by purpose (`agents-2`, `tests`). Use only Herdr worktrees inside Herdr: no `git worktree add`, no `EnterWorktree`. Pipes, `&&` and `jq` are fine with `herdr` commands.
 
-3. If the agent will write files, give it its own worktree (read-only agents skip this and use your cwd). `.worktrees/` lives inside the repo so it stays sandbox-writable; the exclude line keeps it out of `git status`. Run from the repo root, each git command on its own:
+## Start the worker
 
-       grep -qx '.worktrees/' .git/info/exclude || echo '.worktrees/' >> .git/info/exclude
-       git worktree add -b agent/<slug> <repo-root>/.worktrees/<slug>
+Default kind is the harness you are running in: `claude` in Claude Code, `opencode` in opencode, `omp` in omp. Use another kind only when the user asks. Native arguments go after `--`. Default model is **Sonnet 5.5 at high effort**; use Haiku only for small-tier work per the tiering table in AGENTS.md, and always pass the model explicitly.
 
-   Pick the model per the tiering table in AGENTS.md and always pass it: `--model haiku` or `--model sonnet` (`--model` with the provider's equivalent in opencode). Never omit it.
+| Kind | Sonnet 5.5, high (default) | Haiku 5.5 |
+|---|---|---|
+| claude | `-- --agent <name> --model claude-sonnet-5-5 --effort high` | `-- --agent <name> --model claude-haiku-5-5` |
+| omp | `-- --model claude-sonnet-5-5 --thinking high` | `-- --model claude-haiku-5-5` |
+| opencode | `-- --agent <name> -m github-copilot/claude-sonnet-5.5` | `-- --agent <name> -m github-copilot/claude-haiku-5.5` |
 
-4. Write a launcher script, so the herdr command itself stays plain (no `$(...)` in it):
+`<name>` is the subagent (e.g. `implementer`). opencode workers run without an effort setting: its TUI rejects `--variant` (only `opencode run` accepts it), and its agent config has no variant key.
 
-       # /tmp/agent-prompts/<slug>.sh
-       #!/bin/sh
-       # Claude Code (default permissions, so the user can approve in the pane):
-       exec claude --agent <agent-name> --model <haiku|sonnet> "$(cat /tmp/agent-prompts/<slug>.md)"
-       # opencode instead:
-       # exec opencode --agent <agent-name> --model <provider/model> --prompt "$(cat /tmp/agent-prompts/<slug>.md)"
+```bash
+herdr pane rename <pane> "<role>"     # e.g. impl-auth, test-auth, fix-auth
+herdr agent start <agent-name> --kind claude --pane <pane> --timeout 90000 -- --agent implementer --model claude-sonnet-5-5 --effort high
+```
 
-5. Choose placement:
-   - **Grid pane** - the worker will likely need the user (approvals it cannot avoid, clarifying questions, a spec with judgment calls) or the user wants to watch. Use the 2x2 grid below, splitting with `--cwd <worktree-path>`.
-   - **Background workspace** - well-specified autonomous work. It does not use a grid slot. herdr's sidebar and notifications surface it if it blocks, and you still check for blocked status:
+`<agent-name>` is unique and matches `[a-z][a-z0-9_-]{0,31}`. After `agent start` returns, read the pane once (`herdr agent read <agent-name> --source visible`): an update or trust dialog can sit on screen while Herdr still reports `idle`. If startup returns `agent_not_ready`/`blocked`, read the pane and ask the user. If the agent CLI fails to start, report the error; do not silently fall back.
 
-         herdr workspace create --cwd <worktree-path> --label agent/<slug> --no-focus
+## Brief it
 
-     The new pane id is `.result.root_pane.pane_id` and the workspace id is `.result.workspace.workspace_id`. Then `herdr pane run <pane-id> "sh /tmp/agent-prompts/<slug>.sh"`. If a background worker blocks on something you cannot answer, tell the user its workspace label.
+Write the brief to a file, then send it. The brief is self-contained (the worker has none of this conversation): goal, scope and paths, constraints, acceptance criteria with exact checks, the worktree and branch if any, and this closing instruction:
 
-6. Grid placement: place the helper using the 2x2 grid protocol, then launch the agent interactively. Helpers live in a 2x2 grid beside the main pane so every pane stays readable - never chain right-splits, which shrink panes into unreadable slivers:
+    When finished, give your complete final report as your last reply, and also write it to
+    /tmp/agent-reports/<slug>.md, then state DONE. If anything blocks you, ask in this session and wait.
 
-       +--------+------+------+
-       |        |  H1  |  H3  |
-       |  main  +------+------+
-       |        |  H2  |  H4  |
-       +--------+------+------+
+```bash
+mkdir -p /tmp/agent-prompts /tmp/agent-reports
+rm -f /tmp/agent-reports/<slug>.md        # a stale report would look like completion
+herdr agent prompt <agent-name> "$(cat /tmp/agent-prompts/<slug>.md)"
+```
 
-   Slot sequence (split source and direction depend on which helpers are already open - count your open helper panes first via `herdr pane list`):
+The report file is deliberate, despite the herdr skill's advice against asking for file output up front: it is the backup if the worker crashes, its pane closes, or its answer scrolls out of reach.
 
-   - H1 (first helper): split MAIN pane, `--direction right`
-   - H2 (second): split H1, `--direction down`
-   - H3 (third): split H1, `--direction right`
-   - H4 (fourth): split H2, `--direction right`
+## Wait and read
 
-       herdr pane split <source-pane-id> --direction <right|down> --cwd <worktree-path> --no-focus
-       # new pane id: .result.pane.pane_id
-       herdr pane run <new-pane-id> "sh /tmp/agent-prompts/<slug>.sh"
+Submit every prompt first when running several workers. Then wait in background Bash calls (`run_in_background`) so you can keep talking with the user:
 
-   The main pane gives up width once (H1) and is never split again. Track which slots you opened; when a helper pane closes, ids can shift and slots free up - re-run `herdr pane list` before every split and fill the freed slot using the same sequence logic.
+```bash
+herdr agent wait <agent-name> --timeout 1800000          # returns on idle, done or blocked
+herdr agent read <agent-name> --source recent-unwrapped --lines 200
+```
 
-   HARD CAP: a delegator may have at most 4 helper panes open at once - the grid is the limit. If all 4 slots are busy, do not open a 5th pane or a new tab; wait for a running helper to finish and free its slot, or run the remaining delegations sequentially. If a task genuinely needs more than 4 concurrent helpers, stop and ask the user how to proceed.
+For one short task, `herdr agent prompt ... --wait --timeout <ms>` replaces the separate wait. Then:
 
-## Monitor
+- **done / idle:** read the agent's output. That is the primary result. Use `/tmp/agent-reports/<slug>.md` when the read does not show the full report.
+- **blocked:** read the pane, tell the user "`<role>` in tab `<label>` needs your input", and ask before answering approvals or questions on its behalf. Wait again afterwards.
+- **timeout or stalled:** not proof the prompt was lost. Read the pane before resubmitting; wait again if it is still working.
+- **agent or pane gone:** read the report file if it exists, and tell the user the worker exited.
 
-The completion signal is the REPORT FILE appearing - not pane text, and not agent status. Wait on the file (a plain file check works inside the sandbox, so it may loop; in Claude Code use the Monitor tool with an until-loop rather than foreground sleep):
+## Judge, then clean up
 
-    until [ -f /tmp/agent-reports/<slug>.md ]; do sleep 30; done
+1. Judge the work yourself against the brief. A worker's success claim is not evidence.
+2. **Accepted:** close the panes and tabs you created for it (`herdr pane close <pane>` / `herdr tab close <tab>`), and delete its `/tmp/agent-prompts/<slug>.*`. Keep the report until your final answer. For a worktree, merge and remove it per the `orchestrate` skill's "Integrate and clean up".
+3. **Rejected or unclear:** keep the pane. Send the correction to the same session (`herdr agent prompt <agent-name> "..."`) and wait again. Tell the user where it lives and what is wrong.
 
-Check status only to detect blockage, with a standalone `herdr pane list` (never inside the loop) and read `agent_status` for your pane id:
-- Report file exists: the deliverable is ready. Optionally confirm the pane's status has settled (`idle`), then proceed to Collect.
-- `blocked`: tell the user immediately - "Pane <pane-id> needs your input (approval or question)" - then keep polling. Do not spam repeat alerts for the same blockage.
-- `working`: keep polling; extend the loop for long tasks.
-- `gone`: the pane closed unexpectedly - report this to the user.
-- Pane `idle` for a while and still no report file: the agent likely finished without writing the report or is sitting at a prompt - read the pane (`herdr pane read <pane-id> --source recent-unwrapped --lines 60`) and judge from there.
-- Do NOT use `herdr wait output --match` on a completion token: the TUI echoes the delegation prompt, so any token you mandated can match on the echo before the work is done. Do NOT use `wait agent-status --status done` as the completion signal either: a finished TUI session often reports `idle`. Status is for blocked-detection; the file is for completion.
-- While waiting you may continue your own independent read-only work, but never edit files the delegated agent may also touch.
+## Track what you created
 
-Pane ids can shift when panes close: re-read ids from `herdr pane list` rather than trusting old ones.
+Keep a running list in the conversation of every tab, pane, agent name and worktree workspace you created, with its purpose. Use it to respect the 2x2 cap, to route follow-ups to the right worker, and for precise cleanup. After delegating, tell the user where each worker lives (tab label, pane role, worktree branch). When workers finish, summarize their results in the conversation; don't make the user read the panes.
 
-## Collect and judge
+Close only what you created. Never `workspace close --group` unless the user asked to close the whole worktree group.
 
-1. Read `/tmp/agent-reports/<slug>.md`. If it is missing, fall back to:
+## Troubleshooting
 
-       herdr pane read <pane-id> --source recent-unwrapped --lines 150
-
-2. Judge the work yourself against the delegation spec. You own the quality bar; a subagent's success claim is not evidence.
-
-## Lifecycle: close on success, keep on failure
-
-- Accepted result: close the pane and remove the prompt file.
-
-      herdr pane close <pane-id>         # background worker: herdr workspace close <workspace-id>
-      rm -f /tmp/agent-prompts/<slug>.md /tmp/agent-prompts/<slug>.sh
-
-  Keep the report file as evidence for your own final response. If the worker had a worktree, merge and remove it per the orchestrate skill's "Integrate and clean up" section.
-- Rejected, failed, or still unclear: KEEP the pane open, tell the user the pane id and what is wrong. For rework, reuse the same session instead of respawning:
-
-      herdr pane send-text <pane-id> "<corrective follow-up instruction>"
-      herdr pane send-keys <pane-id> Enter
-
-  then monitor again.
-
-## Rules
-
-- Be conservative: when in doubt, delegate inline. A pane must earn its existence.
-- Always split with `--no-focus`; never steal the user's focus.
-- Close only panes you spawned; never close or write to panes that are not yours.
-- One agent per pane; one writer per worktree; never more than 4 helper panes open at once (background workspaces do not count toward the grid cap, but keep their number reasonable and close each one when done).
-- If the agent CLI fails to start in the pane (read the pane to check), report the error to the user; do not silently fall back.
+- `Operation not permitted` on a `herdr` command means the command sandbox blocked the Herdr socket. Rerun outside the sandbox or ask the user to allow it; Herdr is not down.
+- IDs can change after `pane move`; prefer agent names, and re-read IDs from JSON rather than trusting old ones.
