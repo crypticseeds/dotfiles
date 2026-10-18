@@ -84,8 +84,10 @@ herdr agent start <agent-name> --kind claude --pane <pane> --timeout 90000 -- --
 
 Write the brief to a file, then send it. The brief is self-contained (the worker has none of this conversation): goal, scope and paths, constraints, acceptance criteria with exact checks, the worktree and branch if any, and this closing instruction:
 
-    When finished, give your complete final report as your last reply, and also write it to
-    /tmp/agent-reports/<slug>.md, then state DONE. If anything blocks you, ask in this session and wait.
+    When finished, give your complete final report as your last reply, ending with a
+    `## Remember` section (lessons the next worker should know, one line each, or "none").
+    Also write it to /tmp/agent-reports/<slug>.md, then state DONE. If anything blocks you,
+    ask in this session and wait.
 
 ```bash
 mkdir -p /tmp/agent-prompts /tmp/agent-reports
@@ -113,7 +115,7 @@ For one short task, `herdr agent prompt ... --wait --timeout <ms>` replaces the 
 
 ## Judge, then clean up
 
-1. Judge the work yourself against the brief. A worker's success claim is not evidence.
+1. Judge the work yourself against the brief. A worker's success claim is not evidence. Handle its `## Remember` section as the `orchestrate` skill's Verify step says.
 2. **Accepted:** close the panes and tabs you created for it (`herdr pane close <pane>` / `herdr tab close <tab>`), and delete its `/tmp/agent-prompts/<slug>.*`. Keep the report until your final answer. For a worktree, merge and remove it per the `orchestrate` skill's "Integrate and clean up".
 3. **Rejected or unclear:** keep the pane. Send the correction to the same session (`herdr agent prompt <agent-name> "..."`) and wait again. Tell the user where it lives and what is wrong.
 
