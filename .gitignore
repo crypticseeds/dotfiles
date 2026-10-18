@@ -11,6 +11,8 @@ agents/.agents/skills/cmux-*/
 # Remove after the one-time migration in docs/specs/agent-skills-mcp-sync.md
 # herdr skill installed from herdrdev/herdr (skills CLI, one-time install per device; not versioned)
 agents/.agents/skills/herdr/
+# Herdr UI skill (Herdr UI rewrites it on update; not versioned)
+agents/.agents/skills/herdr-gpui-browser/
 # AWS skills installed by the AWS plugin installer (each has .aws-skill-metadata; not versioned)
 agents/.agents/skills/aws-*/
 agents/.agents/skills/amazon-bedrock/

@@ -24,7 +24,8 @@ a stow package whose contents mirror $HOME (see README.md for the layout).
   copy files between the two formats mechanically - permission semantics
   differ.
 - Package lists: `packages/Brewfile` (macOS), `packages/apt.txt` (Ubuntu),
-  `packages/dnf.txt` (Fedora), `packages/harnesses.sh` (AI CLIs, guarded).
+  `packages/dnf.txt` (Fedora), `packages/harnesses.sh` (AI CLIs, guarded),
+  `packages/herdr-plugins.txt` (herdr plugins, GitHub owner/repo).
   Adding an app = one line in the right list.
 - opencode config changes (opencode.jsonc, agent/, plugins/) require an
   opencode restart to take effect.

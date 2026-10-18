@@ -67,4 +67,16 @@ if command -v herdr >/dev/null 2>&1; then
   for t in claude codex opencode omp; do
     herdr integration install "$t" >/dev/null 2>&1 || true
   done
+  # herdr plugins (packages/herdr-plugins.txt). Skip installed ones: a reinstall
+  # rebuilds. Plugins start with the herdr server, so a running one needs a restart.
+  # A `!<os>-<arch>` tag after the repo skips that platform.
+  installed="$(herdr plugin list --json 2>/dev/null || true)"
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+  sed 's/#.*//' packages/herdr-plugins.txt | while read -r p skip; do
+    [ -n "$p" ] || continue
+    if [ "$skip" = "!$platform" ]; then echo "herdr plugin $p: skipped on $platform"; continue; fi
+    owner="${p%%/*}" repo="${p#*/}"
+    echo "$installed" | grep -q "\"owner\":\"$owner\",\"repo\":\"$repo\"" && continue
+    herdr plugin install "$p" -y </dev/null || echo "herdr plugin install $p failed" >&2
+  done
 fi

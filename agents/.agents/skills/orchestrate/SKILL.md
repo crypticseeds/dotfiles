@@ -35,6 +35,7 @@ After a worker reports:
 1. Run the acceptance checks yourself, inside the worker's worktree. Do not accept the worker's output as evidence.
 2. Request independent review: `code-reviewer` with the plan and the diff range; add `security-reviewer` when the change touches auth, secrets, IAM, network, input handling, or CI. Pass the acceptance criteria so the review is judged against them.
 3. Build a criteria table: each criterion PASS / FAIL / UNVERIFIED with evidence.
+4. Read the report's `## Remember` section. Save only lessons that are durable, non-obvious and not already recorded in the repo, using your memory rules (update an existing memory rather than adding a duplicate). A worker's lesson is a claim like any other: confirm it before saving it. Drop the rest.
 
 ## 4. Heal
 
@@ -71,4 +72,4 @@ After each verification pass, decide for every pane you spawned. Never touch pan
 
 ## Worker contract (include in every delegation)
 
-Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.
+Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. End the report with a `## Remember` section: lessons the next worker on this project should know (a non-obvious convention, a gotcha, a command that works), one line each, or "none". Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.
