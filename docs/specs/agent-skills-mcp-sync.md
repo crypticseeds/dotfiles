@@ -198,7 +198,11 @@ from known marketplaces on first launch, this step reduces to a check.)
   differs from the manifest;
 - (c) manifest MCPs missing or different in a present harness (what
   `mcp --dry-run` would change);
-- (d) manifest-enabled Claude plugins that are not installed.
+- (d) manifest-enabled Claude plugins that are not installed;
+- (e) stale skills: carry the sync's marker but no manifest entry claims them
+  any more (entry removed, or dropped from an `only` list). Never deleted:
+  `check` and `fetch` both list them with the exact `rm -r ... && make skills`
+  command, so the user decides.
 
 Report only; it never writes or runs a mutating CLI. It is produced by the
 read-only `agents-sync.py check` subcommand (not part of `all`), which prints
@@ -234,7 +238,7 @@ See `docs/plans/agent-skills-mcp-sync-migration.md`.
    a user added by hand is updated to the manifest definition; other names are
    never touched; nothing is ever removed automatically. This replaced the
    earlier state-file ownership record, which cost more code than it saved.
-6. **Drift scope**: only the four findings above. Link slots occupied by real
+6. **Drift scope**: only the five findings above. Link slots occupied by real
    directories are reported by the link step itself (WARN), and extra MCPs or
    plugins are not drift because the sync never removes them.
 

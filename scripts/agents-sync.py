@@ -206,7 +206,32 @@ def fetch(manifest, dry):
             detail = getattr(e, "stderr", None)
             print("ERROR  %s: %s" % (label, detail.decode(errors="replace").strip() if detail else e))
             failed = True
+    report_stale(manifest, skills_dir)
     return 1 if failed else 0
+
+
+def stale_skills(manifest, skills_dir):
+    """Skills the sync installed (they carry its marker) that no manifest entry claims any more."""
+    stale = []
+    for n in sorted(os.listdir(skills_dir)) if os.path.isdir(skills_dir) else []:
+        marker = read_marker(os.path.join(skills_dir, n))
+        if not n.endswith(SYNC_SUFFIXES) and marker is not None and owner(manifest, n, marker) is None:
+            stale.append(n)
+    return stale
+
+
+def remove_command(skills_dir, names):
+    """Never delete: print the command so the user decides. `make skills` prunes the links."""
+    return "rm -r %s && make -C %s skills" % (
+        " ".join(shlex.quote(os.path.join(skills_dir, n)) for n in names), shlex.quote(REPO))
+
+
+def report_stale(manifest, skills_dir):
+    stale = stale_skills(manifest, skills_dir)
+    for n in stale:
+        print("WARN  %s is no longer in the manifest (not removed)" % os.path.join(skills_dir, n))
+    if stale:
+        print("      remove with: %s" % remove_command(skills_dir, stale))
 
 
 # --- link --------------------------------------------------------------------
@@ -658,6 +683,11 @@ def drift_skills(manifest, out):
                 if marker.get(key) != want[key]:
                     out.append("skill %s: marker %s %s differs from manifest %s"
                                % (n, key, marker.get(key), want[key]))
+    stale = stale_skills(manifest, sdir)
+    for n in stale:
+        out.append("stale skill: %s (installed by the sync, no longer in the manifest)" % n)
+    if stale:
+        out.append("remove stale skills with: %s" % remove_command(sdir, stale))
     host = socket.gethostname()
     for e in manifest.get("skills", []):
         for n in [e["name"]] if "name" in e else e.get("only", []):
