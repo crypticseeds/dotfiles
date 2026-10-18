@@ -36,11 +36,14 @@ macos-titlebar-proxy-icon = hidden
 title = " "
 
 font-family = JetBrainsMono Nerd Font
-font-size = 16
+font-size = 18
 cursor-style = underline
 mouse-hide-while-typing = true
 copy-on-select = true
 selection-clear-on-copy = true
+# Treat Option as Alt so Option+Backspace/arrows reach the shell as word
+# commands (the ABC layout defaults this to false).
+macos-option-as-alt = true
 
 # Shell integration's "cursor" feature forces a bar cursor at the prompt,
 # overriding cursor-style. Disable it so the underline sticks.
