@@ -103,6 +103,7 @@ harness reads it through symlinks committed to this repo:
   (`packages/niri.txt` for the Fedora desktop). Fedora packages from a COPR also
   need the repo enabled in `scripts/bootstrap.sh` (lazygit) or `scripts/niri.sh`
   (ghostty).
+- **A herdr plugin**: add its GitHub `owner/repo` to `packages/herdr-plugins.txt`.
 - **A file to an existing package**: just add it, then `make restow`.
 
 ## Harness: Claude Code with Moonshot Kimi

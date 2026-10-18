@@ -1,0 +1,15 @@
+# herdr plugins (GitHub owner/repo). Installed by scripts/bootstrap.sh into the
+# default session's registry; already-installed plugins are skipped.
+# One per line, # comments allowed. Keybindings live in herdr/.config/herdr/config.toml.
+# An optional `!<os>-<arch>` after the repo skips that platform, as
+# `uname -s | tr A-Z a-z` and `uname -m` print it (e.g. !linux-aarch64).
+#
+# Build/runtime needs: annotate runs on bun, auto-title builds with Go 1.24+.
+
+# git-aware file viewer (prefix+f, prefix+shift+f). Upstream ships no ARM Linux
+# binary yet, so a Pi would build it from source with Rust: skipped there.
+smarzban/herdr-file-viewer !linux-aarch64
+# terminal annotations and document review (prefix+a, prefix+o, ...)
+plannotator/herdr-annotate
+# names tabs and panes after the work in them
+kryptamine/herdr-auto-title
