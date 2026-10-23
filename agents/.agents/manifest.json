@@ -151,6 +151,10 @@
         "--read-only",
         "--disable-telemetry"
       ]
+    },
+    "langchain-docs": {
+      "project": true,
+      "url": "https://docs.langchain.com/mcp"
     }
   }
 }
