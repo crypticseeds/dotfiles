@@ -27,7 +27,7 @@ STOW  := stow -v -t $(HOME)
 # subshell, not your terminal. Remind instead, and let you pick the moment.
 reload-hint = printf '\nRestow complete. Run "exec zsh" to load the changes in this shell.\n'
 
-.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off niri skills agents-sync doctor setup shell nvim
+.PHONY: pull install mac linux minimal restow restow-mac restow-linux delete tmux-on tmux-off niri skills agents-sync doctor setup shell nvim opencode-service
 
 # Mac and the Pi share this repo: rebase onto upstream before deploying or rewriting tracked
 # files (nvim's Lazy sync rewrites lazy-lock.json), so no machine works from a stale checkout.
@@ -119,6 +119,14 @@ agents-sync:
 
 doctor:
 	@sh scripts/doctor.sh
+
+# Linux: run opencode v2's one shared background server under systemd, with GH_TOKEN from
+# Doppler (opencode/.config/systemd/user/opencode.service, stowed with the opencode package).
+# Clients reuse it; if a client restarts or replaces it, systemd takes it back within seconds.
+opencode-service:
+	systemctl --user daemon-reload
+	systemctl --user enable --now opencode.service
+	@systemctl --user is-active opencode.service
 
 # Working environment on any machine: shell + Neovim with every dependency
 # they need to function. `make setup` is the one-command version.

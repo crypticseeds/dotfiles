@@ -39,9 +39,28 @@ for d in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills" \
   elif [ -n "$bad" ]; then echo "FAIL  dangling links in $d:"; echo "$bad"; fail=1; fi
 done
 
-# 4. opencode config + agents must parse
+# 4. opencode config + agents must parse. v1: `agent list` fails on a bad config. v2 has no
+#    `agent list`, and `debug agents` exits 0 even when a config or agent file is rejected (it just
+#    drops it), so check that every agent in the repo is actually loaded. v2 answers from its
+#    background service: it prints [] while the service is still starting, and it reads config at
+#    start, so edits show up after `opencode service restart`.
 if command -v opencode >/dev/null 2>&1; then
-  if opencode agent list >/dev/null 2>&1; then echo "OK    opencode agents parse"; else echo "FAIL  opencode agents do not parse"; fail=1; fi
+  case "$(opencode --version 2>/dev/null)" in
+    *v2.*|2.*)
+      tries=0
+      while loaded=$(opencode debug agents 2>/dev/null); [ "$loaded" = "[]" ] && [ "$tries" -lt 15 ]; do
+        tries=$((tries + 1)); sleep 1
+      done
+      missing=""
+      for f in "$repo"/opencode/.config/opencode/agent/*.md; do
+        id=$(basename "$f" .md)
+        printf '%s' "$loaded" | grep -q "\"id\": *\"$id\"" || missing="$missing $id"
+      done
+      if [ -z "$missing" ]; then echo "OK    opencode agents parse"
+      else echo "FAIL  opencode agents not loaded:$missing (opencode's log names the rejected file; restart the service after fixing)"; fail=1; fi ;;
+    *)
+      if opencode agent list >/dev/null 2>&1; then echo "OK    opencode agents parse"; else echo "FAIL  opencode agents do not parse"; fail=1; fi ;;
+  esac
 fi
 
 # 5. No credential files inside the repo

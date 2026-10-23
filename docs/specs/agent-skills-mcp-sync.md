@@ -83,7 +83,7 @@ without new dependencies.
     "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@<version>"] },
     "linear":     { "url": "https://mcp.linear.app/mcp", "auth": "oauth", "except": ["claude"] },
     "firecrawl":  { "url": "https://mcp.firecrawl.dev/v2/mcp-oauth", "auth": "oauth", "except": ["claude"] },
-    "aws-mcp":    { "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.us-east-1.api.aws/mcp", "--skip-auth"] },
+    "aws":        { "project": true, "command": "uvx", "args": ["mcp-proxy-for-aws-cli==1.7.0", "https://aws-mcp.eu-west-2.api.aws/mcp", "--profile", "agent-readonly", "..."] },
     "github":     { "url": "https://api.githubcopilot.com/mcp/", "except": ["hermes"],
                     "headers": { "Authorization": "Bearer ${GH_TOKEN}", "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions" } }
   }
@@ -166,10 +166,22 @@ One function per harness renders the neutral entry into that harness's format:
   differ are written with `hermes config set --force`. Never rewrite
   `config.yaml` (it holds the Buzz allowlist and other host state).
 - omp, Cursor: merge the entry into the `mcpServers` object of their JSON file.
-- opencode: same merge into the `mcp` object of the untracked
+- opencode (v2): entries go under `mcp.servers` of the untracked
   `~/.config/opencode/opencode.json` (opencode merges it with the tracked
   `opencode.jsonc`, which has no `mcp` block, so no generated content enters
-  git history).
+  git history). A v1 entry with the same name directly under `mcp` is moved
+  there ("migrated"). Header-credential remotes get `oauth: false`. If the
+  installed opencode is v1, which cannot read `mcp.servers`, opencode is
+  skipped with a WARN.
+  v2 resolves `{env:VAR}` and runs MCP servers and tools in one shared
+  background server, so that server needs `GH_TOKEN` and the tool PATH, not
+  the client. On Linux `make opencode-service` runs it as a systemd user unit
+  (`opencode.service` -> `opencode-shared-server`: `doppler run ... opencode
+  serve --service`). The wrapper first stops any server a client started
+  without the token, and `Restart=always` takes the server back after a
+  client's `opencode service restart`. Verified with v2.0.27: one server,
+  `github` connected from a client without `GH_TOKEN`, after a boot race, a
+  client restart and a crash.
 - Codex: the block between the `# >>> agents-sync managed MCP` and
   `# <<< agents-sync managed MCP` markers in `~/.codex/config.toml` is
   regenerated from the manifest; tables already in the block for other names are
@@ -180,6 +192,35 @@ One function per harness renders the neutral entry into that harness's format:
 
 JSON files are written atomically and only when something changed; an
 unparseable file is an ERROR and stays untouched.
+
+### 4b. Project MCPs
+
+Servers only some repos need (aws, eks) are manifest entries with
+`"project": true`. They are never installed globally. A repo opts in with
+`.agents/project.json`:
+
+```json
+{ "mcp": ["aws", "eks"] }
+```
+
+`agents-sync.py project` (part of `all`, so `make agents-sync`) finds opted-in
+repos one level below `~/REPOS` (or only the ones given with `--project DIR`)
+and writes each harness's project file:
+
+| File in the repo | Read by |
+|---|---|
+| `.mcp.json` | Claude, omp |
+| `.cursor/mcp.json` | Cursor |
+| `opencode.json` (`mcp` key, merged) | opencode |
+| `.codex/config.toml` (managed block) | Codex, trusted projects only |
+
+A file is written only when a harness that reads it is present. In an opted-in
+repo the project entries are managed exactly: a listed name is added or
+updated, an unlisted one is removed. Other servers in these files are never
+touched. Listing a name that is not a project entry is an ERROR for that repo.
+Hermes has no project config. Claude only connects approved `.mcp.json`
+servers: `regen-agent-host.sh` approves every project entry by name. `make
+doctor` reports project drift with the global drift.
 
 ### 5. Claude plugins
 
@@ -224,9 +265,10 @@ See `docs/plans/agent-skills-mcp-sync-migration.md`.
 
 1. **opencode MCP block**: generated into the untracked `opencode.json`;
    `opencode.jsonc` keeps no `mcp` block. Cleaner git history.
-2. **aws-mcp**: one form everywhere, with `--skip-auth` (as the aws-core
-   plugin ships it). Not host-restricted. If credentialed access is ever
-   needed, the owner commits a separate MCP file for it by hand.
+2. **AWS**: no global AWS MCP. The authenticated AWS MCP Server (`aws`, a
+   project entry) already serves the docs, skills and region tools as well
+   as API access, so a separate unauthenticated docs-only `aws-mcp` (removed
+   2026-10-11) only duplicated it and exposed API tools that always failed.
 3. **Remote MCPs in Claude**: Linear, Sentry, Firecrawl and TinyFish go to
    every harness, Claude included (no claude.ai connectors for them, and no
    Claude plugins are used: skills and MCPs come from the manifest only).

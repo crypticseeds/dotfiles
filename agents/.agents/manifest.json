@@ -137,13 +137,40 @@
         "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions"
       }
     },
-    "aws-mcp": {
+    "aws": {
+      "project": true,
       "command": "uvx",
       "args": [
         "mcp-proxy-for-aws-cli==1.7.0",
-        "https://aws-mcp.us-east-1.api.aws/mcp",
-        "--skip-auth"
+        "https://aws-mcp.eu-west-2.api.aws/mcp",
+        "--profile",
+        "agent-readonly",
+        "--region",
+        "eu-west-2",
+        "--metadata",
+        "AWS_REGION=eu-west-2",
+        "--disable-telemetry"
       ]
+    },
+    "eks": {
+      "project": true,
+      "command": "uvx",
+      "args": [
+        "mcp-proxy-for-aws-cli==1.7.0",
+        "https://eks-mcp.eu-west-2.api.aws/mcp",
+        "--service",
+        "eks-mcp",
+        "--profile",
+        "agent-readonly",
+        "--region",
+        "eu-west-2",
+        "--read-only",
+        "--disable-telemetry"
+      ]
+    },
+    "langchain-docs": {
+      "project": true,
+      "url": "https://docs.langchain.com/mcp"
     }
   }
 }

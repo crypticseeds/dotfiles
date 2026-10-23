@@ -2,7 +2,7 @@
 """Sync agent skills, links, MCP servers and Claude plugins from the manifest.
 
 Source of truth: agents/.agents/manifest.json. Stdlib only, Python 3.9 safe.
-Usage: agents-sync.py [--dry-run] {fetch|link|mcp|plugins|all|check}
+Usage: agents-sync.py [--dry-run] [--project DIR] {fetch|link|mcp|project|plugins|all|check}
 `check` is a read-only drift report and is not part of `all`.
 """
 import argparse
@@ -340,8 +340,10 @@ def mcp_error(e):
         v = e.get(key, [])
         if not isinstance(v, list) or (key != "args" and any(x not in MCP_HARNESSES for x in v)):
             return "'%s' must be a list%s" % (key, "" if key == "args" else " of harness names")
-    targets = set(e.get("harnesses", MCP_HARNESSES)) - set(e.get("except", []))
-    if headers and "hermes" in targets:
+    if not isinstance(e.get("project", False), bool):
+        return "'project' must be true or false"
+    targets = mcp_targets(e)
+    if headers and "hermes" in targets and not e.get("project"):  # hermes has no project config
         # `hermes config get` prints resolved values, so ${VAR} headers can't be compared
         return "hermes does not support 'headers' here; add \"hermes\" to 'except'"
     if "codex" in targets and any(ENV_REF.search(v) and not codex_env(k, v)
@@ -349,6 +351,11 @@ def mcp_error(e):
         return ("codex takes only a whole ${VAR} header value or 'Authorization: Bearer "
                 "${VAR}'; add \"codex\" to 'except'")
     return None
+
+
+def mcp_targets(e):
+    """Harnesses an entry applies to (before presence and transport limits)."""
+    return set(e.get("harnesses", MCP_HARNESSES)) - set(e.get("except", []))
 
 
 def codex_env(header, value):
@@ -360,7 +367,7 @@ def codex_env(header, value):
     return ("env", m.group(1)) if m else None
 
 
-def mcp_entries(manifest):
+def mcp_entries(manifest, report=True):
     """Valid manifest MCP entries and the number of invalid ones (skipped)."""
     entries, bad = {}, 0
     for name, e in (manifest.get("mcp") or {}).items():
@@ -369,14 +376,15 @@ def mcp_entries(manifest):
             entries[name] = e
             continue
         bad += 1
-        print("ERROR  mcp %s: %s" % (name, err))
+        if report:
+            print("ERROR  mcp %s: %s" % (name, err))
     return entries, bad
 
 
 def applicable(entries, harness):
+    """Global (non-project) entries for a harness."""
     return dict((n, e) for n, e in entries.items()
-                if harness in e.get("harnesses", MCP_HARNESSES)
-                and harness not in e.get("except", [])
+                if not e.get("project") and harness in mcp_targets(e)
                 and (harness != "hermes" or "url" in e))
 
 
@@ -385,18 +393,27 @@ def hermes_home():
 
 
 def mcp_present():
+    """A harness counts as present when its CLI is installed (on PATH or in its installer's
+    default dir) or its config dir exists: a fresh install has no config dir until first run."""
     h = home()
+
+    def cli_or_dir(names, bindirs, cfg):
+        return (any(shutil.which(n) for n in names)
+                or any(os.access(os.path.join(h, d, n), os.X_OK) for d in bindirs for n in names)
+                or os.path.isdir(os.path.join(h, *cfg)))
+    local = [os.path.join(".local", "bin")]
     return {"claude": shutil.which("claude") is not None,
-            "codex": os.path.isdir(os.path.join(h, ".codex")),
-            "cursor": os.path.isdir(os.path.join(h, ".cursor")),
-            "omp": shutil.which("omp") is not None or os.path.isdir(os.path.join(h, ".omp")),
-            "opencode": os.path.isdir(os.path.join(h, ".config", "opencode")),
+            "codex": cli_or_dir(["codex"], local, [".codex"]),
+            "cursor": cli_or_dir(["cursor-agent", "cursor"], local, [".cursor"]),
+            "omp": cli_or_dir(["omp"], local, [".omp"]),
+            "opencode": cli_or_dir(["opencode"], [os.path.join(".opencode", "bin")] + local,
+                                   [".config", "opencode"]),
             "hermes": shutil.which("hermes") is not None and os.path.isdir(hermes_home())}
 
 
-def say(dry, verb, harness, name):
-    past = {"add": "added", "update": "updated"}[verb]
-    print("%s  %s: %s" % ("would " + verb if dry else past, harness, name))
+def say(dry, verb, where, name):
+    past = {"add": "added", "update": "updated", "remove": "removed"}[verb]
+    print("%s  %s: %s" % ("would " + verb if dry else past, where, name))
 
 
 def env_headers(e, fmt):
@@ -410,11 +427,13 @@ def env_headers(e, fmt):
 
 def render_json(harness, e):
     cmd, args = e.get("command"), e.get("args", [])
-    if harness == "opencode":
+    if harness == "opencode":  # v2 shape, under mcp.servers
         if cmd:
-            return {"type": "local", "command": [cmd] + args, "enabled": True}
-        return dict({"type": "remote", "url": e["url"], "enabled": True},
-                    **env_headers(e, "{env:%s}"))
+            return {"type": "local", "command": [cmd] + args}
+        out = dict({"type": "remote", "url": e["url"]}, **env_headers(e, "{env:%s}"))
+        if "headers" in e and e.get("auth") != "oauth":
+            out["oauth"] = False  # header credential only: skip v2's default OAuth discovery
+        return out
     if harness == "cursor":
         if cmd:
             return {"command": cmd, "args": args}
@@ -441,7 +460,7 @@ def claude_config():
 
 
 def load_servers(harness):
-    """(path, document, key, servers) of a JSON-config harness; missing file = empty."""
+    """(path, document, legacy, servers) of a JSON-config harness; missing file = empty."""
     h = home()
     path = {"claude": claude_config(),
             "cursor": os.path.join(h, ".cursor", "mcp.json"),
@@ -451,24 +470,44 @@ def load_servers(harness):
         print("WARN  claude: uses %s, so .claude.json (and the MCPs in it) is ignored; an "
               "empty or stray one is usually a sandbox leftover" % path)
     key = "mcp" if harness == "opencode" else "mcpServers"
+    doc, servers, legacy = read_servers(path, key, harness == "opencode")
+    return path, doc, legacy, servers
+
+
+def read_servers(path, key, opencode):
+    """(document, servers, legacy) of a JSON MCP file; a missing file is empty. `servers` is the
+    live dict inside the document. opencode v2 keeps servers under mcp.servers; `legacy` is the
+    mcp object itself, where v1 kept them (None for other harnesses)."""
     try:
         with open(path, encoding="utf-8") as f:
             doc = json.load(f)
     except FileNotFoundError:
-        doc = {"$schema": SCHEMA} if harness == "opencode" else {}
+        doc = {"$schema": SCHEMA} if opencode else {}
     except (OSError, ValueError) as e:
         raise RuntimeError("cannot parse %s: %s" % (path, e))
-    servers = doc.get(key) or {} if isinstance(doc, dict) else None
+    parent = doc.setdefault(key, {}) if isinstance(doc, dict) else None
+    servers = parent.setdefault("servers", {}) if opencode and isinstance(parent, dict) else parent
     if not isinstance(servers, dict):
         raise RuntimeError("%s: unexpected structure" % path)
-    return path, doc, key, servers
+    return doc, servers, (parent if opencode else None)
+
+
+def drop_legacy(legacy, name, dry, where):
+    """Remove a v1 opencode entry (mcp.<name>) that mcp.servers.<name> now replaces."""
+    if legacy is not None and isinstance(legacy.get(name), dict) and name not in ("servers", "timeout"):
+        print("%s  %s: %s (v1 entry moved to mcp.servers)" % ("would migrate" if dry else "migrated",
+                                                             where, name))
+        del legacy[name]
+        return True
+    return False
 
 
 def mcp_json(harness, want, dry):
     """claude (via its CLI), cursor, omp, opencode: create or update manifest names."""
-    path, doc, key, servers = load_servers(harness)
+    path, doc, legacy, servers = load_servers(harness)
     changed = False
     for name in sorted(want):
+        changed = drop_legacy(legacy, name, dry, harness) or changed
         new = render_json(harness, want[name])
         if same(harness, servers.get(name), new):
             continue
@@ -482,7 +521,6 @@ def mcp_json(harness, want, dry):
             servers[name] = new
             changed = True
     if changed and not dry:
-        doc[key] = servers
         atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
 
@@ -543,19 +581,22 @@ def codex_read(path):
     return lines, start, end, chunks, names
 
 
-def mcp_codex(want, dry):
-    """Regenerate the managed block; names in it that are not in `want` are kept."""
-    path = os.path.join(home(), ".codex", "config.toml")
+def mcp_codex(want, dry, path=None, where="codex", prune=False):
+    """Regenerate the managed block. Names in it that are not in `want` are kept, or with
+    `prune` (a project file, whose block holds only that project's list) removed."""
+    path = path or os.path.join(home(), ".codex", "config.toml")
     lines, start, end, chunks, outside = codex_read(path)
-    final = dict((n, c) for n, c in chunks.items() if n not in outside)
+    final = {} if prune else dict((n, c) for n, c in chunks.items() if n not in outside)
+    for name in sorted(set(chunks) - set(want) if prune else ()):
+        say(dry, "remove", where, name)
     for name in sorted(want):
         if name in outside:
-            print("WARN  codex: %s has a [mcp_servers.%s] table outside the managed "
-                  "block, not managed" % (name, name))
+            print("WARN  %s: %s has a [mcp_servers.%s] table outside the managed "
+                  "block, not managed" % (where, name, name))
             continue
         final[name] = codex_chunk(name, want[name])
         if chunks.get(name) != final[name]:
-            say(dry, "update" if name in chunks else "add", "codex", name)
+            say(dry, "update" if name in chunks else "add", where, name)
     block = [MCP_START]
     for i, name in enumerate(sorted(final)):
         block += ([""] if i else []) + final[name]
@@ -590,13 +631,40 @@ def mcp_hermes(want, dry):
                      "mcp_servers.%s.%s" % (name, k), v], dry)
 
 
+_OPENCODE_V1 = []
+
+
+def opencode_v1():
+    """True when the installed opencode is v1: the sync writes v2's mcp.servers layout, which v1
+    cannot read. Unknown or missing counts as v2."""
+    if not _OPENCODE_V1:
+        exe = shutil.which("opencode") or os.path.join(home(), ".opencode", "bin", "opencode")
+        try:
+            out = subprocess.run([exe, "--version"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                 timeout=60).stdout.decode(errors="replace")
+        except (OSError, subprocess.TimeoutExpired):
+            out = ""
+        m = re.search(r"(\d+)\.\d+", out)
+        _OPENCODE_V1.append(bool(m) and int(m.group(1)) < 2)
+    return _OPENCODE_V1[0]
+
+
+def opencode_v1_skip(present):
+    if present["opencode"] and opencode_v1():
+        print("WARN  opencode: v1 installed; this sync writes the v2 layout, so opencode is skipped "
+              "(upgrade: curl -fsSL https://opencode.ai/v2/install | bash)")
+        present["opencode"] = False
+
+
 def mcp(manifest, dry):
     entries, bad = mcp_entries(manifest)
     rc = 1 if bad else 0
     present = mcp_present()
+    opencode_v1_skip(present)
     for harness in MCP_HARNESSES:
         if not present[harness]:
-            print("skip  %s (not installed)" % harness)
+            if harness != "opencode" or not opencode_v1():  # v1 already has its WARN
+                print("skip  %s (not installed)" % harness)
             continue
         want = applicable(entries, harness)
         try:
@@ -608,6 +676,95 @@ def mcp(manifest, dry):
                 mcp_json(harness, want, dry)
         except (OSError, RuntimeError, ValueError) as e:
             print("ERROR  %s: %s" % (harness, e))
+            rc = 1
+    return rc
+
+
+# --- project MCPs ------------------------------------------------------------
+# A repo opts in with .agents/project.json: {"mcp": ["aws", "eks"]}, naming manifest
+# entries marked "project": true. Those entries are never installed globally; in an
+# opted-in repo they are present exactly when listed (removed when dropped from the list).
+PROJECT_FILE = os.path.join(".agents", "project.json")
+PROJECTS_ROOT = "REPOS"  # opted-in repos are found one level below ~/REPOS
+# (harnesses that read the file, file in the repo, servers key, renderer)
+PROJECT_JSON = ((("claude", "omp"), ".mcp.json", "mcpServers", "claude"),
+                (("cursor",), os.path.join(".cursor", "mcp.json"), "mcpServers", "cursor"),
+                (("opencode",), "opencode.json", "mcp", "opencode"))
+PROJECT_CODEX = os.path.join(".codex", "config.toml")
+
+
+def project_dirs():
+    root = os.path.join(home(), PROJECTS_ROOT)
+    if not os.path.isdir(root):
+        return []
+    return sorted(d for d in (os.path.join(root, n) for n in os.listdir(root))
+                  if os.path.isfile(os.path.join(d, PROJECT_FILE)))
+
+
+def project_list(d, entries):
+    """Names a repo's .agents/project.json enables; each must be a project entry."""
+    path = os.path.join(d, PROJECT_FILE)
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError) as e:
+        raise RuntimeError("cannot parse %s: %s" % (path, e))
+    names = doc.get("mcp", []) if isinstance(doc, dict) else None
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise RuntimeError("%s: 'mcp' must be a list of names" % path)
+    bad = [n for n in names if not entries.get(n, {}).get("project")]
+    if bad:
+        raise RuntimeError("%s: not a \"project\": true manifest MCP: %s" % (path, ", ".join(bad)))
+    return set(names)
+
+
+def project_json(d, readers, rel, key, render_as, want, managed, dry):
+    """Merge `want` into one JSON file of a repo; managed names not wanted are removed."""
+    path = os.path.join(d, rel)
+    where = os.path.join(os.path.basename(d), rel)
+    doc, servers, legacy = read_servers(path, key, render_as == "opencode")
+    changed = False
+    for name in sorted(managed):
+        changed = drop_legacy(legacy, name, dry, where) or changed
+        e = want.get(name)
+        if e is not None and mcp_targets(e) & set(readers):
+            new = render_json(render_as, e)
+            if servers.get(name) != new:
+                say(dry, "update" if name in servers else "add", where, name)
+                servers[name] = new
+                changed = True
+        elif name in servers:
+            say(dry, "remove", where, name)
+            del servers[name]
+            changed = True
+    if changed and not dry:
+        atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+
+
+def project(d, entries, present, dry):
+    listed = project_list(d, entries)
+    managed = set(n for n, e in entries.items() if e.get("project"))
+    want = dict((n, entries[n]) for n in listed)
+    for readers, rel, key, render_as in PROJECT_JSON:
+        if any(present[h] for h in readers):
+            project_json(d, readers, rel, key, render_as, want, managed, dry)
+    if present["codex"]:
+        mcp_codex(dict((n, e) for n, e in want.items() if "codex" in mcp_targets(e)), dry,
+                  path=os.path.join(d, PROJECT_CODEX),
+                  where=os.path.join(os.path.basename(d), PROJECT_CODEX), prune=True)
+
+
+def projects(manifest, dry, dirs=None):
+    """Write each opted-in repo's project MCP files (Hermes has no project config)."""
+    entries = mcp_entries(manifest, report=False)[0]  # the mcp step reports invalid entries
+    rc = 0
+    present = mcp_present()
+    opencode_v1_skip(present)
+    for d in dirs if dirs is not None else project_dirs():
+        try:
+            project(os.path.abspath(d), entries, present, dry)
+        except (OSError, RuntimeError, ValueError) as e:
+            print("ERROR  project %s: %s" % (d, e))
             rc = 1
     return rc
 
@@ -696,10 +853,11 @@ def drift_skills(manifest, out):
 
 
 def drift_mcp(manifest, out):
-    """Whatever `mcp --dry-run` would change is drift (it only reads)."""
+    """Whatever `mcp` / `project --dry-run` would change is drift (they only read)."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         mcp(manifest, True)
+        projects(manifest, True)
     for line in buf.getvalue().splitlines():
         if line.startswith(("would ", "ERROR")):
             out.append("MCP out of sync: %s" % line)
@@ -725,7 +883,8 @@ def check(manifest):
     return 0
 
 
-STEPS = [("fetch", fetch), ("link", link), ("mcp", mcp), ("plugins", plugins)]
+STEPS = [("fetch", fetch), ("link", link), ("mcp", mcp), ("project", projects),
+         ("plugins", plugins)]
 
 
 def main():
@@ -733,6 +892,8 @@ def main():
     p.add_argument("--dry-run", action="store_true",
                    help="print what would change, write nothing")
     p.add_argument("--manifest", default=MANIFEST, help=argparse.SUPPRESS)
+    p.add_argument("--project", action="append", metavar="DIR",
+                   help="with step project: sync only this repo (repeatable)")
     p.add_argument("step", choices=[s for s, _ in STEPS] + ["all", "check"])
     args = p.parse_args()
     try:
@@ -751,7 +912,8 @@ def main():
     rc = 0
     for name, fn in STEPS:
         if args.step in (name, "all"):
-            rc = fn(manifest, args.dry_run) or rc
+            rc = (fn(manifest, args.dry_run, args.project) if name == "project"
+                  else fn(manifest, args.dry_run)) or rc
     return rc
 
 
