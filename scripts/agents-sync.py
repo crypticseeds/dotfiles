@@ -104,6 +104,32 @@ def remove(path):
         shutil.rmtree(path)
 
 
+def marker_for(entry, skill_path):
+    m = {"repo": entry["repo"], "path": skill_path, "ref": entry["ref"]}
+    if entry.get("rewrite"):
+        m["rewrite"] = entry["rewrite"]
+    return m
+
+
+def apply_rewrite(root, rewrite):
+    """Replace each literal key with its value in every UTF-8 text file under root."""
+    for d, _, files in os.walk(root):
+        for fn in files:
+            p = os.path.join(d, fn)
+            if os.path.islink(p):
+                continue
+            try:
+                with open(p, encoding="utf-8") as f:
+                    text = f.read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            new = text
+            for old, repl in rewrite.items():
+                new = new.replace(old, repl)
+            if new != text:
+                atomic_write(p, new)
+
+
 def install(src, target, entry, skill_path):
     """Build into <target>.tmp-sync, then swap in; never leave a half-deleted target."""
     tmp, old = target + ".tmp-sync", target + ".old-sync"
@@ -112,10 +138,12 @@ def install(src, target, entry, skill_path):
     had_old = os.path.lexists(target)
     try:
         shutil.copytree(src, tmp, ignore=shutil.ignore_patterns(".git", ".gitignore"))
+        if entry.get("rewrite"):
+            apply_rewrite(tmp, entry["rewrite"])
         with open(os.path.join(tmp, ".gitignore"), "w") as f:
             f.write("*\n")
         with open(os.path.join(tmp, MARKER), "w") as f:
-            json.dump({"repo": entry["repo"], "path": skill_path, "ref": entry["ref"]}, f)
+            json.dump(marker_for(entry, skill_path), f)
             f.write("\n")
         if had_old:
             os.rename(target, old)
@@ -133,8 +161,7 @@ def sync_skill(entry, name, src, skill_path, skills_dir):
     marker = read_marker(target)
     if os.path.lexists(target) and (os.path.islink(target) or marker is None):
         print("WARN  %s exists and is not managed by the manifest, skipping" % target)
-    elif (marker and marker.get("ref") == entry["ref"] and marker.get("repo") == entry["repo"]
-          and marker.get("path") == skill_path and os.path.isfile(os.path.join(target, "SKILL.md"))):
+    elif marker == marker_for(entry, skill_path) and os.path.isfile(os.path.join(target, "SKILL.md")):
         print("unchanged  %s" % name)
     else:
         install(src, target, entry, skill_path)
@@ -158,6 +185,10 @@ def fetch(manifest, dry):
                 raise RuntimeError("missing %s" % ", ".join(missing))
             if not re.fullmatch(r"[0-9a-f]{40}", entry["ref"]):
                 raise RuntimeError("ref is not a 40-hex commit SHA: %r" % entry["ref"])
+            rw = entry.get("rewrite", {})
+            if not (isinstance(rw, dict) and all(isinstance(k, str) and k and isinstance(v, str)
+                                                 for k, v in rw.items())):
+                raise RuntimeError("rewrite must map non-empty strings to strings")
             if dry:
                 print("would fetch  %s (%s@%s)" % (label, entry["repo"], entry["ref"][:12]))
                 continue
@@ -175,7 +206,32 @@ def fetch(manifest, dry):
             detail = getattr(e, "stderr", None)
             print("ERROR  %s: %s" % (label, detail.decode(errors="replace").strip() if detail else e))
             failed = True
+    report_stale(manifest, skills_dir)
     return 1 if failed else 0
+
+
+def stale_skills(manifest, skills_dir):
+    """Skills the sync installed (they carry its marker) that no manifest entry claims any more."""
+    stale = []
+    for n in sorted(os.listdir(skills_dir)) if os.path.isdir(skills_dir) else []:
+        marker = read_marker(os.path.join(skills_dir, n))
+        if not n.endswith(SYNC_SUFFIXES) and marker is not None and owner(manifest, n, marker) is None:
+            stale.append(n)
+    return stale
+
+
+def remove_command(skills_dir, names):
+    """Never delete: print the command so the user decides. `make skills` prunes the links."""
+    return "rm -r %s && make -C %s skills" % (
+        " ".join(shlex.quote(os.path.join(skills_dir, n)) for n in names), shlex.quote(REPO))
+
+
+def report_stale(manifest, skills_dir):
+    stale = stale_skills(manifest, skills_dir)
+    for n in stale:
+        print("WARN  %s is no longer in the manifest (not removed)" % os.path.join(skills_dir, n))
+    if stale:
+        print("      remove with: %s" % remove_command(skills_dir, stale))
 
 
 # --- link --------------------------------------------------------------------
@@ -776,13 +832,19 @@ def drift_skills(manifest, out):
             if marker is None and not tracked_in_repo(n):
                 out.append("unmanaged skill: %s (not in repo or manifest)" % n)
         elif not e.get("local"):
-            want = {"repo": e.get("repo"), "path": entry_path(e, n), "ref": e.get("ref")}
+            want = {"repo": e.get("repo"), "path": entry_path(e, n), "ref": e.get("ref"),
+                    "rewrite": e.get("rewrite")}
             if marker is None:
                 out.append("skill %s has no %s marker" % (n, MARKER))
             for key in want if marker else ():
                 if marker.get(key) != want[key]:
                     out.append("skill %s: marker %s %s differs from manifest %s"
                                % (n, key, marker.get(key), want[key]))
+    stale = stale_skills(manifest, sdir)
+    for n in stale:
+        out.append("stale skill: %s (installed by the sync, no longer in the manifest)" % n)
+    if stale:
+        out.append("remove stale skills with: %s" % remove_command(sdir, stale))
     host = socket.gethostname()
     for e in manifest.get("skills", []):
         for n in [e["name"]] if "name" in e else e.get("only", []):

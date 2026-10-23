@@ -24,13 +24,9 @@ case "$(uname -s)" in
         grep -vE '^\s*(#|$)' packages/apt.txt | xargs sudo apt-get install -y
         ;;
       fedora)
-        # COPRs first: hyprland's official Fedora package is orphaned (wiki
-        # points at lionheartp/Hyprland), wezterm's documented Fedora path
-        # is the author's nightly COPR, and lazygit has never been in the
-        # official repos (its README points at dejan/lazygit). Idempotent.
+        # lazygit is not in the official repos (its README points at the
+        # dejan/lazygit COPR). Idempotent.
         sudo dnf install -y dnf5-plugins
-        sudo dnf -y copr enable lionheartp/Hyprland
-        sudo dnf -y copr enable wezfurlong/wezterm-nightly
         sudo dnf -y copr enable dejan/lazygit
         grep -vE '^\s*(#|$)' packages/dnf.txt | xargs sudo dnf install -y
         ;;
@@ -49,6 +45,12 @@ sh scripts/nvim.sh
 # 3. AI harnesses (guarded installers, skip anything already present)
 sh packages/harnesses.sh
 
+# 3b. Fedora: the niri desktop (packages/niri.txt, Zed, Strata, Herdr UI). After the
+#     harnesses: Herdr UI needs herdr. Its configs are stowed by make install below.
+if [ "$(uname -s)" = Linux ] && [ "$ID" = fedora ]; then
+  sh scripts/niri.sh
+fi
+
 # 4. Back up conflicting distro defaults instead of failing the stow
 for f in "$HOME/.zshrc" "$HOME/.bashrc"; do
   if [ -f "$f" ] && [ ! -L "$f" ]; then mv "$f" "$f.pre-dotfiles"; fi
@@ -64,5 +66,17 @@ make install
 if command -v herdr >/dev/null 2>&1; then
   for t in claude codex opencode omp; do
     herdr integration install "$t" >/dev/null 2>&1 || true
+  done
+  # herdr plugins (packages/herdr-plugins.txt). Skip installed ones: a reinstall
+  # rebuilds. Plugins start with the herdr server, so a running one needs a restart.
+  # A `!<os>-<arch>` tag after the repo skips that platform.
+  installed="$(herdr plugin list --json 2>/dev/null || true)"
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+  sed 's/#.*//' packages/herdr-plugins.txt | while read -r p skip; do
+    [ -n "$p" ] || continue
+    if [ "$skip" = "!$platform" ]; then echo "herdr plugin $p: skipped on $platform"; continue; fi
+    owner="${p%%/*}" repo="${p#*/}"
+    echo "$installed" | grep -q "\"owner\":\"$owner\",\"repo\":\"$repo\"" && continue
+    herdr plugin install "$p" -y </dev/null || echo "herdr plugin install $p failed" >&2
   done
 fi

@@ -1,0 +1,49 @@
+# Noctalia 5 shell for the niri desktop (docs/niri.md). Defaults and every key:
+# https://github.com/noctalia-dev/noctalia/blob/main/example.toml
+#
+# This file is the baseline. The Settings window (Mod+Shift+Comma) writes its changes to
+# ~/.local/state/noctalia/settings.toml, which loads after this file and wins. To keep a
+# GUI change, copy the key here and delete it from settings.toml.
+
+[shell]
+# Nothing else in the niri session answers polkit prompts.
+polkit_agent = true
+telemetry_enabled = false
+# The first-run wizard writes its own palette choice to settings.toml, overriding
+# [theme] below. Everything it asks is already set in this file.
+setup_wizard_enabled = false
+
+[wallpaper]
+# Drop images here and pick one in the launcher (type /wall) or Settings -> Wallpaper.
+# Empty means the flat palette surface color. Not ~/Pictures: screenshots live there.
+directory = "~/Pictures/Wallpapers"
+
+[theme]
+mode = "dark"
+# Gruvbox Hard (palettes/Gruvbox Hard.json) matches Zed and Neovim. Switch in Settings ->
+# Theme, or: noctalia msg color-scheme-set builtin Kanagawa
+#            noctalia msg color-scheme-set builtin Catppuccin
+#            noctalia msg color-scheme-set custom "Gruvbox Hard"
+source = "custom"
+custom_palette = "Gruvbox Hard"
+# Pure black backgrounds for every palette (accents and text keep the palette colors).
+# Flows into the templates below, so niri, Ghostty, GTK, Strata and Herdr UI follow.
+pure_black_dark = true
+
+[theme.templates]
+# Recolor these on every palette change: niri borders (niri/noctalia.kdl), Ghostty
+# (ghostty/themes/noctalia, also used by Herdr UI), and GTK 3/4 apps (gtk-*/noctalia.css).
+builtin_ids = ["niri", "ghostty", "gtk3", "gtk4"]
+
+# Strata ignores GTK styling; it reloads this theme file live (theme = "noctalia" in
+# ~/.config/strata/settings.toml).
+[theme.templates.user.strata]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/strata.toml"
+output_path = "$XDG_CONFIG_HOME/strata/themes/noctalia.toml"
+
+[bar.main]
+# Blur is off in niri too: the VM's virtual GPU pays for every pass.
+compositor_blur = false
+start  = ["launcher", "workspaces"]
+center = ["clock"]
+end    = ["tray", "notifications", "network", "volume", "control-center", "session"]

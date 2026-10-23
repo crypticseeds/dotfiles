@@ -19,9 +19,10 @@ cd ~/dotfiles && sh scripts/bootstrap.sh
 ```
 
 `bootstrap.sh` detects the OS, installs packages (`packages/Brewfile` on
-macOS, `packages/apt.txt` / `packages/dnf.txt` on Linux), installs herdr and
-any missing AI harnesses (`packages/harnesses.sh`), backs up conflicting
-distro defaults, and runs `make install`.
+macOS, `packages/apt.txt` / `packages/dnf.txt` on Linux), on Fedora also the niri
+desktop (`scripts/niri.sh`), installs herdr and any missing AI harnesses
+(`packages/harnesses.sh`), backs up conflicting distro defaults, and runs
+`make install`.
 
 If stow hits a conflict it aborts safely without changing anything: move the
 conflicting file out of the way and rerun `make install`.
@@ -42,6 +43,7 @@ make install    # auto-detects OS, stows everything, runs health check
 | `make skills` | Regenerate per-skill links for claude/codex/hermes |
 | `make agents-sync` | Fetch manifest-pinned skills, then link them per harness, then create/update the manifest MCP servers, then install missing Claude plugins |
 | `make doctor` | Health check: links, skills, agents, credential scan, plus a drift report (`WARN drift:` lines, never changes the exit code) |
+| `make niri` | Fedora: install the niri desktop (`packages/niri.txt`, Zed, Strata, Herdr UI) and stow its configs. See [docs/niri.md](docs/niri.md) |
 
 Related files and commands:
 
@@ -60,13 +62,14 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
 | `claude/` `codex/` `cursor/` `opencode/` `pi/` `hermes/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
 | `zsh/` `nvim/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
-| `hammerspoon/` `aerospace/` `sketchybar/` | | macOS only |
-| `hyprland/` `niri/` | `~/.config/hypr` `~/.config/niri` | Linux only (Wayland compositors) |
+| `hammerspoon/` `aerospace/` `sketchybar/` `ghostty-mac/` | | macOS only (`ghostty-mac/` deploys `~/.config/ghostty/config`) |
+| `niri/` `ghostty/` `noctalia/` | `~/.config/niri` `~/.config/ghostty` `~/.config/noctalia` | Linux only: niri desktop with the Noctalia shell, see [docs/niri.md](docs/niri.md); stowed `--no-folding` so Noctalia's generated theme files stay out of the repo |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |
 | `docs/` | not stowed | Reference notes, e.g. [local Kubernetes](docs/kubernetes/README.md) |
 | `templates/` | not stowed | Per-project starter files to copy, e.g. [agent permissions](templates/agent-permissions/README.md) (secret hygiene + write boundary for Claude Code, opencode, omp) |
 | `tmux/` | `~/.config/tmux` | Opt-in, not stowed by default: `make tmux-on` / `make tmux-off` (herdr is the daily multiplexer) |
 | `cursor-themes/` `zed/` | not stowed | Reference copies |
+| `corne-keymap/` | not stowed | Corne keyboard layout for Vial, cheat sheet and build script, see [corne-keymap/README.md](corne-keymap/README.md) |
 
 ## AI harness config (one source of truth)
 
@@ -97,9 +100,11 @@ harness reads it through symlinks committed to this repo:
   right group in the `Makefile` (`COMMON`, `TOOLS`, `MACONLY`, or
   `LINUXONLY`), run `make restow`.
 - **A macOS app**: add a line to `packages/Brewfile`.
-- **A Linux package**: add a line to `packages/apt.txt` / `packages/dnf.txt`.
-  Fedora packages from a COPR also need the repo enabled in
-  `scripts/bootstrap.sh` (hyprland and wezterm already do this).
+- **A Linux package**: add a line to `packages/apt.txt` / `packages/dnf.txt`
+  (`packages/niri.txt` for the Fedora desktop). Fedora packages from a COPR also
+  need the repo enabled in `scripts/bootstrap.sh` (lazygit) or `scripts/niri.sh`
+  (ghostty).
+- **A herdr plugin**: add its GitHub `owner/repo` to `packages/herdr-plugins.txt`.
 - **A file to an existing package**: just add it, then `make restow`.
 
 ## Harness: Claude Code with Moonshot Kimi

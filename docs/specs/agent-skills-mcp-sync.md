@@ -76,8 +76,8 @@ without new dependencies.
     { "name": "buzz-external-agents", "local": true, "hosts": ["<pi hostname>"] }
   ],
   "plugins": {
-    "marketplaces": { "claude-code-warp": "warpdotdev/claude-code-warp", "antonbabenko": "antonbabenko/agent-plugins" },
-    "enabled": ["coderabbit@claude-plugins-official", "superpowers@claude-plugins-official", "..."]
+    "marketplaces": { "<name>": "<owner>/<repo>" },
+    "enabled": ["<plugin>@<marketplace>"]
   },
   "mcp": {
     "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@<version>"] },
@@ -107,6 +107,14 @@ Rules:
   (`hermes config get` prints resolved values), so such entries must list them
   in `except` or are rejected. The variable must be in the harness's
   environment: launch it under `doppler run`.
+- A remote skill entry may carry `rewrite`: literal string replacements
+  applied to every UTF-8 file of each fetched skill (e.g. superpowers'
+  `docs/superpowers/` -> `docs/`, so plans and specs land in `docs/plans/` and
+  `docs/specs/`). The marker records it, so changing it reinstalls the skill and
+  doctor reports a stale copy.
+- Skills a single project needs (e.g. `terraform-skill` in `aws-platform`) are
+  not in the manifest: they live in that project's `.agents/skills/<name>` with
+  a `.claude/skills/<name>` link, like its `.mcp.json` servers.
 - `harnesses` restricts per-skill LINKS only. Skills in `~/.agents/skills` are
   still visible to harnesses that read it natively (pi, opencode, omp, cursor).
 - Repo-owned skills (`delegate-visibly`, `orchestrate`, ...) are not listed:
@@ -231,7 +239,11 @@ from known marketplaces on first launch, this step reduces to a check.)
   differs from the manifest;
 - (c) manifest MCPs missing or different in a present harness (what
   `mcp --dry-run` would change);
-- (d) manifest-enabled Claude plugins that are not installed.
+- (d) manifest-enabled Claude plugins that are not installed;
+- (e) stale skills: carry the sync's marker but no manifest entry claims them
+  any more (entry removed, or dropped from an `only` list). Never deleted:
+  `check` and `fetch` both list them with the exact `rm -r ... && make skills`
+  command, so the user decides.
 
 Report only; it never writes or runs a mutating CLI. It is produced by the
 read-only `agents-sync.py check` subcommand (not part of `all`), which prints
@@ -257,17 +269,18 @@ See `docs/plans/agent-skills-mcp-sync-migration.md`.
    project entry) already serves the docs, skills and region tools as well
    as API access, so a separate unauthenticated docs-only `aws-mcp` (removed
    2026-10-11) only duplicated it and exposed API tools that always failed.
-3. **Firecrawl/TinyFish/Linear/Sentry in Claude**: the claude.ai connectors
-   cover these for Claude, and the owner logs in once per service anyway, so
-   these entries carry `"except": ["claude"]` to avoid duplicate tools in
-   Claude. Other harnesses get them as local MCPs.
+3. **Remote MCPs in Claude**: Linear, Sentry, Firecrawl and TinyFish go to
+   every harness, Claude included (no claude.ai connectors for them, and no
+   Claude plugins are used: skills and MCPs come from the manifest only).
+   `except` / `harnesses` stay available to keep an entry out of Claude or any
+   other harness later.
 4. **Cursor skills**: Cursor loads `~/.agents/skills` natively (cursor.com
    docs, Agent Skills), so no `~/.cursor/skills` links.
 5. **MCP ownership**: the manifest names are the managed set. A same-name entry
    a user added by hand is updated to the manifest definition; other names are
    never touched; nothing is ever removed automatically. This replaced the
    earlier state-file ownership record, which cost more code than it saved.
-6. **Drift scope**: only the four findings above. Link slots occupied by real
+6. **Drift scope**: only the five findings above. Link slots occupied by real
    directories are reported by the link step itself (WARN), and extra MCPs or
    plugins are not drift because the sync never removes them.
 

@@ -79,6 +79,9 @@ git checkout -b <type>/<short-topic> upstream/main
 
 - Pushing and opening the PR are public actions: get explicit user approval
   for each, per action, before running them.
+- Right before pushing, rebase onto fresh upstream so the PR is not built on a
+  stale base: `git fetch upstream` then `git rebase --autostash upstream/main`.
+  Re-run the Step 5 gate if the rebase pulled in changes.
 - Use the project's PR template verbatim. Reference the issue
   (`Fixes #N`). Fill required blocks (e.g. `release-note`; write `NONE` for
   changes with no user-facing impact, if the project uses that convention).

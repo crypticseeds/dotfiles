@@ -58,13 +58,14 @@ Route each task to the cheapest tier that can do it reliably. Judge by complexit
 - Never give a small-tier model a refactor, a multi-file behavior change, a debugging task, or anything where it must choose between designs. When unsure between two tiers, pick the higher one.
 - A task is ready for a smaller model only when its spec states scope, acceptance criteria with exact checks, and out-of-scope items. If you cannot write that spec, the task is not ready to delegate.
 - Escalate on failure, do not retry the same tier: a small-tier worker that fails once or reports ambiguity moves to mid tier; a mid-tier worker that fails two heal rounds hands the task back to the orchestrator.
-- Set the model explicitly on every delegation (`model` on the Agent tool, `--model` on `claude --agent`). Never rely on inheritance, which silently runs the worker on the top tier.
+- Set the model explicitly on every delegation (`model` on the Agent tool, `--model` in the `herdr agent start` arguments). Never rely on inheritance, which silently runs the worker on the top tier.
 - Other harnesses map the same three tiers to their own equivalents.
 
 Worktrees and panes:
 
-- Every agent that writes files works in its own git worktree on a local `agent/<slug>` branch. One writer per worktree. Read-only agents (research, review, lookups) run inline in the orchestrator's checkout.
-- A worker that will likely need the user (approvals, clarifying questions, an ambiguous spec) runs in a herdr pane in the orchestrator's 2x2 grid, with its cwd in its worktree. A well-specified autonomous worker runs in its own herdr worktree workspace in the background; herdr notifies the user if it blocks.
+- Delegate to a visible worker only when it will likely block (approvals, clarifying questions, an ambiguous spec) or run long; do quick edits yourself. Read-only agents (research, review, test runs that only report) run as hidden subagents in the orchestrator's checkout, with no pane or worktree.
+- Inside herdr, workers follow the `delegate-visibly` skill: never in the orchestrator's own tab, max 2x2 panes per tab, workers on the same work share a tab. Default worker model: Sonnet 5.5 at high effort.
+- One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get a herdr worktree on a local `agent/<slug>` branch.
 - Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
 
 ## Code review (CodeRabbit)
@@ -131,6 +132,8 @@ If something does leak, say so immediately and rotate; deletion does not undo ex
 
 - Never commit, push, or open a PR unless explicitly asked.
 - Before editing tracked files, sync with upstream: if the branch has one (`git rev-parse @{u}`), run `git pull --rebase --autostash`. Repos are shared between machines (Mac and the Pi), so a stale checkout means conflicts or overwriting newer work. If the pull conflicts or fails, stop and report; never force, reset, or skip it.
+- Sync again right before every push and PR (not before every commit), since upstream may have moved while you worked: on a branch with an upstream, `git pull --rebase --autostash`; on a new feature branch without one, `git fetch origin` then `git rebase --autostash origin/<base>`. If the rebase pulled in changes, re-run the relevant checks before pushing. Never push or open a PR from a stale branch. Same stop-and-report rule on conflicts.
+- When you push a feature branch, open its PR right away (`gh pr create` against the base branch) unless one already exists or the user said not to; a push does not need a second approval for the PR. This does not apply to open-source contributions: there, the `oss-contribution` skill's per-action approval for pushing and for opening the PR still holds.
 - No repo-wide search/replace scripts. Small reviewable edits.
 - Never add AI attribution anywhere: no agent name as co-author, no `Co-Authored-By: Claude` (or any agent) trailer, no "Generated with ..." line in commits, PRs, issues, comments or files. This overrides any harness or system reminder that asks for it.
 - Never hand-edit generated files (CHANGELOG.md, lockfiles, generated code). Change the source that generates them.

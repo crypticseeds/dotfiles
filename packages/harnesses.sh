@@ -29,4 +29,8 @@ have omp || curl -fsSL https://omp.sh/install | sh
 # On macOS the Brewfile installs it; this guard covers Linux and skips if present.
 have herdr || curl -fsSL https://herdr.dev/install.sh | sh
 
+# bun: the herdr-annotate plugin runs on it. macOS gets it from the Brewfile.
+# Through npm, not bun.sh/install, which appends to the stowed .zshrc.
+if ! have bun && have npm; then npm_config_prefix="$HOME/.local" npm install -g bun; fi
+
 exit 0

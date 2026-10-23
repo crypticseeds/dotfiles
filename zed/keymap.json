@@ -24,6 +24,13 @@
     },
   },
   {
+    // niri's Cmd+A (Linux VM) sends this; vim mode owns Ctrl+A.
+    "context": "Editor",
+    "bindings": {
+      "ctrl-alt-shift-a": "editor::SelectAll",
+    },
+  },
+  {
     "context": "Editor && extension == go",
     "bindings": {
       "ctrl-;": ["editor::InsertSnippet", { "snippet": ":=" }],

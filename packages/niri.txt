@@ -1,0 +1,36 @@
+# Fedora packages for the niri desktop (docs/niri.md). Installed by scripts/niri.sh
+# (`make niri`, and bootstrap.sh on Fedora). One per line, # comments allowed.
+#
+# Noctalia is the whole shell: bar, launcher, notifications, lock screen, OSD, polkit
+# agent, screenshots, wallpaper. Do not add mako/dunst/swaync: they fight Noctalia for
+# org.freedesktop.Notifications. ghostty comes from the scottames/ghostty COPR (enabled
+# by scripts/niri.sh); the rest are official Fedora packages.
+niri
+noctalia
+ghostty
+xwayland-satellite
+xdg-desktop-portal-gtk
+xdg-desktop-portal-gnome
+gnome-keyring
+wl-clipboard
+qt5-qtwayland
+# Mac-style Cmd+C/X/V in niri's binds type the app's clipboard keys through wtype
+wtype
+qt6-qtwayland
+firefox
+# Noctalia's gtk3 template switches GTK3 apps to adw-gtk3 so they follow the palette
+adw-gtk3-theme
+papirus-icon-theme
+
+# Strata (file manager, Mod+E) runtime libraries, from its README. Strata itself is a
+# release binary installed into ~/.local/bin by scripts/niri.sh.
+gtk4
+gtksourceview5
+poppler-glib
+fontconfig
+bubblewrap
+ffmpeg-free
+ffmpegthumbnailer
+gstreamer1-plugins-base
+gstreamer1-plugins-good
+gvfs
