@@ -92,8 +92,15 @@ Write the brief to a file, then send it. The brief is self-contained (the worker
 ```bash
 mkdir -p /tmp/agent-prompts /tmp/agent-reports
 rm -f /tmp/agent-reports/<slug>.md        # a stale report would look like completion
-herdr agent prompt <agent-name> "$(cat /tmp/agent-prompts/<slug>.md)"
 ```
+
+Then send a pointer to the brief as its own Bash command:
+
+```bash
+herdr agent prompt <agent-name> 'Read /tmp/agent-prompts/<slug>.md and follow it exactly.'
+```
+
+Never `"$(cat ...)"`, a backtick, a pipe or `&&` in a herdr command, not even inside single quotes: Claude Code then runs it inside the sandbox, which blocks the herdr socket (`PermissionDenied: Operation not permitted`). Short text works inline as one single-quoted argument (newlines are fine, write `'` as `'\''`).
 
 The report file is deliberate, despite the herdr skill's advice against asking for file output up front: it is the backup if the worker crashes, its pane closes, or its answer scrolls out of reach.
 
