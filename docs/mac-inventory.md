@@ -76,6 +76,7 @@ installer. Restore hint in the last column.
 |---|---|---|
 | Docker Desktop | manual (brew* `docker-desktop`) | |
 | docker CLI, colima | brew | colima as alternative runtime |
+| oxker (docker TUI) | brew | |
 | kubectl (`kubernetes-cli`), kind, helm, k6 | brew | notes in `docs/kubernetes/` |
 | terraform | manual, `/usr/local/bin` | |
 | aws CLI | manual, `/usr/local/bin` | |
