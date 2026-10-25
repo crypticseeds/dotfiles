@@ -151,6 +151,10 @@ bash:
       approval: deny
     - match: "log show *"
       approval: deny
+    - match: "coderabbit *--api-key*"
+      approval: deny
+    - match: "coderabbit *--use-credits*"
+      approval: deny
     - match: "keyctl read"
       approval: deny
     - match: "keyctl read *"
@@ -836,6 +840,16 @@ bash:
     - match: "git restore ."
       approval: deny
     - match: "git restore --worktree ."
+      approval: deny
+    - match: "git worktree remove *--force*"
+      approval: deny
+    - match: "git worktree remove -f"
+      approval: deny
+    - match: "git worktree remove -f *"
+      approval: deny
+    - match: "git worktree remove * -f"
+      approval: deny
+    - match: "herdr worktree remove *--force*"
       approval: deny
     - match: "terraform apply"
       approval: deny
@@ -1945,6 +1959,14 @@ bash:
       approval: deny
     - match: "git -C * restore --worktree ."
       approval: deny
+    - match: "git -C * worktree remove *--force*"
+      approval: deny
+    - match: "git -C * worktree remove -f"
+      approval: deny
+    - match: "git -C * worktree remove -f *"
+      approval: deny
+    - match: "git -C * worktree remove * -f"
+      approval: deny
     - match: "git-in * reset --hard"
       approval: deny
     - match: "git-in * reset --hard *"
@@ -2005,6 +2027,14 @@ bash:
       approval: deny
     - match: "git-in * restore --worktree ."
       approval: deny
+    - match: "git-in * worktree remove *--force*"
+      approval: deny
+    - match: "git-in * worktree remove -f"
+      approval: deny
+    - match: "git-in * worktree remove -f *"
+      approval: deny
+    - match: "git-in * worktree remove * -f"
+      approval: deny
     - match: "git-in * -C * reset --hard"
       approval: deny
     - match: "git-in * -C * reset --hard *"
@@ -2064,6 +2094,14 @@ bash:
     - match: "git-in * -C * restore ."
       approval: deny
     - match: "git-in * -C * restore --worktree ."
+      approval: deny
+    - match: "git-in * -C * worktree remove *--force*"
+      approval: deny
+    - match: "git-in * -C * worktree remove -f"
+      approval: deny
+    - match: "git-in * -C * worktree remove -f *"
+      approval: deny
+    - match: "git-in * -C * worktree remove * -f"
       approval: deny
     - match: "*.env"
       approval: deny
@@ -2526,6 +2564,10 @@ bash:
       approval: allow
     - match: "git restore *"
       approval: allow
+    - match: "git worktree"
+      approval: allow
+    - match: "git worktree *"
+      approval: allow
     - match: "gh pr create"
       approval: allow
     - match: "gh pr create *"
@@ -2713,6 +2755,10 @@ bash:
     - match: "helm history"
       approval: allow
     - match: "helm history *"
+      approval: allow
+    - match: "coderabbit review"
+      approval: allow
+    - match: "coderabbit review *"
       approval: allow
     - match: "tofu plan"
       approval: allow

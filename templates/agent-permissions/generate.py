@@ -268,6 +268,9 @@ DENY_BASH = [
     "docker inspect", "docker exec * env*", "systemctl show", "systemctl cat",
     "security", "secret-tool", "op", "bw", "lpass", "pass show", "keepassxc-cli",
     "pbpaste", "xclip -o", "xsel -o", "wl-paste", "defaults read", "log show",
+    # CodeRabbit: an API key on the command line is world-readable; paid credits stay with the owner
+    # (the agent host's guard allows them until CODERABBIT_CREDITS_UNTIL)
+    "coderabbit *--api-key*", "coderabbit *--use-credits*",
     # --- Linux credential stores and secrets ---
     "keyctl read", "keyctl print", "keyctl pipe", "systemd-creds decrypt", "systemd-creds cat",
     "gdbus *secrets*", "busctl *secrets*", "dbus-send *secrets*",
@@ -494,6 +497,8 @@ ALLOW_LIVE = [
     "kubectl api-resources", "kubectl explain", "kubectl cluster-info",
     "kubectl config current-context", "kubectl config get-contexts",
     "helm list", "helm status", "helm history",
+    # sends the diff to CodeRabbit's API
+    "coderabbit review",
 ]
 
 # --------------------------------------------------------------------------
@@ -521,10 +526,15 @@ ALLOW_LIVE = [
 #  - agent-clean (bin/agent-clean, installed root-owned like git-in): agents remove their finished
 #    worktrees, stale agent tmp/scratch and rebuildable caches (~/.cache, ~/.terraform.d) without
 #    asking the owner. It deletes only fixed agent-owned locations and takes no path to delete.
+#  - coderabbit review: the sandbox proxy closes its WebSocket ("Connection failed: WebSocket closed")
+#    and ~/.coderabbit (reviews, logs) is read-only inside it. Its other subcommands work sandboxed.
 # The guard hook (agent_host_guard.py) checks the destructive and secret-reading forms of all of
 # these except herdr; the deny rules still apply.
 AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "kubectl *", "helm *",
-                       "agent-clean", "agent-clean *"]
+                       "agent-clean", "agent-clean *", "coderabbit review", "coderabbit review *"]
+# $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
+# `coderabbit review --use-credits` through this day, then the guard refuses it again. "" = never.
+CODERABBIT_CREDITS_UNTIL = "2026-11-01"
 AGENT_HOST_WRITE = ["~/REPOS", "~/.cache/pre-commit"]
 # NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
 # the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
@@ -541,7 +551,7 @@ AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in (
 AGENT_HOST_ALLOW_BASH = [
     "git push", "git-in", "git -C", "git fetch", "git pull", "git commit", "git add", "git checkout",
     "git switch", "git branch", "git merge", "git rebase", "git stash", "git update-ref", "git tag",
-    "git restore",
+    "git restore", "git worktree",
     "gh pr create", "gh pr edit", "gh pr close", "gh pr reopen", "gh pr comment", "gh pr ready",
     "gh pr diff", "gh pr checkout", "gh run rerun", "gh run cancel", "gh run watch", "gh issue create",
     "gh issue comment", "gh issue close", "gh issue edit", "gh api", "gh secret list", "gh secret set",
@@ -567,6 +577,9 @@ AGENT_HOST_DENY_BASH = [
     "git push *--prune*",
     # --- discarding every uncommitted change (single files are fine) ---
     "=git checkout .", "=git checkout -- .", "=git restore .", "=git restore --worktree .",
+    # --- removing a worktree with uncommitted work in it (the guard also catches -ff and other spellings) ---
+    "git worktree remove *--force*", "git worktree remove -f", "git worktree remove * -f",
+    "herdr worktree remove *--force*",
     "terraform apply",  # nobody is there to approve it, so deny instead of a prompt that stalls
     # The Doppler list commands above must not reach their token-minting, mutating, log or
     # config-printing forms, nor a flag that sends the token to another host.
@@ -716,8 +729,9 @@ def bash_rules(profile, agent_host=False, guarded=False):
         ask_src = []  # Claude: allowed by `Bash(*)` unless denied; opencode/omp: unmatched still prompts
         deny_src = deny_src + twins(AGENT_HOST_DENY_BASH)
         allow += AGENT_HOST_ALLOW_BASH
-        if guarded:  # the guard allows `doppler secrets --only-names` and denies every other form
-            deny_src = [d for d in deny_src if d != "doppler secrets"]
+        if guarded:  # the guard allows `doppler secrets --only-names` and denies every other form,
+            # and allows `coderabbit --use-credits` until CODERABBIT_CREDITS_UNTIL
+            deny_src = [d for d in deny_src if d not in ("doppler secrets", "coderabbit *--use-credits*")]
         else:
             override = AGENT_HOST_NAME_ONLY
     deny = deny_src + wrap(deny_src, allow=False)
@@ -763,13 +777,15 @@ def claude_secret_paths(os_name):
     return home_paths(os_name) + [abs_claude(p) for p in abs_paths(os_name)] + any_paths
 
 
-def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",)):
+def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CREDITS_UNTIL):
     """agent_host_guard.py with this policy's secret paths, embedded inline so the
     root-owned managed settings file is self-contained (no script an agent could edit)."""
     src = (HERE / "agent_host_guard.py").read_text()
     globs = home_paths(os_name) + abs_paths(os_name) + PROC_SECRET_PATHS + SECRET_PATHS_ANY
     src = src.replace("SECRET_GLOBS = []", "SECRET_GLOBS = %r" % globs, 1)
     src = src.replace("REPO_ROOTS = []", "REPO_ROOTS = %r" % list(repo_roots), 1)
+    src = src.replace('CREDITS_UNTIL = ""', "CREDITS_UNTIL = %r" % credits_until, 1)
+    src = src.replace("EXCLUDED = []", "EXCLUDED = %r" % excluded_commands(True), 1)
     return {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(src),
                                           "timeout": 30}]}
 
@@ -1047,6 +1063,8 @@ PROFILE_SAMPLES = [
     ("git push --force-with-lease origin feat/x", "ask", "ask"),
     ("aws sso login --sso-session seeds-agent --no-browser", "allow", "allow"),
     ("aws sso login", "deny", "deny"),
+    ("coderabbit review --agent --uncommitted", "allow", "ask"),
+    ("coderabbit review --use-credits", "deny", "deny"), ("coderabbit review --api-key x", "deny", "deny"),
 ]
 
 # Agent host, with the guard. fixture: the repo the command runs in (see check()).
@@ -1064,6 +1082,7 @@ AGENT_HOST_SECRET = [
     ("doppler run --only-secrets X -- bash -c 'echo $X'", "clean", False),
     ("aws s3 ls --endpoint-url https://x", "clean", True), ("kubectl get pods --kubeconfig ./k", "clean", False),
     ("docker run -v /home/ai:/h alpine ls", "clean", False),
+    ("coderabbit review --agent -c values.yaml", "link", True),
 ]
 AGENT_HOST_DESTRUCTIVE = [
     ("rm -Rf build", "clean", False), ("rm --recursive build", "clean", False),
@@ -1086,6 +1105,10 @@ AGENT_HOST_DESTRUCTIVE = [
     ("aws ec2 stop-instances --instance-ids i", "clean", False), ("kubectl delete pod x", "clean", False),
     ("kubectl apply -f x.yaml", "clean", False), ("helm uninstall x", "clean", False),
     ("ansible-playbook site.yml", "clean", False), ("bash <<'EOF'\nrm -rf build\nEOF", "clean", False),
+    ("git worktree remove --force .worktrees/x", "clean", False), ("git worktree remove -f .worktrees/x", "clean", False),
+    ("git worktree remove .worktrees/x -f", "clean", False), ("git worktree remove -ff .worktrees/x", "clean", True),
+    ("git-in . worktree remove --force x", "clean", False),
+    ("herdr worktree remove --workspace w2 --force", "clean", False),
 ]
 AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in Claude
     ("git push -u origin feat/x", "clean", "allow"), ("git-in . push origin feat/x", "clean", "allow"),
@@ -1114,11 +1137,22 @@ AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in C
     ("pre-commit run --all-files", "clean", "allow"),
     ("herdr pane list", "clean", "allow"), ("herdr pane split", "clean", "allow"),
     ("herdr pane run 2 'make test && make lint > out.log'", "clean", "allow"),
-    ("herdr pane close 2", "clean", "allow"),
+    ("herdr pane close 2", "clean", "allow"), ("herdr agent get w1:p2", "clean", "allow"),
+    ("herdr agent prompt w1:p2 'fix the test\nthen run make > out.log && report'", "clean", "allow"),
+    ("herdr agent list 2>&1", "clean", "allow"), ("herdr --help | head", "clean", "allow"),
     ("terraform plan -out=tfplan", "clean", "allow"), ("kubectl get pods -A", "clean", "allow"),
     ("npm test", "clean", "ask"), ("ls -la", "clean", "ask"), ("python3 -c 'print(1)'", "clean", "ask"),
     ("rm build.log", "clean", "ask"), ("git add -A && git commit -m 'rm -r mention'", "clean", "allow"),
     ("cat > f.py <<'EOF'\nx = 'git reset --hard'\nEOF", "clean", "ask"),
+    ("coderabbit review --agent --uncommitted --include-untracked", "clean", "allow"),
+    ("coderabbit review --agent -c AGENTS.md --base main", "clean", "allow"),
+    ("coderabbit auth status --agent | head", "clean", "ask"),
+    ("git worktree remove /home/ai/.herdr/worktrees/r/feat-x", "clean", "allow"),
+    ("git worktree prune", "clean", "allow"), ("git worktree list", "clean", "allow"),
+    ("git-in . worktree remove .worktrees/feat-x", "clean", "allow"),
+    ("herdr worktree remove --workspace w2", "clean", "allow"), ("herdr tab close w1:t2", "clean", "allow"),
+    ("herdr workspace close w2", "clean", "allow"),
+    ("git add worktree && git commit -m x", "clean", "allow"),
 ]
 # Claude runs these sandboxed although their tool is excluded; the guard explains instead of an auth error
 AGENT_HOST_EXPLAINED = [
@@ -1126,6 +1160,14 @@ AGENT_HOST_EXPLAINED = [
     "git --git-dir=x/.git push origin feat/x", "git-in . push origin feat/x && echo done",
     "cd x && git push", "gh pr list --json title | jq .", "gh pr create --title x --body 'a <b> c'",
     "gh pr create --title x --body 'uses `make`'", "terraform plan 2>&1",
+    "herdr agent list | jq .", "cd x && herdr pane list", "herdr agent get w1:p2; echo done",
+    "herdr agent prompt w1:p2 \"$(cat <<'EOF'\nfix it\nEOF\n)\"", "herdr agent prompt w1:p2 'run `make`'",
+    "herdr agent prompt w1:p2 'see $(pwd)'",
+    "coderabbit review --agent --uncommitted > .agent/cr.ndjson", "coderabbit review --agent | tee x",
+    "git worktree remove /home/ai/.herdr/worktrees/r/feat-x && git branch -d feat/x",
+    "git worktree prune; git worktree list", "pre-commit run --all-files && echo ok",
+    "agent-clean && agent-clean --caches", "docker ps | head", "aws sts get-caller-identity && echo ok",
+    "for d in a b; do kubectl get pods -n $d; done", "coderabbit review --agent 2>&1",
 ]
 
 # (path, decision) for Claude Read/Edit deny rules: "deny" or "ok" (not matched by any deny).
@@ -1222,7 +1264,7 @@ def check():
     expect("[agent-host] repo settings cannot add rules", True, host["allowManagedPermissionRulesOnly"])
     excluded = host["sandbox"]["excludedCommands"]
     for tool in ("git *", "gh *", "git-in *", "herdr *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *",
-                 "agent-clean", "agent-clean *"):
+                 "agent-clean", "agent-clean *", "coderabbit review *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])
@@ -1291,7 +1333,8 @@ def check():
         return str(d)
     fixtures = {"clean": repo("clean"), "onmain": repo("onmain", branch="main"),
                 "sshcmd": repo("sshcmd", cfg=[("core.sshCommand", "sh -c x")]),
-                "link": repo("link", link="~/.doppler/.doppler.yaml")}
+                "link": repo("link", link="~/.doppler/.doppler.yaml"), "hooked": repo("hooked")}
+    pathlib.Path(fixtures["hooked"], ".git/hooks/pre-commit").write_text("#!/bin/sh\nexit 0\n")
 
     def claude_host(cmd, where):
         if hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}):
@@ -1318,6 +1361,22 @@ def check():
     for cmd in AGENT_HOST_EXPLAINED:
         expect("[agent-host guard explains] %s" % cmd, True,
                hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
+    # git hooks fail inside the sandbox, so a chained commit is explained only where the repo has hooks
+    for cmd, where, denied in (("git add -A && git commit -m x", "hooked", True), ("git commit -m x", "hooked", False),
+                               ("git add -A && git commit -m x", "clean", False)):
+        expect("[agent-host guard, hooks] %s (%s)" % (cmd, where), denied,
+               hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}))
+    # --use-credits: the guard alone decides for Claude, by date; opencode and omp (no guard) never allow it
+    expect("[agent-host] guard embeds the credits date", True, "CREDITS_UNTIL = %r" % CODERABBIT_CREDITS_UNTIL in
+           shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
+    for cmd in ("coderabbit review --agent --use-credits", "coderabbit review --use-credits=true --uncommitted"):
+        expect("[agent-host claude rules] %s" % cmd, "allow", decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
+        for until, denied in (("9999-12-31", False), ("2000-01-01", True), ("", True)):
+            g = agent_host_guard_hook("linux", [str(root)], credits_until=until)
+            expect("[agent-host guard, credits until %r] %s" % (until, cmd), denied,
+                   hook_denies(g, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
+        for agent, rules, last in (("opencode", oc_rules, True), ("omp", omp_rules, False)):
+            expect("[agent-host %s] %s" % (agent, cmd), "deny", decide_ordered(cmd, rules, last))
     for d in made:
         shutil.rmtree(d)
 
