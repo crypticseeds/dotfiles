@@ -25,6 +25,41 @@
       "ref": "2ecf19a92fc3a7fff75b6ce3655ef04f4625ec01"
     },
     {
+      "name": "langfuse",
+      "repo": "langfuse/skills",
+      "path": "skills/langfuse",
+      "ref": "4429a94b309980e1cee2f5960c271e123347cb42"
+    },
+    {
+      "group": "langchain",
+      "repo": "langchain-ai/langchain-skills",
+      "path": "config/skills",
+      "ref": "126c384d8552dcb476b226c244172186cc3f4328",
+      "only": [
+        "deep-agents-core",
+        "deep-agents-memory",
+        "deep-agents-orchestration",
+        "deepagents-python-quickstart",
+        "deepagents-typescript-quickstart",
+        "ecosystem-primer",
+        "eval-engineering",
+        "langchain-dependencies",
+        "langchain-fundamentals",
+        "langchain-middleware",
+        "langchain-python-quickstart",
+        "langchain-rag",
+        "langchain-typescript-quickstart",
+        "langgraph-cli",
+        "langgraph-decision-models",
+        "langgraph-fundamentals",
+        "langgraph-human-in-the-loop",
+        "langgraph-persistence",
+        "langgraph-python-quickstart",
+        "langgraph-typescript-quickstart",
+        "managed-deep-agents"
+      ]
+    },
+    {
       "group": "aws",
       "repo": "aws/agent-toolkit-for-aws",
       "path": "plugins/aws-core/skills",
