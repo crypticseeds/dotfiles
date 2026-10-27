@@ -144,6 +144,10 @@ bash:
       approval: deny
     - match: "log show *"
       approval: deny
+    - match: "coderabbit *--api-key*"
+      approval: deny
+    - match: "coderabbit *--use-credits*"
+      approval: deny
     - match: "keyctl read"
       approval: deny
     - match: "keyctl read *"

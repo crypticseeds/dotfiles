@@ -119,12 +119,18 @@ every `herdr` command, `terraform plan`, read-only `aws`/`kubectl`/`helm`.
   `generate.py` refuses to run while an `ASK_BASH` entry is undecided for the agent host.
 - Sandbox on (bubblewrap), `allowUnsandboxedCommands: false`, `allowManagedPermissionRulesOnly: true`.
 - `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`,
-  `kubectl *`, `helm *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
+  `kubectl *`, `helm *`, `coderabbit review *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
 - Guard hook (`agent_host_guard.py`, embedded inline in the settings file) for what globs cannot
   express: spellings (`rm -Rf`, `git -C x reset --hard`, `gh -R o/r pr merge`), the branch a
   lease-push targets, arguments of unsandboxed tools that resolve into a secret store (also through a
   symlink), git config keys that run a program, live infra limited to read-only subcommands. It never
-  checks `herdr` (owner decision).
+  checks `herdr`'s arguments (owner decision); it only explains a herdr call that would run sandboxed
+  and fail on the blocked socket (a pipe, chain, `` ` `` or `$(`, even single-quoted).
+- Failing chains are explained, not left to fail: any `excludedCommands` entry (the list is embedded,
+  so new entries are covered) chained, piped, looped or with `< > `` ` `` $(` runs sandboxed, so the guard
+  denies it with the reason and the fix (run it as its own call). git only where sandboxed git fails:
+  network calls, worktree add/remove/move/prune, and commit/merge/rebase in a repo with hooks. Chains of
+  sandbox-safe commands (`ls | head`, `cd x && make`, `git status && git diff`) run as before.
 - **`git -C <dir>`, `git -c k=v`, `--git-dir` and `--work-tree` can never run outside the sandbox.** Claude
   Code's matcher refuses to exempt a git command with one of those global options (hard-coded, found in the
   2.1.291 binary; no pattern, `git -C *` included, can match), so they run sandboxed: no doppler token, no
@@ -155,6 +161,13 @@ symlinks, or a repo's `.git/config`.
   line (`-c`, `git config`) and when present in the repo's local config (sibling repos' `.git/config` is
   writable to sandboxed code on Linux).
 - `pre-commit *` outside the sandbox: hook installs and GitHub fetches work; hook code runs unsandboxed.
+- `coderabbit review *` outside the sandbox: the sandbox proxy closes its WebSocket and `~/.coderabbit` is
+  read-only there. The guard refuses arguments that resolve into a secret store (`-c <file>` uploads the
+  file); `--api-key` is denied in every profile. `--use-credits` is denied too, except for Claude on the
+  agent host through `CODERABBIT_CREDITS_UNTIL` (promo credits); after that date the guard refuses it.
+- Worktree cleanup: `git worktree add/remove/move/prune` must be a command of its own (inside the sandbox
+  `~/.herdr/worktrees` and `.git/worktrees` are read-only); `--force`/`-f` removal is refused, for git and
+  `herdr worktree remove`, since it discards uncommitted work. Pane, tab and workspace close are allowed.
 - `herdr *` outside the sandbox, unchecked: visible panes work, but `herdr pane run` starts any command
   unsandboxed, so herdr is a full sandbox escape for a determined agent.
 - Not `allowAllUnixSockets` for herdr: on Linux it is all-or-nothing (`allowUnixSockets` is macOS only)

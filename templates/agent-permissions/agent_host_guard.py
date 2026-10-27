@@ -11,8 +11,9 @@ subcommands" or look at files, so this hook covers what they cannot, for two con
     infrastructure tools (terraform, aws, kubectl, helm, docker) limited to read-only subcommands.
 It also explains, instead of letting them fail with an auth error, the commands Claude runs inside
 the sandbox although their tool is excluded (in a chain or pipeline, or containing < > ` or $().
-herdr is never checked (owner decision). The hook only ever denies; what it passes still goes through
-the permission rules.
+herdr's arguments are never checked (owner decision); the hook only explains herdr calls that would run
+sandboxed, where its socket is blocked. The hook only ever denies; what it passes still goes through the
+permission rules.
 """
 import json
 import os
@@ -20,19 +21,19 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 SECRET_GLOBS = []  # filled in by generate.py: every secret path the policy denies
 REPO_ROOTS = []    # filled in by generate.py: where `git-in <dir>` may work (bin/git-in enforces it too)
+CREDITS_UNTIL = ""  # filled in by generate.py: last day (YYYY-MM-DD) `coderabbit --use-credits` is allowed
+EXCLUDED = []      # filled in by generate.py: the sandbox's excludedCommands
 
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
 OUTSIDE = {"git", "gh", "pre-commit", "aws", "terraform", "tofu", "kubectl", "helm", "docker", "podman",
-           "doppler"}
-# These need credentials or a socket the sandbox hides, so they only work as a command of their own
-CREDENTIALED = OUTSIDE - {"git", "pre-commit"}
+           "doppler", "coderabbit"}
 # git-in <dir> <git args> (bin/git-in) is the only way to run git in another repo outside the sandbox
 OUTSIDE.add("git-in")
-CREDENTIALED.add("git-in")
 # Claude Code never exempts a git command with one of these global options from the sandbox
 GIT_REDIRECT = ("-C", "-c", "--git-dir", "--work-tree")
 GIT_READ_SUBS = {"status", "log", "diff", "show", "rev-parse", "rev-list", "ls-files", "ls-tree", "blame",
@@ -40,6 +41,8 @@ GIT_READ_SUBS = {"status", "log", "diff", "show", "rev-parse", "rev-list", "ls-f
                  "name-rev", "merge-base"}
 GIT_CONFIG_READ = {"--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin", "--show-scope"}
 GIT_NETWORK = {"push", "pull", "fetch", "clone", "ls-remote"}
+# git subcommands that run repo hooks, which fail inside the sandbox (pre-commit fetches, unix sockets)
+GIT_HOOKED = {"commit", "merge", "rebase", "cherry-pick", "am", "revert"}
 SEPARATORS = {";", ";;", "&", "&&", "|", "||", "|&", "(", ")"}
 SHELL_KEYWORDS = {"do", "then", "else", "elif", "{", "!", "time", "if", "while", "until"}
 MAIN = {"main", "master"}
@@ -234,6 +237,9 @@ def check_git(args, cwd, wrapped=False):
         deny("git %s deletes work or rewrites history" % sub)
     if sub == "reset" and "--hard" in rest:
         deny("git reset --hard discards work")
+    if sub == "worktree" and rest[:1] == ["remove"] and \
+            any(a == "--force" or (a in short and "f" in a) for a in rest):
+        deny("git worktree remove --force discards uncommitted work (commit or ask the owner first)")
     if sub in ("checkout", "restore") and "." in rest and "--staged" not in rest:
         deny("git %s . discards every uncommitted change (name the files instead)" % sub)
     if sub == "push":
@@ -278,7 +284,10 @@ def check_segment(t, cwd):
         return check_git(args[1:], target, wrapped=True)
     if tool == "git":
         return check_git(args, cwd)
-    if tool == "pre-commit":
+    if tool == "coderabbit" and any(a.startswith("--use-credits") for a in args) and \
+            time.strftime("%Y-%m-%d") > CREDITS_UNTIL:
+        deny("coderabbit --use-credits spends paid credits (allowed only until %s)" % (CREDITS_UNTIL or "never"))
+    if tool in ("pre-commit", "coderabbit"):  # coderabbit: `-c <file>` uploads it, so check_args above matters
         return
     pos = positionals(tool, args)
     one, two = pos[:1], " ".join(pos[:2])
@@ -343,13 +352,48 @@ def split_heredocs(cmd):
     return " ; ".join(out), shell_bodies
 
 
-def needs_own_command(words):
-    """True for commands that only work outside the sandbox (credentials or a hidden socket)."""
-    words = [w for w in words if w not in SHELL_KEYWORDS and not re.match(r"[A-Za-z_]\w*=", w)]
+def command_words(words):
+    return [w for w in words if w not in SHELL_KEYWORDS and not re.match(r"[A-Za-z_]\w*=", w)]
+
+
+def excluded(words):
+    """The command matches an excludedCommands entry (`x *`: x and anything after it, `x`: exactly x)."""
+    for p in EXCLUDED:
+        base = p[:-2].split() if p.endswith(" *") else p.split()
+        if words[:len(base)] == base and (p.endswith(" *") or len(words) == len(base)):
+            return True
+    return False
+
+
+def has_hooks(cwd):
+    hooks = git_out(cwd, "rev-parse", "--git-path", "hooks")
+    d = os.path.join(cwd, hooks) if hooks else ""
+    return bool(d) and os.path.isdir(d) and any(not f.endswith(".sample") for f in os.listdir(d))
+
+
+def needs_own_command(words, cwd):
+    """True for commands that fail inside the sandbox: Claude runs an excluded command outside it only as a
+    plain command of its own. herdr has its own check (talks_to_herdr)."""
+    words = command_words(words)
     if not words:
         return False
-    tool = os.path.basename(words[0])
-    return tool in CREDENTIALED or (tool == "git" and bool(GIT_NETWORK & set(words)))
+    words = [os.path.basename(words[0])] + words[1:]
+    if words[0] == "herdr":
+        return False
+    if words[0] != "git":
+        return excluded(words)
+    # sandboxed git works locally, except: no push credentials; ~/.herdr/worktrees and .git/worktrees are
+    # read-only (worktree add/remove/move/prune); repo hooks fail
+    sub = [w for w in words[1:] if not w.startswith("-")][:2]
+    return bool(GIT_NETWORK & set(words)) or (sub[:1] == ["worktree"] and sub[1:] != ["list"]) or \
+        (bool(sub) and sub[0] in GIT_HOOKED and has_hooks(cwd))
+
+
+def talks_to_herdr(words):
+    """herdr commands that need its server socket, which the sandbox blocks (help and version do not)."""
+    words = command_words(words)
+    return bool(words) and os.path.basename(words[0]) == "herdr" and \
+        not set(words[1:]) & {"-h", "--help", "-V", "--version", "help"}
 
 
 def main():
@@ -384,16 +428,28 @@ def check_command(cmd, cwd):
         check_segment(s, cwd)
     # Claude runs a command outside the sandbox only when it is a plain command of its own. In a loop,
     # pipeline or chain, or with < > ` $( anywhere in it (even quoted), it runs sandboxed and the
-    # credentialed tools fail with a confusing auth error. Say so up front.
-    hit = [s for s in segs if needs_own_command(s)]
+    # excluded tools fail with a confusing auth or permission error. Say so up front, with the fix.
+    # herdr: quoted < > && are fine, but a pipe, chain, ` or $( (even in single quotes) puts it in the
+    # sandbox (verified 2026-10-24)
+    if any(talks_to_herdr(s) for s in segs) and (len(segs) > 1 or re.search(r"`|\$\(", raw)):
+        deny("run `herdr ...` as its own Bash command, with no pipe, chain, ` or $( anywhere (even in single "
+             "quotes): otherwise it runs inside the sandbox, which blocks the herdr socket "
+             "(Operation not permitted). Pass prompt text as one single-quoted argument (newlines are fine, "
+             "write ' as '\\'') and read the JSON output directly instead of piping it")
+    hit = [s for s in segs if needs_own_command(s, cwd)]
+    why = ""
     if hit and len(segs) > 1:
-        deny("run `%s` as its own Bash command: in a loop, pipeline or && chain it runs inside the sandbox "
-             "without credentials (another repo: `git-in <dir> <git args>`; gh: `-R owner/repo`, `--jq`)"
-             % " ".join(hit[0][:3]))
-    if hit and re.search(r"[<>`]|\$\(", raw):
-        deny("`%s` contains < > ` or $(, so it runs inside the sandbox without credentials: put long text "
-             "in a file (gh --body-file F, git commit -F F) and drop redirections (gh --jq, -q)"
-             % " ".join(hit[0][:3]))
+        why = "it is chained with other commands (&&, ||, ;, |, a loop or a subshell)"
+    elif hit and re.search(r"[<>`]|\$\(", raw):
+        why = "the command contains < > ` or $( (even inside quotes)"
+    if why:
+        name = " ".join(command_words(hit[0])[:3])
+        deny("`%s` would fail here: %s, so Claude runs it inside the sandbox, where it has no credentials, "
+             "cannot write outside the project and cannot run git hooks. Do not chain it. Fix: run `%s ...` as "
+             "its own Bash call with no pipe, redirect, ` or $(, and run the other commands in separate calls. "
+             "Read its output directly instead of piping it (gh --jq, -q), save output to a file in a later "
+             "call, put long text in a file (gh --body-file F, git commit -F F), and use "
+             "`git-in <repo-dir> <git args>` instead of cd or -C for another repo" % (name, why, name))
 
 
 if __name__ == "__main__":

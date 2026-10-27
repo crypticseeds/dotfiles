@@ -144,6 +144,10 @@ bash:
       approval: deny
     - match: "log show *"
       approval: deny
+    - match: "coderabbit *--api-key*"
+      approval: deny
+    - match: "coderabbit *--use-credits*"
+      approval: deny
     - match: "keyctl read"
       approval: deny
     - match: "keyctl read *"
@@ -2029,6 +2033,10 @@ bash:
     - match: "helm history"
       approval: allow
     - match: "helm history *"
+      approval: allow
+    - match: "coderabbit review"
+      approval: allow
+    - match: "coderabbit review *"
       approval: allow
     - match: "tofu plan"
       approval: allow
