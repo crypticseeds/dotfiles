@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# agent-worktree-setup [DIR] - make a fresh herdr worktree usable (default DIR: the current directory).
+# herdr creates the worktree and sets nothing up, so it has no .venv. Run this after every
+# `herdr worktree create`. Installs locked dependencies only (uv sync --frozen: no resolving, no
+# credentials; uv hardlinks from its cache, so it is cheap). Other project types: nothing yet.
+set -eu
+cd "${1:-.}"
+if [ -f uv.lock ]; then
+  exec uv sync --frozen
+fi
+echo "agent-worktree-setup: no uv.lock in $PWD, nothing to set up"

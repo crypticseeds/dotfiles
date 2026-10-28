@@ -57,7 +57,11 @@ herdr pane split <pane2> --direction down  --cwd "$PWD" --no-focus
 
 # Herdr worktree (check `herdr worktree list --cwd "$PWD"` first; reuse with `herdr worktree open`)
 herdr worktree create --cwd "$PWD" --branch agent/<slug> --label <slug> --no-focus
+# Then, as its own command, with the new worktree's `.path` from `herdr worktree list --cwd "$PWD"`
+agent-worktree-setup <worktree-path>
 ```
+
+Herdr sets nothing up in a new worktree, so it has no `.venv`. Run `agent-worktree-setup <worktree-path>` after every `herdr worktree create`, before the worker starts. It runs `uv sync --frozen` (locked dependencies only) when the project has a `uv.lock` and does nothing otherwise.
 
 Label extra tabs by purpose (`agents-2`, `tests`). Use only Herdr worktrees inside Herdr: no `git worktree add`, no `EnterWorktree`. Pipes, `&&` and `jq` are fine with `herdr` commands.
 

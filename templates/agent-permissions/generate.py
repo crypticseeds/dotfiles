@@ -535,17 +535,22 @@ AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "
 # $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
 # `coderabbit review --use-credits` through this day, then the guard refuses it again. "" = never.
 CODERABBIT_CREDITS_UNTIL = "2026-11-01"
-AGENT_HOST_WRITE = ["~/REPOS", "~/.cache/pre-commit"]
+# ~/.herdr/worktrees: herdr worktrees (<repo>/<slug>), where agent-worktree-setup creates the .venv;
+# ~/.cache/uv: its package cache (same filesystem, so installs are hardlinks).
+AGENT_HOST_WRITE = ["~/REPOS", "~/.herdr/worktrees", "~/.cache/pre-commit", "~/.cache/uv"]
 # NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
 # the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these
 # would let an agent loosen the next session in another repo or plant a git hook.
 # `.claude` itself stays writable: worktrees live in `.claude/worktrees`.
-AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in (
+_PROTECTED = (
     ".claude/settings.json", ".claude/settings.local.json", ".claude/hooks", ".claude/skills",
     ".claude/agents", ".claude/commands", ".claude/workflows", ".claude/scheduled_tasks.json",
     ".mcp.json", "opencode.json", ".omp", ".envrc", ".git/hooks", ".git/config",
-)]
+)
+# a herdr worktree is <repo>/<slug> below ~/.herdr/worktrees, so the same files one level deeper
+AGENT_HOST_DENY_WRITE = ["~/REPOS/*/%s" % p for p in _PROTECTED] + \
+    ["~/.herdr/worktrees/*/*/%s" % p for p in _PROTECTED]
 # Ordinary dev work. Claude allows every command anyway (`Bash(*)`); opencode and omp, which prompt for
 # anything unlisted, get these as allows.
 AGENT_HOST_ALLOW_BASH = [
@@ -1268,6 +1273,12 @@ def check():
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])
+    for path in ("~/.cache/uv", "~/.herdr/worktrees"):
+        expect("[agent-host] %s writable, only there" % path, [True, False], [
+            path in host["sandbox"]["filesystem"]["allowWrite"],
+            any(path in claude_file(pr, o).read_text() for pr in PROFILES for o in OSES)])
+    expect("[agent-host] herdr worktrees keep agent config write-protected", True, all(
+        "Edit(~/.herdr/worktrees/*/*/%s)" % p in host["permissions"]["deny"] for p in _PROTECTED))
     expect("[agent-host] the guard is installed", True,
            "Agent-host guard" in host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])
     try:

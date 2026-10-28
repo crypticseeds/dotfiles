@@ -66,6 +66,7 @@ Worktrees and panes:
 - Delegate to a visible worker only when it will likely block (approvals, clarifying questions, an ambiguous spec) or run long; do quick edits yourself. Read-only agents (research, review, test runs that only report) run as hidden subagents in the orchestrator's checkout, with no pane or worktree.
 - Inside herdr, workers follow the `delegate-visibly` skill: never in the orchestrator's own tab, max 2x2 panes per tab, workers on the same work share a tab. Default worker model: Sonnet 5.5 at high effort.
 - One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get a herdr worktree on a local `agent/<slug>` branch.
+- After `herdr worktree create`, run `agent-worktree-setup <worktree-path>` as its own command before starting a worker: a new worktree has no `.venv`.
 - Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
 
 ## Code review (CodeRabbit)
