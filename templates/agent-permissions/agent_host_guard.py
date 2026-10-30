@@ -7,7 +7,7 @@ subcommands" or look at files, so this hook covers what they cannot, for two con
     elsewhere, and git may not be pointed at a program (`-c`, `git config`, local config keys);
     `doppler secrets` only with --only-names;
   - destruction: recursive rm, git reset --hard / clean / history rewrites / force push (except
-    --force-with-lease to a branch other than main/master), gh merges and deletes, and the live
+    --force-with-lease to a branch other than main/master), gh deletes and `pr merge --admin`, and the live
     infrastructure tools (terraform, aws, kubectl, helm, docker) limited to read-only subcommands.
 It also explains, instead of letting them fail with an auth error, the commands Claude runs inside
 the sandbox although their tool is excluded (in a chain or pipeline, or containing < > ` or $().
@@ -73,8 +73,8 @@ READ["podman"], READ["tofu"] = READ["docker"], READ["terraform"]
 AWS_READ_OPS = re.compile(r"(describe|list|get|head|batch-get|lookup|search|filter-log-events)(-.*)?$")
 AWS_READ_EXTRA = {("s3", "ls"), ("logs", "tail"), ("sts", "get-caller-identity"), ("sso", "login"),
                   ("sso", "logout"), ("configure", "list"), ("configure", "list-profiles")}
-# gh: merges, deletes, token prints, and things that install or run code
-GH_DENY = {"pr merge", "repo delete", "repo archive", "repo rename", "release delete", "secret delete",
+# gh: deletes, token prints, and things that install or run code (`pr merge --admin` is checked below)
+GH_DENY = {"repo delete", "repo archive", "repo rename", "release delete", "secret delete",
            "secret remove", "variable delete", "run delete", "issue delete", "label delete", "workflow run",
            "auth token", "extension", "alias"}
 
@@ -293,7 +293,9 @@ def check_segment(t, cwd):
     one, two = pos[:1], " ".join(pos[:2])
     if tool == "gh":
         if two in GH_DENY or (one and one[0] in GH_DENY):
-            deny("gh %s: merging, deleting and token or code handling stay with the owner" % two)
+            deny("gh %s: deleting and token or code handling stay with the owner" % two)
+        if two == "pr merge" and "--admin" in args:
+            deny("gh pr merge --admin skips branch protection (a plain `gh pr merge` is allowed)")
         if two == "repo edit" and any(a.startswith("--visibility") for a in args):
             deny("gh repo edit --visibility can publish a private repo")
         method = ""

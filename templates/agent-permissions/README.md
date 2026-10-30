@@ -103,14 +103,14 @@ It protects exactly two things, and otherwise gets out of the way:
 2. **Destructive commands are blocked.** Recursive `rm`, `git reset --hard`, `git clean`,
    `filter-branch`/`filter-repo`, discarding the whole tree (`git checkout .`), force push (`--force`,
    `-f`, `+refspec`, `--delete`, `:branch`, `--mirror`) and `--force-with-lease` to `main`/`master`,
-   `gh pr merge`, `gh repo delete|archive|rename`, `gh release delete`, `gh api -X DELETE`,
+   `gh pr merge --admin` (plain `gh pr merge` is allowed), `gh repo delete|archive|rename`, `gh release delete`, `gh api -X DELETE`,
    `terraform apply|destroy|import`, mutating `aws` calls, `kubectl`/`helm` changes, `docker` beyond
    reads, `ansible-playbook` without `--check`.
 
 Everything else runs without a prompt: `git` in the session's repo, and in any repo under `~/REPOS` through
 `git-in <dir> <git args>` (branch creation with tracking, `commit` with hooks, `update-ref -d`, push),
 `--force-with-lease` to a
-feature branch, `gh pr create|edit|close|reopen|comment|ready`, `gh run rerun|cancel|watch`,
+feature branch, `gh pr create|edit|close|reopen|comment|ready|merge`, `gh run rerun|cancel|watch`,
 `gh issue create|comment|close`, `gh api` GET/PATCH/POST, `gh secret set`, `pre-commit install|run`,
 every `herdr` command, `terraform plan`, read-only `aws`/`kubectl`/`helm`.
 
