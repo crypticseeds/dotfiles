@@ -143,7 +143,9 @@ every `herdr` command, `terraform plan`, read-only `aws`/`kubectl`/`helm`.
   that Claude would run inside the sandbox anyway: inside `&&`/`|`/a loop, or containing `<`, `>`, a
   backtick or `$(` (even quoted). Fix: run it alone, `git-in <dir> ...`, `gh -R owner/repo`, `--jq`,
   `--body-file F`, `git commit -F F`.
-- `~/REPOS` and `~/.cache/pre-commit` are writable. Sibling repos' agent config stays write-denied
+- `~/REPOS`, `~/.herdr/worktrees`, `~/.cache/pre-commit` and `~/.cache/uv` are writable (the last two
+  with `~/.herdr/worktrees` are what `agent-worktree-setup`, `uv sync --frozen` in a new herdr worktree,
+  needs). Sibling repos' and herdr worktrees' agent config stays write-denied
   for the Edit tool (`AGENT_HOST_DENY_WRITE`); Linux ignores the wildcard sandbox `denyWrite`.
 
 **opencode and omp** (`agent-host/opencode.json`, `agent-host/omp-config.yml`) have no sandbox and no
