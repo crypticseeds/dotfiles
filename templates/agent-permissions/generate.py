@@ -557,7 +557,7 @@ AGENT_HOST_ALLOW_BASH = [
     "git push", "git-in", "git -C", "git fetch", "git pull", "git commit", "git add", "git checkout",
     "git switch", "git branch", "git merge", "git rebase", "git stash", "git update-ref", "git tag",
     "git restore", "git worktree",
-    "gh pr create", "gh pr edit", "gh pr close", "gh pr reopen", "gh pr comment", "gh pr ready",
+    "gh pr create", "gh pr edit", "gh pr close", "gh pr reopen", "gh pr comment", "gh pr ready", "gh pr merge",
     "gh pr diff", "gh pr checkout", "gh run rerun", "gh run cancel", "gh run watch", "gh issue create",
     "gh issue comment", "gh issue close", "gh issue edit", "gh api", "gh secret list", "gh secret set",
     "gh repo clone", "gh repo create",
@@ -571,8 +571,9 @@ AGENT_HOST_ALLOW_BASH = [
 AGENT_HOST_NAME_ONLY = ["=doppler secrets --only-names", "doppler secrets --only-names -p *",
                         "doppler secrets --only-names --project *"]
 AGENT_HOST_DENY_BASH = [
-    # --- GitHub: merging and deleting stay with the human; tokens and code-running extensions ---
-    "gh pr merge", "gh repo delete", "gh repo archive", "gh repo rename", "gh repo edit *--visibility*",
+    # --- GitHub: deleting stays with the human, and so does `gh pr merge --admin` (it skips branch
+    # protection; plain merges are allowed below); tokens and code-running extensions ---
+    "gh pr merge *--admin*", "gh repo delete", "gh repo archive", "gh repo rename", "gh repo edit *--visibility*",
     "gh release delete", "gh api *-X DELETE*", "gh api *-XDELETE*", "gh api *--method DELETE*",
     "gh api *--method=DELETE*", "gh secret delete", "gh secret remove", "gh variable delete",
     "gh run delete", "gh issue delete", "gh label delete", "gh workflow run", "gh extension", "gh alias",
@@ -1100,7 +1101,8 @@ AGENT_HOST_DESTRUCTIVE = [
     ("git-in . push --force-with-lease origin main", "clean", False), ("git-in /etc status", "clean", True),
     ("git-in", "clean", True), ("git-in . push --mirror origin", "clean", False),
     ("git-in . -c core.sshCommand=x push origin feat/x", "clean", True),
-    ("gh pr merge 3", "clean", False), ("gh -R o/r pr merge 3", "clean", False),
+    ("gh pr merge 3 --admin", "clean", False), ("gh pr merge --admin 3", "clean", False),
+    ("gh -R o/r pr merge 3 --admin", "clean", False),
     ("gh repo delete x", "clean", False), ("gh repo archive x", "clean", False),
     ("gh release delete v1", "clean", False), ("gh api -X DELETE repos/x/y", "clean", False),
     ("gh api --method=delete repos/x/y", "clean", True), ("gh secret delete X", "clean", False),
@@ -1130,6 +1132,8 @@ AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in C
     ("git restore --staged a.txt", "clean", "allow"), ("git branch -d feat/x", "clean", "allow"),
     ("gh pr create --fill", "clean", "allow"), ("gh pr edit 3 --title x", "clean", "allow"),
     ("gh pr close 3", "clean", "allow"), ("gh pr reopen 3", "clean", "allow"),
+    ("gh pr merge 3", "clean", "allow"), ("gh pr merge 3 --squash --delete-branch", "clean", "allow"),
+    ("gh pr merge --auto --squash 3", "clean", "allow"), ("gh -R o/r pr merge 3 --squash", "clean", "ask"),
     ("gh pr comment 3 --body x", "clean", "allow"), ("gh pr ready 3", "clean", "allow"),
     ("gh run rerun 123", "clean", "allow"), ("gh run cancel 123", "clean", "allow"),
     ("gh run watch 123", "clean", "allow"), ("gh issue create --title x --body y", "clean", "allow"),

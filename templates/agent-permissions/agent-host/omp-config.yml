@@ -743,9 +743,7 @@ bash:
       approval: deny
     - match: "k3s kubectl delete *-A*"
       approval: deny
-    - match: "gh pr merge"
-      approval: deny
-    - match: "gh pr merge *"
+    - match: "gh pr merge *--admin*"
       approval: deny
     - match: "gh repo delete"
       approval: deny
@@ -2591,6 +2589,10 @@ bash:
     - match: "gh pr ready"
       approval: allow
     - match: "gh pr ready *"
+      approval: allow
+    - match: "gh pr merge"
+      approval: allow
+    - match: "gh pr merge *"
       approval: allow
     - match: "gh pr diff"
       approval: allow
