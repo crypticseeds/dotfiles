@@ -9,8 +9,10 @@ alias ls='eza --icons=always'
 alias ll='eza --icons=always -lg'
 alias la='eza --icons=always -lag'
 
-# Zoxide
-alias cd='z'
+# Zoxide. Not in Claude Code: its shell snapshot copies this alias and `z` but not
+# zoxide's chpwd hook, so every `cd` printed the zoxide doctor warning, and `z` to a
+# missing path jumps to a frecency match instead of failing.
+[ -z "${CLAUDECODE:-}" ] && alias cd='z'
 
 # NeoVim
 alias nv='nvim'

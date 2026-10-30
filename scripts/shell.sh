@@ -2,7 +2,7 @@
 # Installs everything zsh/.zshrc and zsh/.config/zsh/aliases.zsh need to
 # function: the prompt, plugins, and the tools behind the core aliases
 # (ls -> eza, cd -> zoxide, cat -> bat, fzf, direnv), plus uv and ruff
-# for Python work (rc/rcf/rf aliases). Per OS. Idempotent.
+# for Python work (rc/rcf/rf aliases), and oxker (docker TUI). Per OS. Idempotent.
 # Other work tools referenced by aliases (kubectl, doppler, gt, pnpm, docker,
 # ...) are deliberately not installed here.
 set -eu
@@ -23,7 +23,7 @@ case "$(uname -s)" in
   Darwin)
     have brew || { echo "Homebrew required: https://brew.sh" >&2; exit 1; }
     say "brew: starship eza zoxide fzf bat direnv zsh plugins"
-    brew install starship eza zoxide fzf bat direnv zsh-autosuggestions zsh-syntax-highlighting
+    brew install starship eza zoxide fzf bat direnv oxker zsh-autosuggestions zsh-syntax-highlighting
     ;;
   Linux)
     . /etc/os-release
@@ -46,6 +46,16 @@ case "$(uname -s)" in
       say "starship: installing latest release to ~/.local/bin"
       curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$BIN"
     fi
+    # oxker (docker TUI) is not in apt/dnf: static release binary into ~/.local/bin
+    if ! have oxker; then
+      case "$(uname -m)" in
+        x86_64|amd64) oxker_arch=x86_64 ;;
+        aarch64|arm64) oxker_arch=aarch64 ;;
+        *) echo "oxker: unsupported arch $(uname -m)" >&2; exit 1 ;;
+      esac
+      say "oxker: installing latest release to ~/.local/bin"
+      curl -fsSL "https://github.com/mrjackwills/oxker/releases/latest/download/oxker_linux_${oxker_arch}.tar.gz" | tar -xz -C "$BIN" oxker
+    fi
     # Login shell -> zsh (no-op when it already is)
     zsh_path="$(command -v zsh)"
     if [ "$(getent passwd "$USER" | cut -d: -f7)" != "$zsh_path" ]; then
@@ -66,7 +76,7 @@ fi
 have ruff || { say "ruff: uv tool install ruff"; uv tool install ruff; }
 
 say "versions"
-for t in zsh starship eza zoxide fzf bat batcat direnv git uv ruff; do
+for t in zsh starship eza zoxide fzf bat batcat direnv git uv ruff oxker; do
   if have "$t"; then printf '  %-12s %s\n' "$t" "$("$t" --version 2>/dev/null | head -1)"; fi
 done
 have bat || have batcat || echo "  bat          MISSING"

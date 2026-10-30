@@ -58,6 +58,8 @@ brew "lua"
 brew "neovim"
 # Open-source, cross-platform JavaScript runtime environment
 brew "node@24"
+# Terminal User Interface (TUI) to view & control docker containers
+brew "oxker"
 # Fast, disk space efficient package manager
 brew "pnpm"
 # Interpreted, interactive, object-oriented programming language
