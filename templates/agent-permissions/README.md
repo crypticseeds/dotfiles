@@ -179,8 +179,9 @@ symlinks, or a repo's `.git/config`.
   rules (`/etc/opencode`, omp's config), and `opencode api` can run shell commands on the service. Denied:
   credential reads and exports (`opencode auth`, `opencode api *credential*`, heap dumps, `omp auth*`),
   `omp clip` (public upload), `omp collab`, and stopping, restarting or reconfiguring the shared opencode
-  service. The guard refuses attachments (`--file F`, `@F`, `file://`) that resolve into a secret store; a
-  path inside an API request body (`-d '{"files":...}'`) is not checked.
+  service. The guard refuses attachments (`--file F`, `@F`, `file://` URIs, also inside an API request body
+  such as `-d '{"files":[{"uri":"file://..."}]}'`) that resolve into a secret store: opencode reads
+  attachments before any permission check (verified 2026-10-31).
 - Not `allowAllUnixSockets` for herdr: on Linux it is all-or-nothing (`allowUnixSockets` is macOS only)
   and would also open the docker socket (root-equivalent), the dbus session bus and the gpg/ssh agents.
 - `doppler run --only-secrets X -- <cmd>` runs `<cmd>` outside the sandbox (any program); the guard

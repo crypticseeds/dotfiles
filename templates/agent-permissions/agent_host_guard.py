@@ -22,6 +22,7 @@ import shlex
 import subprocess
 import sys
 import time
+import urllib.parse
 
 SECRET_GLOBS = []  # filled in by generate.py: every secret path the policy denies
 REPO_ROOTS = []    # filled in by generate.py: where `git-in <dir>` may work (bin/git-in enforces it too)
@@ -289,6 +290,11 @@ def check_segment(t, cwd):
         deny("coderabbit --use-credits spends paid credits (allowed only until %s)" % (CREDITS_UNTIL or "never"))
     # coderabbit: `-c <file>` uploads it; opencode/omp: `--file F`, `@F` and file:// attach F to a prompt,
     # so check_args above matters. Their subcommand denies are permission rules.
+    if tool == "opencode":  # attachments inside an API body (-d '{"files":[{"uri":"file://..."}]}') are
+        # read before any opencode permission check (verified 2026-10-31)
+        for a in args:
+            for uri in re.findall(r"file://([^\"'\s?#]+)", a):
+                check_args(tool, [urllib.parse.unquote(uri)], cwd)
     if tool in ("pre-commit", "coderabbit", "opencode", "omp"):
         return
     pos = positionals(tool, args)

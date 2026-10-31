@@ -1106,6 +1106,8 @@ AGENT_HOST_SECRET = [
     ("opencode api credential.list", "clean", False), ("opencode debug heap-dump", "clean", False),
     ("omp auth export", "clean", False), ("omp clip x.cast", "clean", False),
     ("opencode run --file values.yaml 'summarise'", "link", True), ("omp -p @values.yaml 'summarise'", "link", True),
+    ("opencode api post /api/session/s/prompt -d '{\"text\":\"x\",\"files\":[{\"uri\":\"file://values.yaml\"}]}'",
+     "link", True),
 ]
 AGENT_HOST_DESTRUCTIVE = [
     ("rm -Rf build", "clean", False), ("rm --recursive build", "clean", False),
