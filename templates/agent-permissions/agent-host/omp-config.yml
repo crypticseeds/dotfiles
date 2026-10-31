@@ -853,6 +853,64 @@ bash:
       approval: deny
     - match: "terraform apply *"
       approval: deny
+    - match: "opencode auth"
+      approval: deny
+    - match: "opencode auth *"
+      approval: deny
+    - match: "opencode api *credential*"
+      approval: deny
+    - match: "opencode debug heap-dump"
+      approval: deny
+    - match: "opencode debug heap-dump *"
+      approval: deny
+    - match: "opencode service stop"
+      approval: deny
+    - match: "opencode service stop *"
+      approval: deny
+    - match: "opencode service restart"
+      approval: deny
+    - match: "opencode service restart *"
+      approval: deny
+    - match: "opencode service set"
+      approval: deny
+    - match: "opencode service set *"
+      approval: deny
+    - match: "opencode service unset"
+      approval: deny
+    - match: "opencode service unset *"
+      approval: deny
+    - match: "opencode uninstall"
+      approval: deny
+    - match: "opencode uninstall *"
+      approval: deny
+    - match: "opencode upgrade"
+      approval: deny
+    - match: "opencode upgrade *"
+      approval: deny
+    - match: "opencode update"
+      approval: deny
+    - match: "opencode update *"
+      approval: deny
+    - match: "omp auth"
+      approval: deny
+    - match: "omp auth *"
+      approval: deny
+    - match: "omp auth-broker"
+      approval: deny
+    - match: "omp auth-broker *"
+      approval: deny
+    - match: "omp auth-gateway"
+      approval: deny
+    - match: "omp auth-gateway *"
+      approval: deny
+    - match: "omp clip"
+      approval: deny
+    - match: "omp clip *"
+      approval: deny
+    - match: "omp collab"
+      approval: deny
+    - match: "omp collab *"
+      approval: deny
     - match: "doppler *tokens*"
       approval: deny
     - match: "doppler *--print-config*"
@@ -2661,6 +2719,14 @@ bash:
     - match: "agent-clean"
       approval: allow
     - match: "agent-clean *"
+      approval: allow
+    - match: "opencode"
+      approval: allow
+    - match: "opencode *"
+      approval: allow
+    - match: "omp"
+      approval: allow
+    - match: "omp *"
       approval: allow
     - match: "doppler projects"
       approval: allow

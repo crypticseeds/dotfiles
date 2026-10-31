@@ -22,6 +22,7 @@ import shlex
 import subprocess
 import sys
 import time
+import urllib.parse
 
 SECRET_GLOBS = []  # filled in by generate.py: every secret path the policy denies
 REPO_ROOTS = []    # filled in by generate.py: where `git-in <dir>` may work (bin/git-in enforces it too)
@@ -31,7 +32,7 @@ EXCLUDED = []      # filled in by generate.py: the sandbox's excludedCommands
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
 OUTSIDE = {"git", "gh", "pre-commit", "aws", "terraform", "tofu", "kubectl", "helm", "docker", "podman",
-           "doppler", "coderabbit"}
+           "doppler", "coderabbit", "opencode", "omp"}
 # git-in <dir> <git args> (bin/git-in) is the only way to run git in another repo outside the sandbox
 OUTSIDE.add("git-in")
 # Claude Code never exempts a git command with one of these global options from the sandbox
@@ -287,7 +288,14 @@ def check_segment(t, cwd):
     if tool == "coderabbit" and any(a.startswith("--use-credits") for a in args) and \
             time.strftime("%Y-%m-%d") > CREDITS_UNTIL:
         deny("coderabbit --use-credits spends paid credits (allowed only until %s)" % (CREDITS_UNTIL or "never"))
-    if tool in ("pre-commit", "coderabbit"):  # coderabbit: `-c <file>` uploads it, so check_args above matters
+    # coderabbit: `-c <file>` uploads it; opencode/omp: `--file F`, `@F` and file:// attach F to a prompt,
+    # so check_args above matters. Their subcommand denies are permission rules.
+    if tool == "opencode":  # attachments inside an API body (-d '{"files":[{"uri":"file://..."}]}') are
+        # read before any opencode permission check (verified 2026-10-31)
+        for a in args:
+            for uri in re.findall(r"file://([^\"'\s?#]+)", a):
+                check_args(tool, [urllib.parse.unquote(uri)], cwd)
+    if tool in ("pre-commit", "coderabbit", "opencode", "omp"):
         return
     pos = positionals(tool, args)
     one, two = pos[:1], " ".join(pos[:2])

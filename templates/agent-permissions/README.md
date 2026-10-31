@@ -112,14 +112,15 @@ Everything else runs without a prompt: `git` in the session's repo, and in any r
 `--force-with-lease` to a
 feature branch, `gh pr create|edit|close|reopen|comment|ready|merge`, `gh run rerun|cancel|watch`,
 `gh issue create|comment|close`, `gh api` GET/PATCH/POST, `gh secret set`, `pre-commit install|run`,
-every `herdr` command, `terraform plan`, read-only `aws`/`kubectl`/`helm`.
+every `herdr` command, `opencode` and `omp` (agents driving each other as workers; see the
+`opencode-workers` skill), `terraform plan`, read-only `aws`/`kubectl`/`helm`.
 
 **How (Claude):**
 - Default allow (`Bash(*)`), no ask rules, `WebFetch(domain:*)`: nobody is there to answer a prompt.
   `generate.py` refuses to run while an `ASK_BASH` entry is undecided for the agent host.
 - Sandbox on (bubblewrap), `allowUnsandboxedCommands: false`, `allowManagedPermissionRulesOnly: true`.
 - `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`,
-  `kubectl *`, `helm *`, `coderabbit review *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
+  `kubectl *`, `helm *`, `coderabbit review *`, `opencode *`, `omp *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
 - Guard hook (`agent_host_guard.py`, embedded inline in the settings file) for what globs cannot
   express: spellings (`rm -Rf`, `git -C x reset --hard`, `gh -R o/r pr merge`), the branch a
   lease-push targets, arguments of unsandboxed tools that resolve into a secret store (also through a
@@ -172,6 +173,15 @@ symlinks, or a repo's `.git/config`.
   `herdr worktree remove`, since it discards uncommitted work. Pane, tab and workspace close are allowed.
 - `herdr *` outside the sandbox, unchecked: visible panes work, but `herdr pane run` starts any command
   unsandboxed, so herdr is a full sandbox escape for a determined agent.
+- `opencode *` and `omp *` outside the sandbox (sandboxed, opencode cannot write its log or reach its
+  service on localhost; omp cannot write `~/.omp` or reach its model APIs; verified 2026-10-31): Claude can
+  start, message and read workers. Same escape as herdr: a worker is a full agent under its own harness's
+  rules (`/etc/opencode`, omp's config), and `opencode api` can run shell commands on the service. Denied:
+  credential reads and exports (`opencode auth`, `opencode api *credential*`, heap dumps, `omp auth*`),
+  `omp clip` (public upload), `omp collab`, and stopping, restarting or reconfiguring the shared opencode
+  service. The guard refuses attachments (`--file F`, `@F`, `file://` URIs, also inside an API request body
+  such as `-d '{"files":[{"uri":"file://..."}]}'`) that resolve into a secret store: opencode reads
+  attachments before any permission check (verified 2026-10-31).
 - Not `allowAllUnixSockets` for herdr: on Linux it is all-or-nothing (`allowUnixSockets` is macOS only)
   and would also open the docker socket (root-equivalent), the dbus session bus and the gpg/ssh agents.
 - `doppler run --only-secrets X -- <cmd>` runs `<cmd>` outside the sandbox (any program); the guard

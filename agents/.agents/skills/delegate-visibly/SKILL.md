@@ -67,15 +67,21 @@ Label extra tabs by purpose (`agents-2`, `tests`). Use only Herdr worktrees insi
 
 ## Start the worker
 
-Default kind is the harness you are running in: `claude` in Claude Code, `opencode` in opencode, `omp` in omp. Use another kind only when the user asks. Native arguments go after `--`. Default model is **Sonnet 5.5 at high effort**; use Haiku only for small-tier work per the tiering table in AGENTS.md, and always pass the model explicitly.
+Default kind is the harness you are running in: `claude` in Claude Code, `opencode` in opencode, `omp` in omp. Use another kind only when the user asks; when the user asks for opencode workers, follow the `opencode-workers` skill instead of this section. Native arguments go after `--`. Default model is **Sonnet 5.5 at high effort**; use Haiku only for small-tier work per the tiering table in AGENTS.md, and always pass the model explicitly.
 
 | Kind | Sonnet 5.5, high (default) | Haiku 5.5 |
 |---|---|---|
 | claude | `-- --agent <name> --model claude-sonnet-5-5 --effort high` | `-- --agent <name> --model claude-haiku-5-5` |
 | omp | `-- --model claude-sonnet-5-5 --thinking high` | `-- --model claude-haiku-5-5` |
-| opencode | `-- --agent <name> -m github-copilot/claude-sonnet-5.5` | `-- --agent <name> -m github-copilot/claude-haiku-5.5` |
+| opencode | `-- --session <id>` after creating the session with agent `worker-sonnet` (model `github-copilot/claude-sonnet-5.5#high`) | `-- --session <id>` after creating the session with agent `<name>` and model `github-copilot/claude-haiku-5.5` |
 
-`<name>` is the subagent (e.g. `implementer`). opencode workers run without an effort setting: its TUI rejects `--variant` (only `opencode run` accepts it), and its agent config has no variant key.
+`<name>` is the subagent (e.g. `implementer`). The opencode TUI has no `--agent` or `--model` flag (`opencode --agent x` exits 1), so an opencode worker gets its agent, model and effort from a session created first, as its own command:
+
+```bash
+opencode api post /api/session -d '{"id":"ses_<repo>_<slug>","title":"<role>","agent":"worker-sonnet","model":{"providerID":"github-copilot","id":"claude-sonnet-5.5","variant":"high"},"location":{"directory":"<checkout or worktree path>"}}'
+```
+
+The pane's status bar then shows the agent, model and effort. Messaging, reading and unblocking that session through the opencode API are in the `opencode-workers` skill.
 
 ```bash
 herdr pane rename <pane> "<role>"     # e.g. impl-auth, test-auth, fix-auth
