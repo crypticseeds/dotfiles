@@ -31,7 +31,7 @@ EXCLUDED = []      # filled in by generate.py: the sandbox's excludedCommands
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
 OUTSIDE = {"git", "gh", "pre-commit", "aws", "terraform", "tofu", "kubectl", "helm", "docker", "podman",
-           "doppler", "coderabbit"}
+           "doppler", "coderabbit", "opencode", "omp"}
 # git-in <dir> <git args> (bin/git-in) is the only way to run git in another repo outside the sandbox
 OUTSIDE.add("git-in")
 # Claude Code never exempts a git command with one of these global options from the sandbox
@@ -287,7 +287,9 @@ def check_segment(t, cwd):
     if tool == "coderabbit" and any(a.startswith("--use-credits") for a in args) and \
             time.strftime("%Y-%m-%d") > CREDITS_UNTIL:
         deny("coderabbit --use-credits spends paid credits (allowed only until %s)" % (CREDITS_UNTIL or "never"))
-    if tool in ("pre-commit", "coderabbit"):  # coderabbit: `-c <file>` uploads it, so check_args above matters
+    # coderabbit: `-c <file>` uploads it; opencode/omp: `--file F`, `@F` and file:// attach F to a prompt,
+    # so check_args above matters. Their subcommand denies are permission rules.
+    if tool in ("pre-commit", "coderabbit", "opencode", "omp"):
         return
     pos = positionals(tool, args)
     one, two = pos[:1], " ".join(pos[:2])

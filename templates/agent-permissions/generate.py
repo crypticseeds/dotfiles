@@ -528,10 +528,15 @@ ALLOW_LIVE = [
 #    asking the owner. It deletes only fixed agent-owned locations and takes no path to delete.
 #  - coderabbit review: the sandbox proxy closes its WebSocket ("Connection failed: WebSocket closed")
 #    and ~/.coderabbit (reviews, logs) is read-only inside it. Its other subcommands work sandboxed.
+#  - opencode and omp: agents drive each other as workers (opencode-workers skill). Sandboxed, opencode
+#    cannot write its log (~/.local/share/opencode) or reach its background service on localhost
+#    (verified 2026-10-31), and omp cannot write ~/.omp or reach its model APIs. Same trade-off as
+#    herdr: a worker they start is a full agent outside this sandbox, under its own harness's rules.
 # The guard hook (agent_host_guard.py) checks the destructive and secret-reading forms of all of
 # these except herdr; the deny rules still apply.
 AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "kubectl *", "helm *",
-                       "agent-clean", "agent-clean *", "coderabbit review", "coderabbit review *"]
+                       "agent-clean", "agent-clean *", "coderabbit review", "coderabbit review *",
+                       "opencode *", "omp *"]
 # $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
 # `coderabbit review --use-credits` through this day, then the guard refuses it again. "" = never.
 CODERABBIT_CREDITS_UNTIL = "2026-11-01"
@@ -562,6 +567,8 @@ AGENT_HOST_ALLOW_BASH = [
     "gh issue comment", "gh issue close", "gh issue edit", "gh api", "gh secret list", "gh secret set",
     "gh repo clone", "gh repo create",
     "pre-commit", "herdr", "agent-clean",
+    # agents starting, messaging and reading other agents (opencode-workers skill)
+    "opencode", "omp",
     # Doppler: list projects, configs and environments (names, never values)
     "doppler projects", "doppler configs", "doppler environments",
 ]
@@ -587,6 +594,12 @@ AGENT_HOST_DENY_BASH = [
     "git worktree remove *--force*", "git worktree remove -f", "git worktree remove * -f",
     "herdr worktree remove *--force*",
     "terraform apply",  # nobody is there to approve it, so deny instead of a prompt that stalls
+    # --- opencode and omp: stored credentials (print or export them, heap dumps hold them, public
+    # uploads, remote control links) and the shared opencode service every agent session runs on ---
+    "opencode auth", "opencode api *credential*", "opencode debug heap-dump", "opencode service stop",
+    "opencode service restart", "opencode service set", "opencode service unset", "opencode uninstall",
+    "opencode upgrade", "opencode update",
+    "omp auth", "omp auth-broker", "omp auth-gateway", "omp clip", "omp collab",
     # The Doppler list commands above must not reach their token-minting, mutating, log or
     # config-printing forms, nor a flag that sends the token to another host.
     "doppler *tokens*", "doppler *--print-config*", "doppler *--api-host*", "doppler *--dashboard-host*",
@@ -1089,6 +1102,10 @@ AGENT_HOST_SECRET = [
     ("aws s3 ls --endpoint-url https://x", "clean", True), ("kubectl get pods --kubeconfig ./k", "clean", False),
     ("docker run -v /home/ai:/h alpine ls", "clean", False),
     ("coderabbit review --agent -c values.yaml", "link", True),
+    ("opencode auth list", "clean", False), ("opencode api get /api/credential", "clean", False),
+    ("opencode api credential.list", "clean", False), ("opencode debug heap-dump", "clean", False),
+    ("omp auth export", "clean", False), ("omp clip x.cast", "clean", False),
+    ("opencode run --file values.yaml 'summarise'", "link", True), ("omp -p @values.yaml 'summarise'", "link", True),
 ]
 AGENT_HOST_DESTRUCTIVE = [
     ("rm -Rf build", "clean", False), ("rm --recursive build", "clean", False),
@@ -1116,6 +1133,7 @@ AGENT_HOST_DESTRUCTIVE = [
     ("git worktree remove .worktrees/x -f", "clean", False), ("git worktree remove -ff .worktrees/x", "clean", True),
     ("git-in . worktree remove --force x", "clean", False),
     ("herdr worktree remove --workspace w2 --force", "clean", False),
+    ("opencode service restart", "clean", False), ("opencode service stop", "clean", False),
 ]
 AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in Claude
     ("git push -u origin feat/x", "clean", "allow"), ("git-in . push origin feat/x", "clean", "allow"),
@@ -1162,6 +1180,13 @@ AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in C
     ("herdr worktree remove --workspace w2", "clean", "allow"), ("herdr tab close w1:t2", "clean", "allow"),
     ("herdr workspace close w2", "clean", "allow"),
     ("git add worktree && git commit -m x", "clean", "allow"),
+    ("opencode run --agent worker-sonnet --file .agent/briefs/x.md 'Execute the attached brief'", "clean", "allow"),
+    ("opencode run --session ses_x --format json 'Fix the failing test'", "clean", "allow"),
+    ("opencode api get /api/session/active", "clean", "allow"),
+    ("opencode api post /api/experimental/session/ses_x/wait", "clean", "allow"),
+    ("opencode api post /api/session/ses_x/permission/per_x/reply -d '{\"decision\":\"once\"}'", "clean", "allow"),
+    ("opencode service status", "clean", "allow"), ("opencode session list", "clean", "allow"),
+    ("omp -p --model sonnet 'Reply ok'", "clean", "allow"), ("omp --resume 1a2b -p 'continue'", "clean", "allow"),
 ]
 # Claude runs these sandboxed although their tool is excluded; the guard explains instead of an auth error
 AGENT_HOST_EXPLAINED = [
@@ -1177,6 +1202,8 @@ AGENT_HOST_EXPLAINED = [
     "git worktree prune; git worktree list", "pre-commit run --all-files && echo ok",
     "agent-clean && agent-clean --caches", "docker ps | head", "aws sts get-caller-identity && echo ok",
     "for d in a b; do kubectl get pods -n $d; done", "coderabbit review --agent 2>&1",
+    "opencode api get /api/session/active | jq .", "opencode run --format json 'x' > out.jsonl",
+    "omp -p 'x' && echo done",
 ]
 
 # (path, decision) for Claude Read/Edit deny rules: "deny" or "ok" (not matched by any deny).
@@ -1273,7 +1300,7 @@ def check():
     expect("[agent-host] repo settings cannot add rules", True, host["allowManagedPermissionRulesOnly"])
     excluded = host["sandbox"]["excludedCommands"]
     for tool in ("git *", "gh *", "git-in *", "herdr *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *",
-                 "agent-clean", "agent-clean *", "coderabbit review *"):
+                 "agent-clean", "agent-clean *", "coderabbit review *", "opencode *", "omp *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])
