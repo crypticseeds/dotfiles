@@ -14,7 +14,7 @@ a stow package whose contents mirror $HOME (see README.md for the layout).
 - After ADDING or REMOVING files in a package, run `make restow`. After
   adding/removing a skill in `agents/.agents/skills/`, run `make skills`.
 - Verify with `make doctor` after structural changes.
-- Tool packages (claude, codex, cursor, opencode, pi, herdr) are stowed with
+- Tool packages (claude, codex, cursor, opencode, pi, herdr, herdr-app) are stowed with
   `--no-folding` on purpose: never add runtime state (sessions, auth, caches,
   logs, node_modules, sqlite) to this repo, and never commit credentials.
   `.env` files and auth.json are expected to stay in $HOME only.

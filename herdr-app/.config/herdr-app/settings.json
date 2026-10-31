@@ -1,0 +1,19 @@
+{
+  "zoom": 1.0,
+  "sounds": {
+    "enabled": true
+  },
+  "font_size": 16.0,
+  "telemetry": false,
+  "minimum_contrast": 1.0,
+  "//": "colors.accent: light cream #ddc7a1 (current). Alternative: soft gold #d8a657",
+  "colors": {
+    "background": "#000000",
+    "canvas": "#000000",
+    "chrome": "#000000",
+    "surface": "#000000",
+    "selected": "#3c3836",
+    "accent": "#ddc7a1",
+    "selection": "#3c3836"
+  }
+}

@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+# agent-mux - print which multiplexer hosts this shell: herdr-app, herdr, or none.
+# herdr = the herdr server's panes (herdr in a terminal, or herdr-gui). herdr-app = herdr-core (hc).
+# The env vars alone are not proof: herdr-core and the herdr server pass their HC_* / HERDR_* on
+# to everything they start, so a core started from a herdr pane leaks HERDR_* into every herdr-app
+# terminal (and the reverse). So this checks that the terminal each variable names really is an
+# ancestor of this process, and when both are (one nested in the other), picks the nearest.
+set -u
+
+ancestors() {
+  p=$$
+  while [ -n "$p" ] && [ "$p" -gt 1 ]; do
+    echo "$p"
+    p=$(ps -o ppid= -p "$p" | tr -d ' ')
+  done
+}
+
+# depth PID: 1-based distance from this process, empty if PID is not an ancestor.
+depth() {
+  [ -n "$1" ] && [ "$1" != null ] || return 0
+  ancestors | grep -nx "$1" | cut -d: -f1
+}
+
+hc_depth=""
+if [ -n "${HC_TERMINAL_ID:-}" ] && command -v hc >/dev/null 2>&1; then
+  hc_depth=$(depth "$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.pid // empty')")
+fi
+
+herdr_depth=""
+if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] && command -v herdr >/dev/null 2>&1; then
+  herdr_depth=$(depth "$(herdr pane process-info --pane "$HERDR_PANE_ID" 2>/dev/null |
+    jq -r '.result.process_info.shell_pid // empty')")
+fi
+
+if [ -n "$hc_depth" ] && { [ -z "$herdr_depth" ] || [ "$hc_depth" -lt "$herdr_depth" ]; }; then
+  echo herdr-app
+elif [ -n "$herdr_depth" ]; then
+  echo herdr
+else
+  echo none
+fi

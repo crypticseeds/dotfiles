@@ -23,11 +23,16 @@ selection-clear-on-copy = true
 # overriding cursor-style. Disable it so the underline sticks.
 shell-integration-features = no-cursor
 
-# Splits are handled by herdr (bound to cmd+d / cmd+shift+d / cmd+w in its config).
-# Unbind them here so Ghostty passes the keys through instead of splitting/closing.
+# Splits, tabs and spaces are handled by herdr (cmd keys in its config.toml).
+# Unbind them here so Ghostty passes the keys through instead of acting on them.
 keybind = cmd+d=unbind
 keybind = cmd+shift+d=unbind
 keybind = cmd+w=unbind
+keybind = cmd+t=unbind
+keybind = cmd+shift+t=unbind
+keybind = cmd+shift+w=unbind
+keybind = cmd+n=unbind
+keybind = cmd+shift+z=unbind
 
 # niri's Cmd+C / Cmd+V send Ctrl+Shift+C / Ctrl+Shift+V to terminals (docs/niri.md).
 # Fallback in case the still-held Cmd reaches Ghostty as Super.
