@@ -62,6 +62,7 @@ Each top-level directory is a stow package mirroring `$HOME`:
 | `agents/` | `~/.agents` | AI source of truth: AGENTS.md, skills, subagents |
 | `claude/` `codex/` `cursor/` `opencode/` `pi/` `hermes/` | `~/.claude` etc. | Harness configs; stowed `--no-folding` so runtime state stays out of the repo |
 | `zsh/` `nvim/` `starship/` `wezterm/` `herdr/` | `~/.zshrc`, `~/.config/...` | Cross-platform |
+| `herdr-app/` | `~/.config/herdr-app` | Herdr desktop app (keys, settings); stowed `--no-folding` so the app's runtime state stays out of the repo |
 | `hammerspoon/` `aerospace/` `sketchybar/` `ghostty-mac/` | | macOS only (`ghostty-mac/` deploys `~/.config/ghostty/config`) |
 | `niri/` `ghostty/` `noctalia/` | `~/.config/niri` `~/.config/ghostty` `~/.config/noctalia` | Linux only: niri desktop with the Noctalia shell, see [docs/niri.md](docs/niri.md); stowed `--no-folding` so Noctalia's generated theme files stay out of the repo |
 | `packages/` `scripts/` | not stowed | Provisioning lists + bootstrap/doctor |

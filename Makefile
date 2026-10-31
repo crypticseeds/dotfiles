@@ -14,7 +14,7 @@
 # land in the repo.
 
 COMMON    := zsh nvim starship wezterm
-TOOLS     := claude codex cursor opencode pi herdr hermes
+TOOLS     := claude codex cursor opencode pi herdr herdr-app hermes
 MACONLY   := hammerspoon aerospace sketchybar ghostty-mac
 LINUXONLY := niri ghostty noctalia
 MINIMAL   := zsh starship
