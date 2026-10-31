@@ -39,7 +39,7 @@
               "id": "spaces",
               "type": "block",
               "content": {
-                "mod": "spaces"
+                "mod": "creamy-spaces"
               },
               "size": {
                 "weight": 1
@@ -50,7 +50,7 @@
               "id": "agents",
               "type": "block",
               "content": {
-                "mod": "agents"
+                "mod": "creamy-agents"
               },
               "size": {
                 "weight": 1
