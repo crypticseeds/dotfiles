@@ -18,6 +18,11 @@ function find(node, id) {
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
+// A rail wider than the collapsed 44px has room for an icon beside each number.
+const roomy = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 72;
+// From 110px the name fits (it takes the number's place); from 130px both fit.
+const named = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 110;
+const numbered = () => !named() || (find(layout(), "sidebar")?.size?.px ?? 0) >= 130;
 
 // Where a space is now: its first terminal's live folder, else where it was made.
 // `ps`: panes(), read once by the caller (each read copies every pane).
@@ -338,18 +343,34 @@ export default class Spaces extends View {
       );
   }
 
-  compact({ w, i }, t) {
+  compact({ w, i, tree }, t) {
+    const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
+    const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
     return h_flex()
       .id(`space-${w.id}`)
       .h(26)
       .flex_none()
-      .justify_center()
+      .when(named(), (el) => el.px(8)).when(!named(), (el) => el.justify_center())
       .gap(4)
       .when(w.active, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
       .on_click(() => run("space.select", { id: w.id }))
-      .child(div().text_color(w.active ? t.foreground : t.muted).child(String(i + 1)))
-      .child(div().text_color(tone(t, w.status)).child(glyph(w.status)));
+      // Roomy rail: fixed slots (badge 16, number 14, status 14) so the columns line up with the agents rail.
+      // A worktree space shows the tree line in the badge slot, under its repo's badge.
+      .when(roomy() && !tree, (el) => el.items_center()
+        .child(h_flex().size(16).flex_none().rounded(4).bg(fill).items_center().justify_center()
+          .text_size(10).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
+      .when(roomy() && Boolean(tree), (el) => el.items_center()
+        .child(v_flex().w(16).h_full().flex_none()
+          .child(div().w(8).h(13).ml(7).border_l(1.5).border_b(1.5).border_color(t.input)
+            .when(tree === "\u2514\u2500", (line) => line.rounded_bl(6)))
+          .when(tree !== "\u2514\u2500", (col) => col.child(div().w(8).h(13).ml(7).border_l(1.5).border_color(t.input)))))
+      .when(numbered(), (el) => el.child(div().when(roomy(), (n) => n.w(14).flex_none().text_center())
+        .text_color(w.active ? t.foreground : t.muted).child(String(i + 1))))
+      .when(named(), (el) => el.child(div().flex_1().min_w(0).truncate()
+        .text_color(w.active ? t.foreground : t.muted).child(w.name)))
+      .child(div().when(roomy(), (el) => el.w(14).flex_none().text_center())
+        .text_color(tone(t, w.status)).child(glyph(w.status)));
   }
 
   render() {

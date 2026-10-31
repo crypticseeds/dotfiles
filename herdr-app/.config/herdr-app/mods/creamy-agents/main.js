@@ -16,6 +16,11 @@ function find(node, id) {
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
+// A rail wider than the collapsed 44px has room for an icon beside each number.
+const roomy = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 72;
+// From 110px the name fits (it takes the number's place); from 130px both fit.
+const named = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 110;
+const numbered = () => !named() || (find(layout(), "sidebar")?.size?.px ?? 0) >= 130;
 
 // To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
 function toggleSidebar() {
@@ -66,6 +71,13 @@ function duration(ms) {
 function icon(p, size, color) {
   if (!p?.icon) return null;
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
+}
+
+// The tree line for a roomy-rail row, in a 16px slot: a corner, and for ├ the line carried on down.
+function railTreeLine(t, last) {
+  return v_flex().w(16).h_full().flex_none()
+    .child(div().w(8).h(13).ml(7).border_l(1.5).border_b(1.5).border_color(t.input).when(last, (el) => el.rounded_bl(6)))
+    .when(!last, (el) => el.child(div().w(8).h(13).ml(7).border_l(1.5).border_color(t.input)));
 }
 
 export default class Agents extends View {
@@ -196,6 +208,29 @@ export default class Agents extends View {
       .child(this.status(t, { status: st }, compact));
   }
 
+  // A sub-agent on the roomy rail, in the parent row's slots: the tree line under the parent's
+  // icon, the sub-agent's icon under its number, its status under its status.
+  railSubRow(t, s, shown) {
+    const k = s.t;
+    const pic = icon(k.program, 14, t.foreground);
+    const l = s.lines.at(-1);
+    return h_flex()
+      .id(`sub-${k.address}`)
+      .h(26)
+      .flex_none()
+      .items_center()
+      .when(named(), (el) => el.px(16)).when(!named(), (el) => el.justify_center())
+      .gap(4)
+      .when(k.address === shown, (el) => el.bg(t.raised))
+      .hover((s) => s.bg(t.hover))
+      .on_click(() => this.peek(k.address))
+      .child(railTreeLine(t, l === "└"))
+      .child(h_flex().w(14).flex_none().justify_center().when(Boolean(pic), (el) => el.child(pic)))
+      .when(named(), (el) => el.child(div().flex_1().min_w(0).truncate().text_color(t.muted)
+        .child(k.name || k.template || k.program?.name || k.address)))
+      .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { status: kidStatus(k, this.listed) }, true)));
+  }
+
   // compact: a ! for blocked where a header already says "Needs you".
   status(t, a, compact = false) {
     const color = t[a.status] ?? t.dim;
@@ -230,10 +265,10 @@ export default class Agents extends View {
     setAgentOrder(list.map((a) => a.address));
 
     const withKids = (a, i) => {
-      const subs = collapsed ? [] : this.tree(all, a.address);
+      const subs = collapsed && !roomy() ? [] : this.tree(all, a.address);
       const r = row(a, i, subs);
       if (this.folded.has(a.address)) return [r];
-      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority))];
+      return [r, ...subs.map((s) => (collapsed ? this.railSubRow(t, s, shown) : this.subRow(t, s, shown, byPriority)))];
     };
 
     // The fold chevron; folded, the count too, colored by the most urgent one.
@@ -282,6 +317,23 @@ export default class Agents extends View {
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
+      if (collapsed && roomy()) {
+        // Centered as one group (icon, number, status), like the spaces rail.
+        return h_flex()
+          .id(`ag-${a.address}`)
+          .h(26)
+          .flex_none()
+          .items_center()
+          .when(named(), (el) => el.px(16)).when(!named(), (el) => el.justify_center())
+          .gap(4)
+          .hover((s) => s.bg(t.hover))
+          .on_click(() => run("pane.focus", { pane: a.pane }))
+          // Fixed slots (icon 16, number 14, status 14) so the columns line up with the spaces rail.
+          .child(h_flex().size(16).flex_none().items_center().justify_center().when(pic != null, (el) => el.child(icon(a.program, 14, t.foreground))))
+          .when(numbered(), (el) => el.child(div().w(14).flex_none().text_center().text_color(t.muted).child(String(i + 1))))
+          .when(named(), (el) => el.child(div().flex_1().min_w(0).truncate().text_color(t.muted).child(a.space_name)))
+          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
+      }
       if (collapsed) {
         return h_flex()
           .id(`ag-${a.address}`)
@@ -417,7 +469,7 @@ export default class Agents extends View {
                 .text_size(11)
                 .text_color(t.dim)
                 .hover((s) => s.text_color(t.foreground))
-                .on_click(() => openOverlay({ mod: "agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
+                .on_click(() => openOverlay({ mod: "creamy-agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
             ),
