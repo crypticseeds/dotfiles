@@ -106,7 +106,7 @@ niri: pull
 	@printf '\nniri desktop ready. Log out and pick Niri from the gear on the login screen.\n'
 
 # Per-skill links for harnesses that do not read ~/.agents/skills natively.
-# pi and opencode read it natively and need nothing here. Absolute links are
+# pi, opencode and omp read it natively and need nothing here. Absolute links are
 # intentional (regenerated per machine, never committed). Real dirs are never
 # touched; dangling links into ~/.agents/skills are pruned.
 skills:
