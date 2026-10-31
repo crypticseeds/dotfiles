@@ -172,7 +172,6 @@ binds {
 
     // Apps
     Mod+Return hotkey-overlay-title="Terminal: Ghostty" { spawn "ghostty"; }
-    Mod+T hotkey-overlay-title=null { spawn "ghostty"; }
     Mod+B hotkey-overlay-title="Browser: Firefox" { spawn "firefox"; }
     // Zed and Strata install per user into ~/.local/bin, which niri's PATH lacks (the
     // login session's PATH is /usr/local/bin:/usr/bin), so add it for these two only.
