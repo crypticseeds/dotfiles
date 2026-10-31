@@ -16,6 +16,17 @@ five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 week_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 week_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
+# Snapshot the usage for herdr-app's status bar (mods/usage). Written via a temp file so a
+# reader never sees half a file.
+if [ -n "$used$five_pct" ]; then
+  snap="$HOME/.cache/agent-usage"
+  mkdir -p "$snap"
+  echo "$input" | jq -c '{ctx: .context_window.used_percentage,
+    five: .rate_limits.five_hour.used_percentage, five_reset: .rate_limits.five_hour.resets_at,
+    week: .rate_limits.seven_day.used_percentage, week_reset: .rate_limits.seven_day.resets_at,
+    at: now}' > "$snap/claude.json.tmp" && mv "$snap/claude.json.tmp" "$snap/claude.json"
+fi
+
 # OS and branch symbols (Nerd Font, same glyphs as starship). Written as UTF-8
 # byte escapes because editors and tools strip private-use characters.
 case "$(uname -s)" in
