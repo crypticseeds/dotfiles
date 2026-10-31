@@ -135,12 +135,21 @@ Do not use `opencode mini`: it needs a TTY and its `--model` takes no variant.
 
 ## 8. Reviewer
 
+Build the diff from the worker's actual changes, committed or not (one plain command each):
+
 ```bash
-git diff --output=/home/ai/REPOS/redress/.agent/reviews/dev-123.diff main...HEAD
-opencode run --session ses_redress_dev123_rev --agent reviewer-fable --title "DEV-123 review" --file /home/ai/REPOS/redress/.agent/briefs/dev-123.md --file /home/ai/REPOS/redress/.agent/reviews/dev-123.diff "Review the attached diff against the acceptance criteria in the attached brief."
+mkdir -p /home/ai/REPOS/redress/.agent/reviews
+git merge-base main HEAD
+git diff --output=/home/ai/REPOS/redress/.agent/reviews/dev-123.diff <merge-base sha>
+git ls-files --others --exclude-standard
+opencode run --session ses_redress_dev123_rev --agent reviewer-fable --title "DEV-123 review" --file /home/ai/REPOS/redress/.agent/briefs/dev-123.md --file /home/ai/REPOS/redress/.agent/reviews/dev-123.diff "Review the attached diff, plus these new untracked files: <list>, against the acceptance criteria in the attached brief."
 ```
 
-`git diff --output=` writes the file without a redirect. The reviewer can read, glob and grep the repo, nothing else; its report is its reply. No `--auto` needed. Judge its findings yourself.
+- `git diff <merge-base>` compares the working tree with where the branch started, so it covers the worker's commits and its staged and unstaged edits. `main...HEAD` would miss uncommitted work, and plain `main` would include changes made on main since.
+- `git diff` never shows untracked files: list them from `git ls-files --others --exclude-standard` in the prompt; the reviewer reads them itself.
+- `git diff --output=` writes the file without a redirect.
+
+The reviewer can read, glob and grep the repo, nothing else; its report is its reply. No `--auto` needed. Judge its findings yourself.
 
 ## 9. Clean up
 
@@ -155,3 +164,4 @@ When you have read the results: `opencode api delete /api/session/<id>` for each
 5. Query parameters belong in the path: `'/api/...?limit=4'`.
 6. A session keeps the directory it was created in; `run` from elsewhere does not move it.
 7. Exit code 1 with `Error: ...` on stderr means the run never started (bad agent, model, variant, missing file).
+8. Attachments (`--file`, `"files"` in an API body) are read before any permission check, even for paths the rules would deny or ask about. Never attach a path you would not read yourself; on the agent host the Claude guard refuses secret-store paths.
