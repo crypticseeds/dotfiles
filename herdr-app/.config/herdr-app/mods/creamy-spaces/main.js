@@ -23,6 +23,11 @@ const roomy = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 72;
 // From 110px the name fits (it takes the number's place); from 130px both fit.
 const named = () => (find(layout(), "sidebar")?.size?.px ?? 0) >= 110;
 const numbered = () => !named() || (find(layout(), "sidebar")?.size?.px ?? 0) >= 130;
+// A machine's CPU/MEM: one line from 210px, MEM under CPU from 100px, letters below that.
+const loadMode = () => {
+  const w = find(layout(), "sidebar")?.size?.px ?? 0;
+  return w >= 210 ? "line" : w >= 100 ? "stack" : "rail";
+};
 
 // Where a space is now: its first terminal's live folder, else where it was made.
 // `ps`: panes(), read once by the caller (each read copies every pane).
@@ -50,6 +55,112 @@ export function tone(t, status) {
   return t[status] ?? t.unknown;
 }
 
+// A machine's CPU and memory, drawn under its heading like herdr-gui's sidebar: CPU as a graph
+// of recent samples, memory as a bar, colored white, yellow from 50% and red from 80%. Hover for
+// details. Reads /proc (here, or over ssh with `on`), so a machine shows only when it runs Linux.
+
+const SAMPLES = 16;
+
+class Load {
+  constructor(machine) {
+    this.on = machine; // null: this computer
+    this.cpu = [];
+    this.prev = null;
+    this.info = null;
+  }
+
+  async sample() {
+    // One command prints everything, here or on another machine.
+    const r = await exec("sh", ["-c", "cat /proc/stat; echo @@; cat /proc/meminfo; echo @@; cat /proc/loadavg; " +
+      "echo @@; cat /proc/uptime; echo @@; df -B1 --output=size,avail /"], { on: this.on }).catch(() => null);
+    const [stat, mem, load, up, disk] = (r?.stdout ?? "").split("@@\n");
+    if (!stat || !mem) return this.down();
+
+    const t = stat.split("\n")[0].trim().split(/\s+/).slice(1).map(Number);
+    const idle = t[3] + (t[4] || 0);
+    const total = t.reduce((a, b) => a + b, 0);
+    if (this.prev) {
+      const dt = total - this.prev.total;
+      const pct = dt > 0 ? Math.round(100 * (1 - (idle - this.prev.idle) / dt)) : 0;
+      this.cpu = [...this.cpu, pct].slice(-SAMPLES);
+    }
+    this.prev = { idle, total };
+
+    const kb = (k) => Number((mem.match(new RegExp(`^${k}:\\s+(\\d+)`, "m")) || [])[1] || 0) * 1024;
+    const memTotal = kb("MemTotal"), memUsed = memTotal - kb("MemAvailable");
+    const [size, avail] = ((disk || "").trim().split("\n")[1] || "").trim().split(/\s+/).map(Number);
+    this.info = {
+      cores: (stat.match(/^cpu\d+ /gm) || []).length,
+      load: (load || "").split(" ").slice(0, 3).join(" "),
+      memTotal, memUsed,
+      diskSize: size || 0, diskFree: avail || 0,
+      uptime: Number((up || "0").split(" ")[0]),
+    };
+  }
+
+  // Unreachable: CPU and memory read 0 until it answers again.
+  down() {
+    this.cpu = [...this.cpu, 0].slice(-SAMPLES);
+    this.prev = null;
+    if (this.info) this.info = { ...this.info, memUsed: 0 };
+  }
+
+  tooltip() {
+    const i = this.info;
+    const title = this.on ?? "This machine";
+    if (!i) return title;
+    const gb = (b) => (b / 2 ** 30).toFixed(1);
+    const h = Math.floor(i.uptime / 3600), m = Math.floor((i.uptime % 3600) / 60);
+    const up = h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${m}m`;
+    const lines = [
+      title,
+      `CPU ${this.cpu.at(-1) ?? 0}% of ${i.cores} cores · load ${i.load}`,
+      `Memory ${gb(i.memUsed)} GB of ${gb(i.memTotal)} GB (${Math.round(100 * i.memUsed / i.memTotal)}%)`,
+    ];
+    if (i.diskSize) {
+      lines.push(`Disk ${Math.round(i.diskFree / 1e9)} GB free of ${Math.round(i.diskSize / 1e9)} GB ` +
+        `(${Math.round(100 * (1 - i.diskFree / i.diskSize))}% used)`);
+    }
+    lines.push(`Up ${up}`);
+    return lines.join("\n");
+  }
+
+  // mode: "line" (one line), "stack" (MEM under CPU) or "rail" (a letter and the percentage).
+  view(t, mode) {
+    if (!this.info) return null;
+    const level = (v) => (v >= 80 ? t.ansi1 : v >= 50 ? t.ansi3 : t.foreground);
+    const cpu = this.cpu.at(-1) ?? 0;
+    const memPct = Math.round(100 * this.info.memUsed / this.info.memTotal);
+    const key = this.on ?? "local";
+    const samples = [...Array(SAMPLES - this.cpu.length).fill(0), ...this.cpu];
+    const graph = h_flex().flex_1().min_w(0).h(10).gap(1).items_end().children(
+      samples.map((v, n) => div().id(`cpu-${key}-${n}`).flex_1().h(Math.max(1, Math.round(v / 10))).bg(level(v))));
+    const bar = div().flex_1().min_w(0).h(4).rounded(2).bg(t.raised).child(
+      div().h_full().w(`${memPct}%`).rounded(2).bg(level(memPct)));
+    // Fixed width, right-aligned: the percentages end at the same edge on every machine.
+    const pct = (v) => h_flex().w(32).flex_none().justify_end().text_color(level(v)).child(`${v}%`);
+    const label = (s) => div().w(28).flex_none().text_color(t.foreground).child(s);
+    const cpuRow = [label("CPU"), graph, pct(cpu)];
+    const memRow = [label("MEM"), bar, pct(memPct)];
+
+    let inner;
+    if (mode === "rail") {
+      const short = (s, v) => h_flex().gap(2).children([div().text_color(t.foreground).child(s), pct(v).w("auto")]);
+      inner = v_flex().gap(2).py(3).items_center().text_size(10).children([short("C", cpu), short("M", memPct)]);
+    } else if (mode === "stack") {
+      inner = v_flex().gap(2).py(3).children([h_flex().gap(4).items_center().children(cpuRow),
+        h_flex().gap(4).items_center().children(memRow)]);
+    } else {
+      inner = h_flex().h(22).gap(4).items_center().children([...cpuRow, ...memRow]);
+    }
+    // The tooltip sits on an inner row with a hover style, like the shipped mods' tooltips.
+    return h_flex().flex_none().px(mode === "rail" ? 2 : 6).items_center().child(
+      inner.id(`load-${key}`).flex_1().px(mode === "rail" ? 0 : 6).rounded(6)
+        .when(mode !== "rail", (el) => el.text_size(12))
+        .hover((s) => s.bg(t.hover)).tooltip(this.tooltip()));
+  }
+}
+
 export default class Spaces extends View {
   init(_props, cx) {
     this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
@@ -73,6 +184,17 @@ export default class Spaces extends View {
     // `git status` walks the whole tree, on another machine a process there:
     // only when its answer could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
+    // CPU/MEM per machine: this computer every 2s, connected machines (over ssh) every 5s.
+    this.loads = {};
+    const sample = (names, cx) => cx.spawn(async (cx) => {
+      await Promise.all(names.map((m) => (this.loads[m ?? "local"] ??= new Load(m)).sample()));
+      cx.notify();
+    });
+    cx.timer.every(2000, (cx) => sample([null], cx));
+    cx.timer.every(5000, (cx) => {
+      for (const m of this.machines) if (m.state !== "connected") this.loads[m.name]?.down();
+      sample(this.machines.filter((m) => m.state === "connected").map((m) => m.name), cx);
+    });
   }
 
   checkNew(cx) {
@@ -238,7 +360,8 @@ export default class Spaces extends View {
         || spaces().some(s => (s.machine ?? null) === m && !this.shown.has(s.id));
     };
     const loadingRow = m => div().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(8).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Loading…");
-    if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw);
+    const load = (m) => this.loads[m ?? "local"]?.view(t, loadMode());
+    if (!remote.length) return [load(null), ...(loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw))].filter(Boolean);
     const machineNames = [null, ...remote];
     return machineNames.flatMap((m) => {
       const mine = rows.filter((r) => (r.w.machine ?? null) === m);
@@ -263,7 +386,7 @@ export default class Spaces extends View {
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", m ? { machine: m } : {}))
         .child(svg("mods/workspace-chrome/plus.svg").size(12)).when(!collapsed, el => el.child("New space there"));
-      return [head, ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : empty])];
+      return [head, load(m), ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : empty])].filter(Boolean);
     });
   }
 
