@@ -8,6 +8,10 @@ onboarding = false
 [theme]
 name = "gruvbox"
 auto_switch = false
+
+[theme.custom]
+accent = "#ddc7a1"
+
 [terminal]
 # Executable used for new interactive panes.
 # Empty means $SHELL, then /bin/sh.
