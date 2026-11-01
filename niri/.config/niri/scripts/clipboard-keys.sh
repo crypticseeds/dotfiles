@@ -7,14 +7,14 @@
 #   GUI apps (GTK, Firefox, Strata): Ctrl+C / Ctrl+X / Ctrl+V / Ctrl+A
 #   Zed: Ctrl+Insert / Shift+Delete / Shift+Insert (vim mode owns Ctrl+C/X/V/A); select
 #     all is Ctrl+Alt+Shift+A, bound to editor::SelectAll in ~/.config/zed/keymap.json
-#   terminals (Ghostty, Herdr UI): Ctrl+Shift+C / V / A, so Ctrl+C keeps interrupting
-#     the running program; "cut" copies.
+#   terminals (Ghostty, Herdr UI, the Herdr desktop app): Ctrl+Shift+C / V / A, so Ctrl+C
+#     keeps interrupting the running program; "cut" copies.
 set -eu
 
 app="$(niri msg --json focused-window | sed -n 's/.*"app_id":"\([^"]*\)".*/\1/p')"
 
 case "$app" in
-  com.mitchellh.ghostty|so.pen.herdr-gpui) kind=term ;;
+  com.mitchellh.ghostty|so.pen.herdr-gpui|herdr-app) kind=term ;;
   dev.zed.Zed*) kind=zed ;;
   *) kind=gui ;;
 esac
