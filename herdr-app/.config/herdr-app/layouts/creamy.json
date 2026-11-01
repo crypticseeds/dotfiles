@@ -22,16 +22,6 @@
           "window_drag": true
         },
         {
-          "id": "sysinfo",
-          "type": "block",
-          "size": {
-            "px": 28
-          },
-          "content": {
-            "mod": "sysinfo"
-          }
-        },
-        {
           "id": "sidebar-lists",
           "type": "column",
           "children": [
@@ -177,14 +167,17 @@
               "id": "status",
               "type": "block",
               "content": {
-                "mod": "workspace-status"
+                "mod": "creamy-status"
+              },
+              "size": {
+                "weight": 1
               }
             },
             {
               "id": "usage",
               "type": "block",
               "size": {
-                "px": 420
+                "weight": 1
               },
               "content": {
                 "mod": "usage"
