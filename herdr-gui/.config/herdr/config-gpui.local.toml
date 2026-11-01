@@ -17,10 +17,11 @@ edge_rail = false
 
 [layout]
 mode = "compact"
-sidebar_gap = 1.0
 
 [terminal]
 size = 18.0
+# [left, right]; replaces the deprecated [layout] sidebar_gap = 1.0 (which was left padding).
+padding_x = [1, 0]
 
 [sidebar]
 size = 14.0
