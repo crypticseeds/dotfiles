@@ -1,13 +1,13 @@
 ---
 name: delegate-visibly
-description: Use inside Herdr (HERDR_ENV=1) when delegating work that will likely block on approvals or questions or that runs long - implementation, fixes from review feedback, builds, full test suites, servers. Starts the worker with herdr agent start in a delegation tab or a Herdr worktree (never the main tab, max 2x2 per tab), on Sonnet 5.5 at high effort by default, for Claude Code, opencode or omp. Waits with herdr agent wait, reads with herdr agent read, keeps a report file as a crash backup, and cleans up what it created. Overrides the herdr skill's "sibling pane in the current tab" default; load the herdr skill for CLI syntax. Do NOT use for quick edits you can do yourself or for read-only review, test or research agents - those stay hidden background subagents.
+description: Use inside Herdr (`agent-mux` prints herdr; in herdr-app use the herdr-app skill instead) when delegating work that will likely block on approvals or questions or that runs long - implementation, fixes from review feedback, builds, full test suites, servers. Starts the worker with herdr agent start in a delegation tab or a Herdr worktree (never the main tab, max 2x2 per tab), on Sonnet 5.5 at high effort by default, for Claude Code, opencode or omp. Waits with herdr agent wait, reads with herdr agent read, keeps a report file as a crash backup, and cleans up what it created. Overrides the herdr skill's "sibling pane in the current tab" default; load the herdr skill for CLI syntax. Do NOT use for quick edits you can do yourself or for read-only review, test or research agents - those stay hidden background subagents.
 ---
 
 # delegate-visibly
 
 Run delegated workers in Herdr panes the user can see, so approvals and questions are answerable, without cluttering the tab that hosts this conversation. You stay the delegator: you place, start, brief, monitor, judge and clean up. The `herdr` skill (or `herdr --skill`) is the CLI reference; these rules override its default layout.
 
-Precondition: `test "${HERDR_ENV:-}" = 1`. If it fails, you are not inside Herdr: say so and delegate with the normal task tool instead.
+Precondition: `agent-mux` prints `herdr`. If it prints `herdr-app`, use the herdr-app skill instead; if `none`, you are not inside Herdr: say so and delegate with the normal task tool instead. Do not trust `HERDR_ENV=1` alone: it leaks into herdr-app terminals.
 
 ## Does this task earn a pane?
 

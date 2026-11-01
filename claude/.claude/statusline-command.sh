@@ -16,6 +16,18 @@ five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 week_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 week_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
+# Snapshot the usage for herdr-app's status bar (mods/usage), one file per herdr-core terminal
+# so the bar shows the focused agent's. Written via a temp file so a reader never sees half a file.
+if [ -n "$used$five_pct" ] && [ -n "${HC_TERMINAL_ID:-}" ]; then
+  snap="$HOME/.cache/agent-usage"
+  file="$snap/claude-$HC_TERMINAL_ID.json"
+  mkdir -p "$snap"
+  echo "$input" | jq -c '{ctx: .context_window.used_percentage,
+    five: .rate_limits.five_hour.used_percentage, five_reset: .rate_limits.five_hour.resets_at,
+    week: .rate_limits.seven_day.used_percentage, week_reset: .rate_limits.seven_day.resets_at,
+    at: now}' > "$file.tmp" && mv "$file.tmp" "$file"
+fi
+
 # OS and branch symbols (Nerd Font, same glyphs as starship). Written as UTF-8
 # byte escapes because editors and tools strip private-use characters.
 case "$(uname -s)" in
@@ -49,7 +61,7 @@ fi
 # Colors (status line is shown dimmed)
 bold_yellow=$'\033[1;33m'
 cyan=$'\033[36m'
-purple=$'\033[35m'
+purple=$'\033[38;2;178;148;187m' # #b294bb lilac, same as the Starship branch
 green=$'\033[32m'
 yellow=$'\033[33m'
 red=$'\033[31m'

@@ -58,15 +58,23 @@ Route each task to the cheapest tier that can do it reliably. Judge by complexit
 - Never give a small-tier model a refactor, a multi-file behavior change, a debugging task, or anything where it must choose between designs. When unsure between two tiers, pick the higher one.
 - A task is ready for a smaller model only when its spec states scope, acceptance criteria with exact checks, and out-of-scope items. If you cannot write that spec, the task is not ready to delegate.
 - Escalate on failure, do not retry the same tier: a small-tier worker that fails once or reports ambiguity moves to mid tier; a mid-tier worker that fails two heal rounds hands the task back to the orchestrator.
-- Set the model explicitly on every delegation (`model` on the Agent tool, `--model` in the `herdr agent start` arguments). Never rely on inheritance, which silently runs the worker on the top tier.
+- Set the model explicitly on every delegation (`model` on the Agent tool, `--model` in the `herdr agent start` or `hc run` arguments). Never rely on inheritance, which silently runs the worker on the top tier.
 - Other harnesses map the same three tiers to their own equivalents.
+
+Which multiplexer you are in:
+
+- Before driving panes, terminals or workers, run `agent-mux` once per session. It prints `herdr`, `herdr-app` or `none`, from the process tree, not the environment.
+- `herdr` (herdr in a terminal, or herdr-gui): use the `herdr` skill (`herdr --skill`) and `delegate-visibly`.
+- `herdr-app` (the Herdr desktop app, herdr-core): use the `herdr-app` skill, which loads `hc --skill` and `herdr-app --skill`. Never run `herdr ...` commands there.
+- `none`: delegate with the normal task tool.
+- Never decide from `HERDR_ENV` or `HC_TERMINAL_ID` alone: each daemon passes its variables on to everything it starts, so they leak into the other app's terminals. The answer belongs to this session on this machine; the same project may be open in herdr on one machine and herdr-app on another.
 
 Worktrees and panes:
 
 - Delegate to a visible worker only when it will likely block (approvals, clarifying questions, an ambiguous spec) or run long; do quick edits yourself. Read-only agents (research, review, test runs that only report) run as hidden subagents in the orchestrator's checkout, with no pane or worktree.
-- Inside herdr, workers follow the `delegate-visibly` skill: never in the orchestrator's own tab, max 2x2 panes per tab, workers on the same work share a tab. Default worker model: Sonnet 5.5 at high effort.
-- One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get a herdr worktree on a local `agent/<slug>` branch.
-- After `herdr worktree create`, run `agent-worktree-setup <worktree-path>` as its own command before starting a worker: a new worktree has no `.venv`.
+- Inside herdr, workers follow the `delegate-visibly` skill: never in the orchestrator's own tab, max 2x2 panes per tab, workers on the same work share a tab. Default worker model: Sonnet 5.5 at high effort. Inside herdr-app, follow the `herdr-app` skill with the same rules.
+- One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get their own worktree on a local `agent/<slug>` branch: `herdr worktree create` in herdr, `git worktree add .worktrees/<slug>` in herdr-app.
+- After creating a worktree, run `agent-worktree-setup <worktree-path>` as its own command before starting a worker: a new worktree has no `.venv`.
 - Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
 
 ## Code review (CodeRabbit)

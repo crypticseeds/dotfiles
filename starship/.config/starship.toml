@@ -59,6 +59,8 @@ symbol = " "
 symbol = " "
 
 [git_branch]
+# Pinned lilac (Ghostty's purple): the default "bold purple" turns tan in palettes like Adventure.
+style = "bold #b294bb"
 symbol = " "
 
 [git_commit]

@@ -1,0 +1,90 @@
+theme = "~/.config/herdr/themes/creamy"
+# If the theme picker changes the line above, set it back to:
+# theme = "~/.config/herdr/themes/creamy"
+show_sidebar_search = true
+show_agents = true
+confirm_close_pane = false
+tab_layout = "outline"
+agents_placement = "panel"
+show_sidebar_gpu_load = false
+status_icons = "braille"
+edge_rail = false
+# Herdr UI overrides. Saved changes reload automatically.
+# Unset keys inherit config-gpui.toml; tables merge key by key.
+
+# New installs start with the roomy rounded sidebar. Remove this line for
+# the managed default, or pick another layout listed in config-gpui.toml.
+
+[layout]
+mode = "compact"
+sidebar_gap = 1.0
+
+[terminal]
+size = 18.0
+
+[sidebar]
+size = 14.0
+automations = false
+indent = 22.0
+host_gap = 6.0
+
+[sidebar.hosts]
+
+[tabs]
+size = 14.0
+
+[ui]
+size = 14.0
+
+[status_bar]
+usage = "detailed"
+system_load = "detailed"
+theme = "hidden"
+report_issue = "hidden"
+keep_awake = false
+
+[code]
+mode = "address"
+
+[backdrop]
+opacity = 1.0
+
+[keybindings]
+# Matches ~/.config/herdr-app/keys.json.
+new_tab = "cmd-t"
+close_tab = "cmd-shift-w"
+new_workspace = "cmd-n"
+split_right = "cmd-d"
+split_down = "cmd-shift-d"
+close_pane = "cmd-w"
+toggle_zoom = "cmd-shift-z"
+focus_left = "alt-h"
+focus_down = "alt-j"
+focus_up = "alt-k"
+focus_right = "alt-l"
+next_tab = ["alt-]", "ctrl-tab"]
+previous_tab = ["alt-[", "ctrl-shift-tab"]
+focus_tab_1 = "ctrl-1"
+focus_tab_2 = "ctrl-2"
+focus_tab_3 = "ctrl-3"
+focus_tab_4 = "ctrl-4"
+focus_tab_5 = "ctrl-5"
+focus_tab_6 = "ctrl-6"
+focus_tab_7 = "ctrl-7"
+focus_tab_8 = "ctrl-8"
+focus_tab_9 = "ctrl-9"
+increase_font_size = ["ctrl-=", "ctrl-+"]
+decrease_font_size = "ctrl--"
+reset_font_size = "ctrl-0"
+toggle_sidebar = "ctrl-shift-b"
+command_palette = "ctrl-shift-p"
+settings = "ctrl-,"
+keybindings = "ctrl-shift-/"
+
+# Move by word, as in a plain terminal.
+[pane_keys]
+"alt-left" = "alt-b"
+"alt-right" = "alt-f"
+"ctrl-left" = "alt-b"
+"ctrl-right" = "alt-f"
+"ctrl-backspace" = "ctrl-w"

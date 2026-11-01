@@ -27,13 +27,14 @@ mode = "dark"
 source = "custom"
 custom_palette = "Gruvbox Hard"
 # Pure black backgrounds for every palette (accents and text keep the palette colors).
-# Flows into the templates below, so niri, Ghostty, GTK, Strata and Herdr UI follow.
+# Flows into the templates below, so niri, GTK and Strata follow.
 pure_black_dark = true
 
 [theme.templates]
-# Recolor these on every palette change: niri borders (niri/noctalia.kdl), Ghostty
-# (ghostty/themes/noctalia, also used by Herdr UI), and GTK 3/4 apps (gtk-*/noctalia.css).
-builtin_ids = ["niri", "ghostty", "gtk3", "gtk4"]
+# Recolor these on every palette change: niri borders (niri/noctalia.kdl) and GTK 3/4
+# apps (gtk-*/noctalia.css). Ghostty is left out: it keeps its own colors, and the
+# ghostty template would add `theme = noctalia` to its config.
+builtin_ids = ["niri", "gtk3", "gtk4"]
 
 # Strata ignores GTK styling; it reloads this theme file live (theme = "noctalia" in
 # ~/.config/strata/settings.toml).
