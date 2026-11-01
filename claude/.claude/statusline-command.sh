@@ -61,7 +61,7 @@ fi
 # Colors (status line is shown dimmed)
 bold_yellow=$'\033[1;33m'
 cyan=$'\033[36m'
-purple=$'\033[35m'
+purple=$'\033[38;2;178;148;187m' # #b294bb lilac, same as the Starship branch
 green=$'\033[32m'
 yellow=$'\033[33m'
 red=$'\033[31m'
