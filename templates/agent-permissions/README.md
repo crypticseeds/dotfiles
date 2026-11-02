@@ -144,6 +144,8 @@ every `herdr` command, `opencode` and `omp` (agents driving each other as worker
   that Claude would run inside the sandbox anyway: inside `&&`/`|`/a loop, or containing `<`, `>`, a
   backtick or `$(` (even quoted). Fix: run it alone, `git-in <dir> ...`, `gh -R owner/repo`, `--jq`,
   `--body-file F`, `git commit -F F`.
+- `~/.local/share/pnpm` (store) and `~/.cache/pnpm` are writable, so `pnpm install` works in any repo
+  or worktree.
 - `~/REPOS`, `~/.herdr/worktrees`, `~/.cache/pre-commit` and `~/.cache/uv` are writable (the last two
   with `~/.herdr/worktrees` are what `agent-worktree-setup`, `uv sync --frozen` in a new herdr worktree,
   needs). Sibling repos' and herdr worktrees' agent config stays write-denied
