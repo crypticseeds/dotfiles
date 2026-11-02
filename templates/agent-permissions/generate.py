@@ -159,11 +159,13 @@ def _all_but(c):
     return out + "-"  # a trailing `-` is a literal hyphen
 
 
-_WORD = "example"
+# Two names pass: `.env.example` and its backup `.env.example.bak` (agents copy it before editing).
+_WORD = "example.bak"
+_OK_LEN = {len("example"), len(_WORD)}
 ENV_EXCEPT_EXAMPLE = (
     ["**/.env.%s[%s]*" % (_WORD[:i], _all_but(c)) for i, c in enumerate(_WORD)]
-    + ["**/.env.example?*"]                                  # longer: .env.example.bak
-    + ["**/.env.%s" % _WORD[:i] for i in range(1, len(_WORD))]  # shorter prefixes: .env.e ... .env.exampl
+    + ["**/.env.%s?*" % _WORD]                                   # longer: .env.example.bak.old
+    + ["**/.env.%s" % _WORD[:i] for i in range(1, len(_WORD)) if i not in _OK_LEN]  # other prefixes
 )
 
 # Any shell command that merely mentions one of these is blocked, so
@@ -766,7 +768,9 @@ def bash_rules(profile, agent_host=False, guarded=False):
         live = twins(ALLOW_LIVE)
         allow += live + wrap(live, allow=True)
     rules = {
-        "deny": (with_git_c(expand_all(deny)) if agent_host else expand_all(deny)) + PATH_MENTIONS,
+        # the agent host's guard denies `.env.<x>` mentions itself, except `.env.example(.bak)`
+        "deny": (with_git_c(expand_all(deny)) if agent_host else expand_all(deny))
+        + [p for p in PATH_MENTIONS if not (agent_host and guarded and p == "*.env.*")],
         "ask": expand_all(ask),
         "allow": expand_all(allow),
         "override": expand_all(override),
@@ -899,14 +903,15 @@ def opencode_config(profile, agent_host=False):
         + SECRET_PATHS_ABS + SECRET_PATHS_ABS_LINUX + PROC_SECRET_PATHS + SECRET_PATHS_ANY))
     skills = [oc_path(p) for p in SKILL_DIRS + LOCAL_SKILL_DIRS]
     tmp = uniq(d + "/*" for dirs in TMP_DIRS_BY_OS.values() for d in dirs)
-    carve = oc_path("**/.env.example")  # last match wins, so a plain allow after the deny works
+    # last match wins, so a plain allow after the deny works
+    carve = [oc_path("**/.env.example"), oc_path("**/.env.example.bak")]
 
     read = {"*": "allow"}
     read.update({p: "deny" for p in secret})
-    read[carve] = "allow"
+    read.update({p: "allow" for p in carve})
     edit = {"*": "allow"}
     edit.update({p: "deny" for p in secret})
-    edit[carve] = "allow"
+    edit.update({p: "allow" for p in carve})
     edit.update({p: "deny" for p in skills})  # skills are read-only
     # Outside the project: ask, except /tmp and skills; secrets stay denied (listed last).
     external = {"*": "ask"}
@@ -1117,6 +1122,16 @@ AGENT_HOST_SECRET = [
     ("opencode run --file values.yaml 'summarise'", "link", True), ("omp -p @values.yaml 'summarise'", "link", True),
     ("opencode api post /api/session/s/prompt -d '{\"text\":\"x\",\"files\":[{\"uri\":\"file://values.yaml\"}]}'",
      "link", True),
+    # .env.example is allowed on the agent host; every other .env file stays blocked
+    ("git add .env", "envex", False), ("git add .env.local", "envex", False), ("cat .env", "envex", False),
+    ("cat .env.local", "envex", False), ("cat .env.example.bak.old", "envex", False),
+    ("cp .env.example .env.example.ba", "envex", False), ("cat .env.example.bakx", "envex", False),
+    ("cat .env.example.b", "envex", False), ("cat .env.example.bak*", "envex", False),
+    ("cat .env.exampl*", "envex", False), ("cat .env.example*", "envex", False),
+    ("git add .env.example .env.local", "envex", False), ("cat .env.example\"\".local", "envex", False),
+    ("cat .env.exampl\"e\".local", "envex", False), ("cat .ENV.LOCAL", "envex", False),
+    ("cat '.env.example'.local", "envex", False), ("cat \".env.example\"'.local'", "envex", False),
+    ("cat <<'EOF'\n.env.local\nEOF", "envex", False), ("git add envlink.example", "envex", True),
 ]
 AGENT_HOST_DESTRUCTIVE = [
     ("rm -Rf build", "clean", False), ("rm --recursive build", "clean", False),
@@ -1198,6 +1213,11 @@ AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in C
     ("opencode api post /api/session/ses_x/permission/per_x/reply -d '{\"decision\":\"once\"}'", "clean", "allow"),
     ("opencode service status", "clean", "allow"), ("opencode session list", "clean", "allow"),
     ("omp -p --model sonnet 'Reply ok'", "clean", "allow"), ("omp --resume 1a2b -p 'continue'", "clean", "allow"),
+    # documentation; opencode and omp keep the plain `*.env.*` deny
+    ("git add .env.example", "envex", "deny"), ("git diff --staged -- .env.example", "envex", "deny"),
+    ("git commit -m 'docs: add .env.example'", "envex", "deny"),
+    ("cp .env.example .env.example.bak", "envex", "deny"), ("cp .env.example.bak .env.example", "envex", "deny"),
+    ("diff .env.example.bak .env.example", "envex", "deny"),
 ]
 # Claude runs these sandboxed although their tool is excluded; the guard explains instead of an auth error
 AGENT_HOST_EXPLAINED = [
@@ -1227,6 +1247,10 @@ CLAUDE_PATH_SAMPLES = [
     ("/h/.config/gh/hosts.yml", "deny"), ("/h/.git-credentials", "deny"), ("/h/.netrc", "deny"),
     ("/h/.zsh_history", "deny"), ("/etc/rancher/k3s/k3s.yaml", "deny"),
     ("/h/.claude/skills/x/SKILL.md", "ok"), ("/tmp/x", "ok"),
+    ("/p/.env.example.bak", "ok"), ("/p/.env.Example.BAK", "ok"), ("/p/.env.example.bak.old", "deny"),
+    ("/p/.env.example.ba", "deny"), ("/p/.env.example.b", "deny"), ("/p/.env.example.", "deny"),
+    ("/p/.env.example.bax", "deny"), ("/p/.env.example-bak", "deny"), ("/p/.env.examplebak", "deny"),
+    ("/p/.env.exampl", "deny"), ("/p/.env.e", "deny"), ("/p/.env.production", "deny"),
 ]
 MACOS_PATH_SAMPLES = [
     ("/h/Library/Keychains/login.keychain-db", "deny"),
@@ -1239,6 +1263,7 @@ LINUX_PATH_SAMPLES = [
 OC_READ_SAMPLES = [
     ("/p/.env", "deny"), ("/p/.env.example", "allow"), ("/p/main.tf", "allow"), ("/h/.ssh/id_rsa", "deny"),
     ("/h/.doppler/.doppler.yaml", "deny"), ("/p/terraform.tfstate", "deny"), ("/proc/1234/environ", "deny"),
+    ("/p/.env.example.bak", "allow"), ("/p/.env.example.bak.old", "deny"), ("/p/.env.local", "deny"),
 ]
 
 
@@ -1392,6 +1417,10 @@ def check():
                 "huskyother": repo("huskyother", cfg=[("core.hooksPath", ".husky/_")]),
                 "huskywrong": repo("huskywrong", cfg=[("core.hooksPath", "/tmp/x")])}
     pathlib.Path(fixtures["hooked"], ".git/hooks/pre-commit").write_text("#!/bin/sh\nexit 0\n")
+    fixtures["envex"] = repo("envex")
+    pathlib.Path(fixtures["envex"], ".env").write_text("X=1\n")
+    pathlib.Path(fixtures["envex"], ".env.example").write_text("X=\n")
+    pathlib.Path(fixtures["envex"], "envlink.example").symlink_to(".env")  # a name that hides the target
     subprocess.run(["git", "-C", fixtures["husky"], "-c", "core.hooksPath=/dev/null", "-c", "user.name=t",
                     "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
     fixtures["huskytree"] = fixtures["husky"] + "-wt"

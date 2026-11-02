@@ -332,11 +332,14 @@ canary reads.
 - Command matching is not a sandbox. `python -c`, scripts and any program that opens a file
   itself bypass it (interpreters are set to prompt, not blocked). `doppler run` must stay
   allowed, so a child process can always see injected secrets.
-- `.env.example`: readable and editable with the file tools in all three (verified live in
-  Claude; also `.env.Example`). Claude's matcher has no negated character classes and is
+- `.env.example` and its backup `.env.example.bak` (agents copy it before editing): readable and
+  editable with the file tools in all three (`.env.example` verified live in Claude; also `.env.Example`). Claude's matcher has no negated character classes and is
   case-insensitive, so the carve-out is spelled as ranges that leave out both cases of each
   letter of `example`. Shell commands that mention it (`cat .env.example`) are still blocked
-  because shell patterns cannot carve out.
+  because shell patterns cannot carve out, except for Claude on the agent host: there the guard
+  replaces the `*.env.*` rule and allows exactly `.env.example` and `.env.example.bak`
+  (`git add .env.example`, `cp .env.example .env.example.bak`), while any
+  other `.env.<x>`, a quote or glob that spells one, and `.env` itself stay denied.
 - Claude applies settings changes one step late: after editing the settings file, the next
   tool call can still run under the old rules.
 - `ssh -i key.pem` and `rm -rf .terraform` are blocked; run them yourself.

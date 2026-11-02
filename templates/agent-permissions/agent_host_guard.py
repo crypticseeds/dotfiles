@@ -153,6 +153,8 @@ SECRET_DIRS = {os.path.dirname(re.split(r"[*?\[]", HOME + g[1:] if g.startswith(
 
 
 def reaches_secret(real):
+    if os.path.basename(real).lower() in (".env.example", ".env.example.bak"):  # docs; a symlink resolves
+        return False
     return any(rx.fullmatch(real) for rx in SECRET_RX) or \
         any(d == real or d.startswith(real.rstrip("/") + "/") for d in SECRET_DIRS)
 
@@ -353,6 +355,7 @@ def check_segment(t, cwd):
         check_segment(inner, cwd)
 
 
+ENV_MENTION = re.compile(r"\.env\.(?!example(?:\.bak)?['\"]*(?![^\s;&|)<>]))", re.I)
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_]\w*)\1")
 SHELL_LINE = re.compile(r"\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:\S*/)?(?:ba|z|da|k)?sh\b")
 
@@ -426,6 +429,11 @@ def main():
 
 def check_command(cmd, cwd):
     raw = cmd
+    # replaces the `*.env.*` deny rule here: any `.env.<x>` mention except exactly `.env.example` or
+    # `.env.example.bak` (followed by
+    # closing quotes, then the end, whitespace or ; & | ) < >, so globs, $ or `"".local` cannot spell another name)
+    if ENV_MENTION.search(raw):
+        deny("the command names a .env.* file (only .env.example is allowed)")
     cmd, shell_bodies = split_heredocs(cmd)
     for body in shell_bodies:
         check_command(body, cwd)
