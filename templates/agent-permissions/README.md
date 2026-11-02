@@ -146,6 +146,9 @@ every `herdr` command, `opencode` and `omp` (agents driving each other as worker
   `--body-file F`, `git commit -F F`.
 - `~/.local/share/pnpm` (store) and `~/.cache/pnpm` are writable, so `pnpm install` works in any repo
   or worktree.
+- `~/.coderabbit/reviews` and `~/.coderabbit/logs` are writable (and readable with the file tools), so a
+  review run sandboxed (by absolute path, which no `excludedCommands` entry matches) saves its local copy
+  where agents can find it; the rest of `~/.coderabbit`, with `auth.json`, stays read-only.
 - `~/REPOS`, `~/.herdr/worktrees`, `~/.cache/pre-commit` and `~/.cache/uv` are writable (the last two
   with `~/.herdr/worktrees` are what `agent-worktree-setup`, `uv sync --frozen` in a new herdr worktree,
   needs). Sibling repos' and herdr worktrees' agent config stays write-denied

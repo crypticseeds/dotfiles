@@ -529,7 +529,8 @@ ALLOW_LIVE = [
 #    worktrees, stale agent tmp/scratch and rebuildable caches (~/.cache, ~/.terraform.d) without
 #    asking the owner. It deletes only fixed agent-owned locations and takes no path to delete.
 #  - coderabbit review: the sandbox proxy closes its WebSocket ("Connection failed: WebSocket closed")
-#    and ~/.coderabbit (reviews, logs) is read-only inside it. Its other subcommands work sandboxed.
+#    and ~/.coderabbit is read-only inside it, except reviews/ and logs/ (AGENT_HOST_WRITE). Its other
+#    subcommands work sandboxed.
 #  - opencode and omp: agents drive each other as workers (opencode-workers skill). Sandboxed, opencode
 #    cannot write its log (~/.local/share/opencode) or reach its background service on localhost
 #    (verified 2026-10-31), and omp cannot write ~/.omp or reach its model APIs. Same trade-off as
@@ -550,8 +551,11 @@ AGENT_HOST_HOOKS_PATHS = {"~/REPOS/tfl-journey-expense-calculator": ".husky/_"}
 # ~/.herdr/worktrees: herdr worktrees (<repo>/<slug>), where agent-worktree-setup creates the .venv;
 # ~/.cache/uv: its package cache (same filesystem, so installs are hardlinks).
 # ~/.local/share/pnpm (store) and ~/.cache/pnpm (metadata cache): pnpm install in any repo or worktree.
+# ~/.coderabbit/reviews and logs: a review run sandboxed (by absolute path, as the code-review skill does,
+# which no excludedCommands entry matches) saves its local copy there for agents to read. Not the rest of
+# ~/.coderabbit: auth.json stays read-only.
 AGENT_HOST_WRITE = ["~/REPOS", "~/.herdr/worktrees", "~/.cache/pre-commit", "~/.cache/uv",
-                    "~/.local/share/pnpm", "~/.cache/pnpm"]
+                    "~/.local/share/pnpm", "~/.cache/pnpm", "~/.coderabbit/reviews", "~/.coderabbit/logs"]
 # NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
 # the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these
@@ -1349,7 +1353,8 @@ def check():
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
     expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])
-    for path in ("~/.cache/uv", "~/.herdr/worktrees", "~/.local/share/pnpm", "~/.cache/pnpm"):
+    for path in ("~/.cache/uv", "~/.herdr/worktrees", "~/.local/share/pnpm", "~/.cache/pnpm",
+                 "~/.coderabbit/reviews", "~/.coderabbit/logs"):
         expect("[agent-host] %s writable, only there" % path, [True, False], [
             path in host["sandbox"]["filesystem"]["allowWrite"],
             any(path in claude_file(pr, o).read_text() for pr in PROFILES for o in OSES)])
