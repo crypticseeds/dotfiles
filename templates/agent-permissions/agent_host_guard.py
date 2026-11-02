@@ -171,7 +171,9 @@ def check_args(tool, args, cwd):
             deny("flag %s" % a)
         if a.startswith("-out"):  # terraform plan -out=tfplan overwrites, it does not read
             continue
-        for cand in {a, a.split("=", 1)[-1], re.sub(r"^(fileb?://|@)", "", a.split("=", 1)[-1])}:
+        cands = {a, a.split("=", 1)[-1], re.sub(r"^(fileb?://|@)", "", a.split("=", 1)[-1])}
+        # $HOME/.ssh: the shell expands variables after this check, so check the expanded form too
+        for cand in cands | {os.path.expandvars(c) for c in cands}:
             if not cand or cand.startswith("-"):
                 continue
             p = os.path.join(cwd, os.path.expanduser(cand))
