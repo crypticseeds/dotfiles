@@ -540,6 +540,11 @@ AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "
 # $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
 # `coderabbit review --use-credits` through this day, then the guard refuses it again. "" = never.
 CODERABBIT_CREDITS_UNTIL = "2026-11-01"
+# Repos whose .git/config may set core.hooksPath to this repo-local value (owner decision 2026-11-02):
+# husky's `prepare` re-sets it on every pnpm install, so unsetting it does not last. Commits there run
+# .husky/ hooks (lint-staged: prettier, eslint from node_modules) outside the sandbox; worktrees match
+# through the common git dir. `core.hooksPath=/dev/null` (hooks off) is allowed everywhere.
+AGENT_HOST_HOOKS_PATHS = {"~/REPOS/tfl-journey-expense-calculator": ".husky/_"}
 # ~/.herdr/worktrees: herdr worktrees (<repo>/<slug>), where agent-worktree-setup creates the .venv;
 # ~/.cache/uv: its package cache (same filesystem, so installs are hardlinks).
 AGENT_HOST_WRITE = ["~/REPOS", "~/.herdr/worktrees", "~/.cache/pre-commit", "~/.cache/uv"]
@@ -796,7 +801,8 @@ def claude_secret_paths(os_name):
     return home_paths(os_name) + [abs_claude(p) for p in abs_paths(os_name)] + any_paths
 
 
-def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CREDITS_UNTIL):
+def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CREDITS_UNTIL,
+                          hooks_paths=AGENT_HOST_HOOKS_PATHS):
     """agent_host_guard.py with this policy's secret paths, embedded inline so the
     root-owned managed settings file is self-contained (no script an agent could edit)."""
     src = (HERE / "agent_host_guard.py").read_text()
@@ -805,6 +811,7 @@ def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",), credits_until=CODERA
     src = src.replace("REPO_ROOTS = []", "REPO_ROOTS = %r" % list(repo_roots), 1)
     src = src.replace('CREDITS_UNTIL = ""', "CREDITS_UNTIL = %r" % credits_until, 1)
     src = src.replace("EXCLUDED = []", "EXCLUDED = %r" % excluded_commands(True), 1)
+    src = src.replace("HOOKS_PATHS = {}", "HOOKS_PATHS = %r" % dict(hooks_paths), 1)
     return {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(src),
                                           "timeout": 30}]}
 
@@ -1365,7 +1372,6 @@ def check():
            shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
     root = pathlib.Path(tempfile.mkdtemp(prefix="guard-root-"))
     made = [root]
-    guard = agent_host_guard_hook("linux", [str(root)])
 
     def repo(name, branch="feat/x", cfg=(), link=None):
         d = pathlib.Path(tempfile.mkdtemp(prefix="guard-%s-" % name, dir=root))
@@ -1377,8 +1383,20 @@ def check():
         return str(d)
     fixtures = {"clean": repo("clean"), "onmain": repo("onmain", branch="main"),
                 "sshcmd": repo("sshcmd", cfg=[("core.sshCommand", "sh -c x")]),
-                "link": repo("link", link="~/.doppler/.doppler.yaml"), "hooked": repo("hooked")}
+                "link": repo("link", link="~/.doppler/.doppler.yaml"), "hooked": repo("hooked"),
+                # husky: allowlisted with .husky/_; huskyother: same value, not allowlisted;
+                # huskywrong: allowlisted, but its config points somewhere else
+                "husky": repo("husky", cfg=[("core.hooksPath", ".husky/_")]),
+                "huskyother": repo("huskyother", cfg=[("core.hooksPath", ".husky/_")]),
+                "huskywrong": repo("huskywrong", cfg=[("core.hooksPath", "/tmp/x")])}
     pathlib.Path(fixtures["hooked"], ".git/hooks/pre-commit").write_text("#!/bin/sh\nexit 0\n")
+    subprocess.run(["git", "-C", fixtures["husky"], "-c", "core.hooksPath=/dev/null", "-c", "user.name=t",
+                    "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    fixtures["huskytree"] = fixtures["husky"] + "-wt"
+    subprocess.run(["git", "-C", fixtures["husky"], "worktree", "add", "-q", "-b", "feat/wt",
+                    fixtures["huskytree"]], check=True)
+    guard = agent_host_guard_hook("linux", [str(root)], hooks_paths={
+        fixtures["husky"]: ".husky/_", fixtures["huskywrong"]: ".husky/_"})
 
     def claude_host(cmd, where):
         if hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}):
@@ -1405,6 +1423,18 @@ def check():
     for cmd in AGENT_HOST_EXPLAINED:
         expect("[agent-host guard explains] %s" % cmd, True,
                hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
+    # core.hooksPath in .git/config: only the allowlisted value in an allowlisted repo (and its worktrees)
+    for cmd, where, denied in (("git status", "husky", False), ("git commit -m x", "husky", False),
+                               ("git-in . commit -m x", "husky", False), ("git commit -m x", "huskytree", False),
+                               ("git status", "huskyother", True), ("git status", "huskywrong", True),
+                               ("git-in . -c core.hooksPath=/dev/null commit -m x", "clean", False),
+                               ("git-in . -c core.hooksPath=/tmp/x commit -m x", "clean", True),
+                               ("git config core.hooksPath /tmp/x", "husky", True)):
+        expect("[agent-host guard, hooksPath] %s (%s)" % (cmd, where), denied,
+               hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}))
+    expect("[agent-host] guard embeds the hooksPath allowlist", True,
+           "HOOKS_PATHS = %r" % AGENT_HOST_HOOKS_PATHS in
+           shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
     # git hooks fail inside the sandbox, so a chained commit is explained only where the repo has hooks
     for cmd, where, denied in (("git add -A && git commit -m x", "hooked", True), ("git commit -m x", "hooked", False),
                                ("git add -A && git commit -m x", "clean", False)):

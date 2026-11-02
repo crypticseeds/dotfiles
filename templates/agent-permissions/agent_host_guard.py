@@ -28,6 +28,7 @@ SECRET_GLOBS = []  # filled in by generate.py: every secret path the policy deni
 REPO_ROOTS = []    # filled in by generate.py: where `git-in <dir>` may work (bin/git-in enforces it too)
 CREDITS_UNTIL = ""  # filled in by generate.py: last day (YYYY-MM-DD) `coderabbit --use-credits` is allowed
 EXCLUDED = []      # filled in by generate.py: the sandbox's excludedCommands
+HOOKS_PATHS = {}   # filled in by generate.py: repo dir -> the repo-local core.hooksPath its config may set
 
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
@@ -194,7 +195,19 @@ def git_out(cwd, *a):
 def program_key(key, val=""):
     if key.lower() == "core.fsmonitor" and val.lower() in ("true", "false", ""):
         return False  # the built-in monitor, not a program
+    if key.lower() == "core.hookspath" and val == "/dev/null":
+        return False  # turns hooks off
     return bool(GIT_PROGRAM_KEY.fullmatch(key))
+
+
+def allowed_hooks_path(cwd, key, val):
+    """core.hooksPath set to the owner-approved repo-local value (husky) of an allowlisted repo; the repo is
+    found through the common git dir, so its worktrees are covered wherever they live."""
+    if key.lower() != "core.hookspath":
+        return False
+    common = git_out(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    repo = os.path.dirname(os.path.realpath(common)) if common else ""
+    return any(repo == os.path.realpath(os.path.expanduser(r)) and val == v for r, v in HOOKS_PATHS.items())
 
 
 def check_git(args, cwd, wrapped=False):
@@ -219,7 +232,7 @@ def check_git(args, cwd, wrapped=False):
             deny("git -c %s runs a program outside the sandbox" % key)
     for line in git_out(cwd, "config", "--local", "--list").splitlines():
         key, _, val = line.partition("=")
-        if program_key(key, val):
+        if program_key(key, val) and not allowed_hooks_path(cwd, key, val):
             deny("this repo's .git/config sets %s, which would run a program outside the sandbox; "
                  "ask the owner to remove it" % key)
     if i >= len(args):

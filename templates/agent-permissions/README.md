@@ -163,6 +163,10 @@ symlinks, or a repo's `.git/config`.
   `hooksPath`/`alias`/`sshCommand`/`credential.helper`-style keys are refused by the guard on the command
   line (`-c`, `git config`) and when present in the repo's local config (sibling repos' `.git/config` is
   writable to sandboxed code on Linux).
+- `core.hooksPath` allowlist (`AGENT_HOST_HOOKS_PATHS`): a listed repo and its worktrees may keep its exact
+  repo-local value (husky's `.husky/_`), so its hooks (lint-staged from `node_modules`) run unsandboxed on
+  commit; `core.hooksPath=/dev/null` (hooks off, e.g. `git-in . -c core.hooksPath=/dev/null commit`) is
+  allowed everywhere.
 - `pre-commit *` outside the sandbox: hook installs and GitHub fetches work; hook code runs unsandboxed.
 - `coderabbit review *` outside the sandbox: the sandbox proxy closes its WebSocket and `~/.coderabbit` is
   read-only there. The guard refuses arguments that resolve into a secret store (`-c <file>` uploads the
