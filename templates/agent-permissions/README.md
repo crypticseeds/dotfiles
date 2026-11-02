@@ -105,7 +105,7 @@ It protects exactly two things, and otherwise gets out of the way:
    `-f`, `+refspec`, `--delete`, `:branch`, `--mirror`) and `--force-with-lease` to `main`/`master`,
    `gh pr merge --admin` (plain `gh pr merge` is allowed), `gh repo delete|archive|rename`, `gh release delete`, `gh api -X DELETE`,
    `terraform apply|destroy|import`, mutating `aws` calls, `kubectl`/`helm` changes, `docker` beyond
-   reads, `ansible-playbook` without `--check`.
+   reads and the guarded forms below, `ansible-playbook` without `--check`.
 
 Everything else runs without a prompt: `git` in the session's repo, and in any repo under `~/REPOS` through
 `git-in <dir> <git args>` (branch creation with tracking, `commit` with hooks, `update-ref -d`, push),
@@ -194,8 +194,19 @@ symlinks, or a repo's `.git/config`.
   only refuses env printers and inline `-c`/`-e` code there.
 - Plain push to `main` is not blocked by a rule (only force/lease to main): GitHub branch protection
   on `main` (PR required, no force push, no deletion) is the real control. Keep it on.
-- docker stays read-only: the `ai` user is in the `docker` group, so `docker run -v ~:/h` would read
-  every secret store.
+- docker is root-equivalent (the `ai` user is in the `docker` group: `docker run -v ~:/h` would read every
+  secret store), so beyond reads Claude on the agent host gets only guarded forms
+  (`AGENT_HOST_DOCKER_GUARDED`, `check_docker`): `run` without `--privileged`, `--cap-add`, `--device`,
+  host namespaces, `--security-opt`, `--volumes-from`, `-e NAME` host env copies or volume options, with
+  bind mounts only inside the current repo or worktree and never a directory holding `.git` (a container
+  could plant a hook); `create` with the same checks; `exec` without `--privileged` or `-e NAME`;
+  `cp` with the host side inside the repo (a write never into `.git`); `volume create` without
+  `--opt`/`--driver`; `build`/`buildx build` without `--secret`, `--ssh`, `--allow` or host outputs;
+  `buildx bake` only when its definition files and `--set` name no secrets, ssh, outputs, contexts or
+  entitlements; explicit `rm`/`rmi`/`image rm`/`volume rm`/`stop`/`kill`; `builder prune` and
+  `buildx prune` are the only prunes (system, image, container, volume and network prune stay denied).
+  A bind-mounted repo or a build context still exposes its `.env` to the container, and `exec` into a
+  container someone else started gets that container's powers. opencode and omp keep docker read-only.
 - Threat model is accident, not a determined process: anything that runs outside the sandbox (above)
   can read the stores if an agent deliberately writes code to do it.
 

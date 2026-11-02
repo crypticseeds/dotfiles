@@ -65,7 +65,12 @@ READ = {
                "port", "events", "image ls", "image list", "image pull", "image history", "container ls",
                "container list", "container logs", "container top", "container port", "container stats",
                "network ls", "network list", "volume ls", "volume list", "system df", "system info",
-               "compose ps", "compose ls", "compose logs", "compose images", "compose version"},
+               "compose ps", "compose ls", "compose logs", "compose images", "compose version",
+               # owner decision 2026-11-02: these are checked by check_docker()
+               "run", "build", "buildx build", "builder prune", "rm", "rmi", "container rm", "image rm",
+               "volume rm", "stop", "kill", "container stop", "container kill", "create", "container create",
+               "exec", "container exec", "cp", "container cp", "volume create", "buildx prune", "buildx ls",
+               "buildx du", "buildx inspect", "buildx version", "buildx bake"},
     "terraform": {"plan", "init", "validate", "fmt", "version", "-version", "providers", "graph", "get",
                   "state list", "workspace list", "workspace show", "workspace select", "metadata"},
     "doppler": {"run", "projects", "configs", "environments", "secrets", "--version", "-v"},
@@ -272,6 +277,117 @@ def check_git(args, cwd, wrapped=False):
                 deny("force push to main/master")
 
 
+# docker/podman (root-equivalent here): run and build flags that reach the host
+DOCKER_RUN_DENY = ("--privileged", "--cap-add", "--device", "--device-cgroup-rule", "--security-opt",
+                   "--volumes-from", "--cidfile", "--volume-driver", "--runtime")
+DOCKER_HOST_NS = ("--pid", "--ipc", "--uts", "--userns", "--cgroupns", "--network", "--net")
+DOCKER_BUILD_DENY = ("--secret", "--ssh", "--output", "--build-context", "--iidfile", "--metadata-file",
+                     "--allow")  # --allow: entitlements (security.insecure, network.host)
+
+
+BAKE_FILES = ("docker-bake.json", "docker-bake.override.json", "docker-bake.hcl", "docker-bake.override.hcl",
+              "compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml")
+# bake definitions can carry what `docker build` flags may not: secrets, ssh, host outputs, extra contexts
+BAKE_RISKY = re.compile(r"\b(secrets?|ssh|outputs?|contexts|entitlements|allow)\b", re.I)
+
+
+def flag_values(args, longs, short=""):
+    """Values of `--long X`, `--long=X` and, with short, `-sX`, `-s X` or a cluster like `-itsX`. Every argument
+    is scanned, the container command included: a false match only over-denies."""
+    out = []
+    for n, a in enumerate(args):
+        nxt = args[n + 1] if n + 1 < len(args) else ""
+        for f in longs:
+            if a == f:
+                out.append(nxt)
+            elif a.startswith(f + "="):
+                out.append(a[len(f) + 1:])
+        m = short and re.fullmatch(r"-[itdPq]*%s(.*)" % short, a)
+        if m:
+            out.append(m.group(1).lstrip("=") or nxt)
+    return out
+
+
+def check_bind(src, root, cwd, what="docker bind mount", volumes=True, writes=True):
+    """A host path a container reads (writes=False) or can write: inside the current repo or worktree, and
+    a writable one never reaching .git. volumes: a bare name is a named volume, not a path."""
+    if re.search(r"[$`]", src):  # the shell expands it after this check, outside the sandbox
+        deny("%s %s uses a shell variable or substitution the guard cannot resolve: write the path out"
+             % (what, src))
+    if not src or (volumes and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", src)):
+        return  # anonymous or named volume
+    real = os.path.realpath(os.path.join(cwd, os.path.expanduser(src)))
+    top = os.path.realpath(root) if root else ""
+    if not top or not (real == top or real.startswith(top + "/")):
+        deny("%s %s is outside the current repo or worktree" % (what, src))
+    if writes and (".git" in os.path.relpath(real, top).split(os.sep) or os.path.isdir(os.path.join(real, ".git"))):
+        deny("%s %s reaches .git, where a container could plant a hook that git runs outside the sandbox: "
+             "use a subdirectory, or work in a worktree" % (what, src))
+
+
+def check_docker(pos, args, cwd):
+    sub = " ".join(pos[:2]) if pos[:1] in (["buildx"], ["builder"], ["container"], ["volume"]) \
+        else " ".join(pos[:1])
+    sub = sub.replace("container ", "", 1)
+    if sub == "volume create" and any(re.fullmatch(r"--(opt|driver)(=.*)?|-[od].*", a) for a in args):
+        deny("docker volume create --opt/--driver can bind any host path")
+    if sub == "exec":
+        if any(a == "--privileged" or a.startswith("--privileged=") for a in args):
+            deny("docker exec --privileged gives the container the host")
+        for v in flag_values(args, ("--env",), "e"):
+            if "=" not in v:
+                deny("docker exec -e %s copies a host environment variable into the container (pass NAME=value)" % v)
+    if sub == "cp":  # the host side (not `container:path`, not `-` for a tar stream) stays in the repo
+        root = git_out(cwd, "rev-parse", "--show-toplevel")
+        paths = [a for a in args[args.index("cp") + 1:] if a == "-" or not a.startswith("-")]
+        if len(paths) != 2:
+            deny("docker cp takes exactly SRC DEST (container:path on one side)")
+        for n, a in enumerate(paths):
+            if a != "-" and not re.match(r"[A-Za-z0-9][A-Za-z0-9_.-]*:", a):
+                check_bind(a, root, cwd, "docker cp host path", volumes=False, writes=n == 1)
+    if sub == "buildx bake":
+        for a in args:
+            if a == "--allow" or a.startswith("--allow=") or "://" in a or a.startswith("git@"):
+                deny("docker buildx bake %s: entitlements or a remote definition" % a)
+        if any(BAKE_RISKY.search(v.split("=", 1)[0]) for v in flag_values(args, ("--set",))):
+            deny("docker buildx bake --set of secrets, ssh, output, contexts or entitlements")
+        for f in flag_values(args, ("--file",), "f") or [f for f in BAKE_FILES if os.path.isfile(os.path.join(cwd, f))]:
+            try:
+                text = open(os.path.join(cwd, os.path.expanduser(f))).read()
+            except OSError:
+                deny("docker buildx bake: cannot read %s to check it" % f)
+            if BAKE_RISKY.search(text):
+                deny("docker buildx bake: %s sets secrets, ssh, outputs, contexts or entitlements, which the "
+                     "guard cannot check (use docker build)" % f)
+    if sub == "create":
+        sub = "run"
+    if sub in ("build", "buildx build"):
+        for a in args:
+            if any(a == f or a.startswith(f + "=") for f in DOCKER_BUILD_DENY) or re.fullmatch(r"-o.*", a):
+                deny("docker build %s passes host secrets or writes to the host" % a)
+        if any("type=local" in v for v in flag_values(args, ("--cache-to", "--cache-from"))):
+            deny("docker build --cache-to/--cache-from type=local reads or writes host paths")
+    if sub != "run":
+        return
+    for a in args:
+        if any(a == f or a.startswith(f + "=") for f in DOCKER_RUN_DENY):
+            deny("docker run %s gives the container the host" % a)
+    if "host" in flag_values(args, DOCKER_HOST_NS):
+        deny("docker run with a host namespace (--pid/--ipc/--uts/--userns/--cgroupns/--network host)")
+    for v in flag_values(args, ("--env",), "e"):
+        if "=" not in v:
+            deny("docker run -e %s copies a host environment variable into the container (pass NAME=value)" % v)
+    root = git_out(cwd, "rev-parse", "--show-toplevel")
+    for v in flag_values(args, ("--volume",), "v"):
+        check_bind(v.split(":")[0] if ":" in v else "", root, cwd)
+    for v in flag_values(args, ("--mount",)):
+        kv = {k.lower(): val for k, _, val in (p.partition("=") for p in v.split(","))}
+        if any(k.startswith("volume-opt") or k == "volume-driver" for k in kv):
+            deny("docker run --mount volume options can bind any host path")
+        if kv.get("type", "volume").lower() == "bind":
+            check_bind(kv.get("source") or kv.get("src") or "/", root, cwd)
+
+
 def check_segment(t, cwd):
     env = []
     while t and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", t[0]):
@@ -341,6 +457,8 @@ def check_segment(t, cwd):
     if not (two in READ[tool] or (one and one[0] in READ[tool])):
         deny("%s %s is not on the agent host's read-only list (the owner changes live infrastructure)"
              % (tool, two))
+    if tool in ("docker", "podman"):
+        check_docker(pos, args, cwd)
     if tool == "doppler" and one == ["secrets"]:
         if "--only-names" not in args or len(pos) > 1:
             deny("doppler secrets prints values: use `doppler secrets --only-names`")

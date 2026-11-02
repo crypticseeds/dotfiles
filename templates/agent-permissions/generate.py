@@ -649,6 +649,13 @@ AGENT_HOST_DENY_BASH = [
     "doppler login", "doppler setup", "journalctl",
     "firewall-cmd", "semanage", "setsebool", "restorecon",
 ]
+# Docker work (owner decision 2026-11-02), Claude on the agent host only: these deny rules are lifted and
+# the guard decides instead. run: no --privileged/--cap-add/--device/host namespaces/--security-opt/
+# --volumes-from/host env copies (-e NAME), bind mounts only inside the current repo or worktree;
+# build: no --secret/--ssh/host outputs; explicit rm/rmi/volume rm/stop/kill; `builder prune` is the
+# only prune. opencode and omp (no guard) keep them denied.
+AGENT_HOST_DOCKER_GUARDED = ["docker run", "docker build", "docker buildx", "docker volume rm", "docker rm -f",
+                             "docker create", "docker exec", "docker cp"]
 # Claude only (opencode and omp have no sandbox or guard hook, so they keep prompting): every Bash
 # command not denied runs. Nobody is there to answer a prompt. The deny rules still win, the
 # sandbox read-deny still hides the secret stores, and the guard hook covers what globs cannot.
@@ -759,7 +766,8 @@ def bash_rules(profile, agent_host=False, guarded=False):
         allow += AGENT_HOST_ALLOW_BASH
         if guarded:  # the guard allows `doppler secrets --only-names` and denies every other form,
             # and allows `coderabbit --use-credits` until CODERABBIT_CREDITS_UNTIL
-            deny_src = [d for d in deny_src if d not in ("doppler secrets", "coderabbit *--use-credits*")]
+            deny_src = [d for d in deny_src if d not in ("doppler secrets", "coderabbit *--use-credits*")
+                        and d not in twins(AGENT_HOST_DOCKER_GUARDED)]
         else:
             override = AGENT_HOST_NAME_ONLY
     deny = deny_src + wrap(deny_src, allow=False)
@@ -1437,6 +1445,8 @@ def check():
     omp_rules = load_omp(HERE / "agent-host/omp-config.yml")
     expect("[agent-host opencode] unlisted commands prompt", "ask", dict(oc_rules)["*"])
     for cmd in SECRET_PRINTING + DESTRUCTIVE:
+        if cmd == "docker volume rm v":  # explicit volume removal is allowed here (see the docker checks below)
+            continue
         expect("[agent-host claude] %s" % cmd, "deny", claude_host(cmd, "clean"))
     for cmd, where, gap in AGENT_HOST_SECRET + AGENT_HOST_DESTRUCTIVE:
         expect("[agent-host claude] %s (%s)" % (cmd, where), "deny", claude_host(cmd, where))
@@ -1463,6 +1473,60 @@ def check():
                                ("git config core.hooksPath /tmp/x", "husky", True)):
         expect("[agent-host guard, hooksPath] %s (%s)" % (cmd, where), denied,
                hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}))
+    # docker (Claude on the agent host: the guard decides); opencode and omp keep run/build/rm denied
+    pathlib.Path(fixtures["clean"], "src").mkdir()
+    pathlib.Path(fixtures["clean"], "bake-ok.hcl").write_text('target "app" {\n  context = "."\n  tags = ["app"]\n}\n')
+    pathlib.Path(fixtures["clean"], "bake-bad.hcl").write_text(
+        'target "app" {\n  secret = ["id=x,src=/home/ai/.aws/credentials"]\n}\n')
+    for cmd, denied in (
+            ("docker build -t app .", False), ("docker buildx build -t app --load .", False),
+            ("docker run --rm app", False), ("docker run --rm -it -v ./src:/app/src app npm test", False),
+            ("docker run --rm -v data:/data app", False), ("docker run -e NODE_ENV=test app", False),
+            ("docker run --mount type=bind,source=./src,target=/src app", False),
+            ("docker images", False), ("docker image ls", False), ("docker system df -v", False),
+            ("docker rm -f c1", False), ("docker container rm c1", False), ("docker rmi app", False),
+            ("docker image rm app", False), ("docker volume rm data", False), ("docker stop c1", False),
+            ("docker kill c1", False), ("docker builder prune -f", False), ("podman run --rm app", False),
+            ("docker run -v /home/ai:/h alpine", True), ("docker run -v ~/.ssh:/s alpine", True),
+            ("docker run -v .:/app app", True), ("docker run -v ./src/../..:/r app", True),
+            ("docker run -v /var/run/docker.sock:/s app", True), ("docker run -itv /:/h app", True),
+            ("docker run --volume=/etc:/e app", True), ("docker run --privileged app", True),
+            ("docker run --cap-add=SYS_ADMIN app", True), ("docker run --pid=host app", True),
+            ("docker run --network host app", True), ("docker run -e GITHUB_TOKEN app", True),
+            ("docker run --mount type=bind,src=/etc,dst=/e app", True), ("docker run --volumes-from c1 app", True),
+            ("docker run --mount type=volume,src=v,dst=/d,volume-opt=device=/home/ai,volume-opt=o=bind app", True),
+            ("docker build --secret id=x,src=x .", True), ("docker build --ssh default .", True),
+            ("docker build -o out .", True), ("docker buildx build --output type=local,dest=/tmp/x .", True),
+            ("docker build --cache-to type=local,dest=/tmp/c .", True), ("docker build ~", True),
+            ("docker system prune", True), ("docker image prune -a", True), ("docker container prune", True),
+            ("docker volume prune", True), ("docker network prune", True),
+            ("docker buildx bake", False), ("docker buildx bake -f bake-ok.hcl", False),
+            ("docker buildx bake -f bake-bad.hcl", True), ("docker buildx bake --allow security.insecure", True),
+            ("docker buildx bake --set app.output=type=local,dest=/tmp/x", True),
+            ("docker buildx bake https://github.com/x/y.git", True), ("docker buildx bake -f missing.hcl", True),
+            ("docker volume create --opt device=/home/ai v", True), ("podman run --privileged app", True),
+            # create, exec, cp, volume create, buildx prune (owner decision 2026-11-02)
+            ("docker create --name c1 app", False), ("docker container create app", False),
+            ("docker create -v /home/ai:/h app", True), ("docker create --privileged app", True),
+            ("docker exec -it c1 sh", False), ("docker exec -e DEBUG=1 c1 ls", False),
+            ("docker exec --privileged c1 sh", True), ("docker exec -e GITHUB_TOKEN c1 sh", True),
+            ("docker cp c1:/app/out.log ./src/", False), ("docker cp ./src c1:/app", False),
+            ("docker cp . c1:/app", False), ("docker cp - c1:/app", False), ("docker cp c1:/x -", False),
+            ("docker container cp c1:/x ./src/x", False), ("docker cp c1:/x .", True),
+            ("docker cp c1:/x ./.git/hooks/pre-commit", True), ("docker cp c1:/x /home/ai/.zshrc", True),
+            ("docker cp ~/.ssh c1:/s", True), ("docker cp /etc c1:/e", True), ("docker cp c1:/x", True),
+            ("docker volume create data", False), ("docker volume create -d local data", True),
+            ("docker volume create -o device=/home/ai data", True), ("docker buildx prune -f", False),
+            ("docker buildx ls", False), ("docker buildx du", False), ("docker buildx create --use", True),
+            ("docker build --allow security.insecure .", True),
+            # shell variables expand after the guard ran; --mount type is case-insensitive (CodeRabbit review)
+            ("docker run -v $HOME:/h app", True), ("docker run -v ${PWD}:/app app", True),
+            ("docker cp c1:/x $HOME/.zshrc", True), ("docker run --mount type=BIND,src=/etc,dst=/e app", True),
+            ("docker run --mount type=bind,source=$HOME,target=/h app", True)):
+        expect("[agent-host claude, docker] %s" % cmd, "deny" if denied else "allow", claude_host(cmd, "clean"))
+    for cmd in ("docker run --rm app", "docker build -t app .", "docker volume rm data", "docker rm -f c1"):
+        for agent, rules, last in (("opencode", oc_rules, True), ("omp", omp_rules, False)):
+            expect("[agent-host %s] %s is not allowed" % (agent, cmd), True, decide_ordered(cmd, rules, last) != "allow")
     expect("[agent-host] guard embeds the hooksPath allowlist", True,
            "HOOKS_PATHS = %r" % AGENT_HOST_HOOKS_PATHS in
            shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
