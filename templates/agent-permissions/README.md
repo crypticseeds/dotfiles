@@ -105,7 +105,7 @@ It protects exactly two things, and otherwise gets out of the way:
    `-f`, `+refspec`, `--delete`, `:branch`, `--mirror`) and `--force-with-lease` to `main`/`master`,
    `gh pr merge --admin` (plain `gh pr merge` is allowed), `gh repo delete|archive|rename`, `gh release delete`, `gh api -X DELETE`,
    `terraform apply|destroy|import`, mutating `aws` calls, `kubectl`/`helm` changes, `docker` beyond
-   reads, `ansible-playbook` without `--check`.
+   reads and the guarded forms below, `ansible-playbook` without `--check`.
 
 Everything else runs without a prompt: `git` in the session's repo, and in any repo under `~/REPOS` through
 `git-in <dir> <git args>` (branch creation with tracking, `commit` with hooks, `update-ref -d`, push),
@@ -144,6 +144,11 @@ every `herdr` command, `opencode` and `omp` (agents driving each other as worker
   that Claude would run inside the sandbox anyway: inside `&&`/`|`/a loop, or containing `<`, `>`, a
   backtick or `$(` (even quoted). Fix: run it alone, `git-in <dir> ...`, `gh -R owner/repo`, `--jq`,
   `--body-file F`, `git commit -F F`.
+- `~/.local/share/pnpm` (store) and `~/.cache/pnpm` are writable, so `pnpm install` works in any repo
+  or worktree.
+- `~/.coderabbit/reviews` and `~/.coderabbit/logs` are writable (and readable with the file tools), so a
+  review run sandboxed (by absolute path, which no `excludedCommands` entry matches) saves its local copy
+  where agents can find it; the rest of `~/.coderabbit`, with `auth.json`, stays read-only.
 - `~/REPOS`, `~/.herdr/worktrees`, `~/.cache/pre-commit` and `~/.cache/uv` are writable (the last two
   with `~/.herdr/worktrees` are what `agent-worktree-setup`, `uv sync --frozen` in a new herdr worktree,
   needs). Sibling repos' and herdr worktrees' agent config stays write-denied
@@ -163,6 +168,10 @@ symlinks, or a repo's `.git/config`.
   `hooksPath`/`alias`/`sshCommand`/`credential.helper`-style keys are refused by the guard on the command
   line (`-c`, `git config`) and when present in the repo's local config (sibling repos' `.git/config` is
   writable to sandboxed code on Linux).
+- `core.hooksPath` allowlist (`AGENT_HOST_HOOKS_PATHS`): a listed repo and its worktrees may keep its exact
+  repo-local value (husky's `.husky/_`), so its hooks (lint-staged from `node_modules`) run unsandboxed on
+  commit; `core.hooksPath=/dev/null` (hooks off, e.g. `git-in . -c core.hooksPath=/dev/null commit`) is
+  allowed everywhere.
 - `pre-commit *` outside the sandbox: hook installs and GitHub fetches work; hook code runs unsandboxed.
 - `coderabbit review *` outside the sandbox: the sandbox proxy closes its WebSocket and `~/.coderabbit` is
   read-only there. The guard refuses arguments that resolve into a secret store (`-c <file>` uploads the
@@ -188,8 +197,19 @@ symlinks, or a repo's `.git/config`.
   only refuses env printers and inline `-c`/`-e` code there.
 - Plain push to `main` is not blocked by a rule (only force/lease to main): GitHub branch protection
   on `main` (PR required, no force push, no deletion) is the real control. Keep it on.
-- docker stays read-only: the `ai` user is in the `docker` group, so `docker run -v ~:/h` would read
-  every secret store.
+- docker is root-equivalent (the `ai` user is in the `docker` group: `docker run -v ~:/h` would read every
+  secret store), so beyond reads Claude on the agent host gets only guarded forms
+  (`AGENT_HOST_DOCKER_GUARDED`, `check_docker`): `run` without `--privileged`, `--cap-add`, `--device`,
+  host namespaces, `--security-opt`, `--volumes-from`, `-e NAME` host env copies or volume options, with
+  bind mounts only inside the current repo or worktree and never a directory holding `.git` (a container
+  could plant a hook); `create` with the same checks; `exec` without `--privileged` or `-e NAME`;
+  `cp` with the host side inside the repo (a write never into `.git`); `volume create` without
+  `--opt`/`--driver`; `build`/`buildx build` without `--secret`, `--ssh`, `--allow` or host outputs;
+  `buildx bake` only when its definition files and `--set` name no secrets, ssh, outputs, contexts or
+  entitlements; explicit `rm`/`rmi`/`image rm`/`volume rm`/`stop`/`kill`; `builder prune` and
+  `buildx prune` are the only prunes (system, image, container, volume and network prune stay denied).
+  A bind-mounted repo or a build context still exposes its `.env` to the container, and `exec` into a
+  container someone else started gets that container's powers. opencode and omp keep docker read-only.
 - Threat model is accident, not a determined process: anything that runs outside the sandbox (above)
   can read the stores if an agent deliberately writes code to do it.
 
@@ -326,11 +346,14 @@ canary reads.
 - Command matching is not a sandbox. `python -c`, scripts and any program that opens a file
   itself bypass it (interpreters are set to prompt, not blocked). `doppler run` must stay
   allowed, so a child process can always see injected secrets.
-- `.env.example`: readable and editable with the file tools in all three (verified live in
-  Claude; also `.env.Example`). Claude's matcher has no negated character classes and is
+- `.env.example` and its backup `.env.example.bak` (agents copy it before editing): readable and
+  editable with the file tools in all three (`.env.example` verified live in Claude; also `.env.Example`). Claude's matcher has no negated character classes and is
   case-insensitive, so the carve-out is spelled as ranges that leave out both cases of each
   letter of `example`. Shell commands that mention it (`cat .env.example`) are still blocked
-  because shell patterns cannot carve out.
+  because shell patterns cannot carve out, except for Claude on the agent host: there the guard
+  replaces the `*.env.*` rule and allows exactly `.env.example` and `.env.example.bak`
+  (`git add .env.example`, `cp .env.example .env.example.bak`), while any
+  other `.env.<x>`, a quote or glob that spells one, and `.env` itself stay denied.
 - Claude applies settings changes one step late: after editing the settings file, the next
   tool call can still run under the old rules.
 - `ssh -i key.pem` and `rm -rf .terraform` are blocked; run them yourself.

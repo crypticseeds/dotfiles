@@ -1178,7 +1178,8 @@
       "*vault.yaml": "deny",
       "*kubeconfig*": "deny",
       "*.kubeconfig": "deny",
-      "*.env.example": "allow"
+      "*.env.example": "allow",
+      "*.env.example.bak": "allow"
     },
     "edit": {
       "*": "allow",
@@ -1280,6 +1281,7 @@
       "*kubeconfig*": "deny",
       "*.kubeconfig": "deny",
       "*.env.example": "allow",
+      "*.env.example.bak": "allow",
       "~/.claude/skills/*": "deny",
       "~/.claude/plugins/*": "deny",
       "~/.claude/agents/*": "deny",
