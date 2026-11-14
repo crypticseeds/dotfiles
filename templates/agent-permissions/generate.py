@@ -75,7 +75,7 @@ SECRET_PATHS_HOME = [  # both OSes
     "~/.docker/config.json", "~/.npmrc", "~/.pypirc", "~/.netrc",
     "~/.git-credentials", "~/.config/gh/hosts.yml", "~/.doppler/**",
     "~/.config/magpie/**",
-    "~/.claude/.credentials.json", "~/.codex/auth.json",
+    "~/.claude/.credentials.json", "~/.codex/auth*",
     "~/.local/share/opencode/auth.json",
     "~/.zsh_history", "~/.bash_history",
 ]
