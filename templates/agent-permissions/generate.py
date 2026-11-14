@@ -74,6 +74,7 @@ SECRET_PATHS_HOME = [  # both OSes
     "~/.config/gcloud/**", "~/.azure/**", "~/.kube/**",
     "~/.docker/config.json", "~/.npmrc", "~/.pypirc", "~/.netrc",
     "~/.git-credentials", "~/.config/gh/hosts.yml", "~/.doppler/**",
+    "~/.config/magpie/**",
     "~/.claude/.credentials.json", "~/.codex/auth.json",
     "~/.local/share/opencode/auth.json",
     "~/.zsh_history", "~/.bash_history",
