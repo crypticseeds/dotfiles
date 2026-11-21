@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, route each task to the cheapest capable model tier (Haiku, Sonnet, or yourself), delegate implementers to visible herdr panes or worktrees and reviewers to hidden subagents, verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
+description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. Choose the model tier, delegate using the host's workflow, and verify the results yourself. Skip for small edits you can do and verify directly.
 ---
 
 # orchestrate
@@ -20,11 +20,12 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
 
 ## 2. Delegate
 
-- Research and read-only review: inline via the Agent tool in your own checkout, always with an explicit `model`. Subagents cannot spawn subagents, so you coordinate all of them.
+- First select the host with `agent-mux`. In Herdr Core, use the `herdr-app` skill for all workers and long jobs. In the legacy Herdr TUI, use `delegate-visibly` for visible workers. Outside Herdr, use the normal task tool.
+- Research and read-only review: use the orchestrator's checkout and an explicit model. In Core, start these as interactive children. In the legacy TUI or outside Herdr, use the Agent tool. Require explicit authorization before any worker delegates further.
   - `codebase-researcher`: `haiku` for quick lookups, `sonnet` for medium or very thorough.
   - `code-reviewer`: `sonnet`; `opus` when the diff touches auth, IAM, secrets, Terraform, or exposes a service.
   - `security-reviewer`: `opus`.
-- Implementation, fixes, builds, long or approval-prone work: an `implementer` worker started via the `delegate-visibly` skill (default Sonnet 5.5 at high effort; Haiku only for small-tier tasks). It places the worker in a delegation tab (single writer) or a Herdr worktree on branch `agent/<slug>` (parallel writers or own-branch work). One writer per checkout. Quick edits you can verify yourself need no worker.
+- Implementation and fixes: use an `implementer` worker (default Sonnet 5.5 at high effort, Haiku only for small-tier tasks). Use a worktree on `agent/<slug>` for parallel writers or own-branch work. Keep one writer per checkout. Quick edits you can verify yourself need no worker.
 - Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the checkout or worktree path and branch, the report path, and the contract below.
 - Do not do mid- or small-tier work yourself to save a round trip. Your tokens go to planning, specs, verification, and the tasks the table reserves for the top tier.
 
@@ -49,8 +50,9 @@ Run from your own checkout, one task at a time:
 
     git merge agent/<slug>                 # stop and ask on any conflict you cannot resolve trivially
     # re-run the task's acceptance checks on the merged result
-    # close the worker's panes first (see Pane lifecycle): a process inside keeps the worktree
-    herdr worktree remove --workspace <worktree-ws>   # never --force
+    # close the worker's terminals first (see Terminal lifecycle)
+    # Core: git worktree remove <path>
+    # Legacy TUI: herdr worktree remove --workspace <worktree-ws>
     git branch -d agent/<slug>             # never -D
 
 Where `agent-clean` is installed, run `agent-clean <worktree-path>` afterwards for leftovers. You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round. Workers that ran in your own checkout have no worktree or branch to merge: verify their diff in place.
@@ -58,9 +60,11 @@ Where `agent-clean` is installed, run `agent-clean <worktree-path>` afterwards f
 
 ## 5. Finish
 
-Report: what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), open concerns. Run the pane sweep (see Pane lifecycle) first, then `agent-clean`, and confirm `git worktree list` shows no leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
+Report what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), and open concerns. Review the terminal lifecycle first, then run `agent-clean` and check `git worktree list` for leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
 
-## Pane lifecycle (you decide; panes are shared space)
+## Terminal lifecycle
+
+In Herdr Core, follow `herdr-app` for reading, waiting and cleaning up child terminals. Retain workers needed for a fix round or awaiting the user's input. List retained workers and jobs in the report. The pane rules below apply to the legacy Herdr TUI.
 
 After each verification pass, decide for every pane you spawned. Never touch panes you did not spawn.
 
