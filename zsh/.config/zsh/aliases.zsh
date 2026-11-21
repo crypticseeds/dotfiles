@@ -156,13 +156,16 @@ if [[ "$OSTYPE" == darwin* ]]; then
   alias oc='opencode --auto'
   alias omp='omp --approval-mode=yolo'
 else
-  # Linux (the agent host): start every harness with GH_TOKEN injected, so git and gh authenticate from
-  # the environment inside the sandbox too.
-  alias oc='doppler run --only-secrets GH_TOKEN -- opencode --auto'
-  alias opencode='doppler run --only-secrets GH_TOKEN -- opencode'
-  alias claude='doppler run --only-secrets GH_TOKEN -- claude'
-  alias omp='doppler run --only-secrets GH_TOKEN -- omp --approval-mode=yolo'
-  alias codex='doppler run --only-secrets GH_TOKEN -- codex'
+  # Linux (the agent host): start every harness through `agent-env`, which pins Doppler to
+  # harness/dev_maghub and injects only the maghub secrets. The pin matters: a repo with its own
+  # `doppler setup` (e.g. ~/REPOS/aws-platform -> agents-pi/aws-platform) would otherwise hand the
+  # agent that project's secrets. See docs/doppler-agent-env.md.
+  alias oc='agent-env opencode --auto'
+  alias opencode='agent-env opencode'
+  alias claude='agent-env claude'
+  alias cc='agent-env claude'
+  alias omp='agent-env omp --approval-mode=yolo'
+  alias codex='agent-env codex'
 fi
 alias oca='doppler run --only-secrets OPENCODE_SERVER_PASSWORD,OPENCODE_SERVER_USERNAME -- opencode attach https://opencode.internal.devopsfoundry.com'
 

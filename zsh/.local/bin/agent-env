@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Start an AI harness with the harness/dev_maghub Doppler environment, from any
+# directory.
+#
+# The flags override directory defaults. A service token can override the flags,
+# so check the fetched payload's reserved scope metadata before injecting it.
+#
+# Callers: the harness aliases in zsh/.config/zsh/aliases.zsh (claude, cc, oc,
+# opencode, omp, codex) and the hc / rex wrappers for non-interactive launches.
+# See docs/doppler-agent-env.md.
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "usage: agent-env <command> [args...]" >&2
+  exit 2
+fi
+
+mount_dir=$(mktemp -d)
+trap 'rm -f -- "$mount_dir/secrets.json"; rmdir -- "$mount_dir"' EXIT
+
+# Mount through a FIFO so an unexpected payload cannot affect the verifier's
+# environment, including interpreter or dynamic loader settings.
+doppler run -p harness -c dev_maghub --mount "$mount_dir/secrets.json" --mount-max-reads 1 -- \
+  python3 -I -S -c '
+import json
+import os
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as payload:
+    secrets = json.load(payload)
+
+if (secrets.get("DOPPLER_PROJECT"), secrets.get("DOPPLER_CONFIG")) != ("harness", "dev_maghub"):
+    sys.exit("agent-env: expected Doppler scope harness/dev_maghub; refusing to launch")
+
+os.environ.pop("DOPPLER_CLI_SECRETS_PATH", None)
+for name in ("PATH", "PS1", "HOME"):
+    secrets.pop(name, None)
+os.environ.update(secrets)
+os.execvp(sys.argv[2], sys.argv[2:])
+' "$mount_dir/secrets.json" "$@"
