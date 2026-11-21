@@ -232,36 +232,51 @@ Then restart the agent sessions. Live test from a new Claude session on the Pi (
 `git-in ~/REPOS/<other> push --dry-run origin <branch>`, `doppler secrets --only-names`, and two
 denials: `cat ~/.doppler/.doppler.yaml`, `git push --force origin <branch>`.
 
-## Starting agents with token access (every session, pane and worktree)
+## Starting agents with the Doppler environment (every session, pane and worktree)
 
-Start every agent as `doppler run --only-secrets GH_TOKEN -- <agent command>`. Then `GH_TOKEN` is in its
-environment, `git` (through the doppler credential helper) and `gh` authenticate from it, and nothing has
-to fetch the token from `~/.doppler`, which the sandbox hides. The `github` MCP server in the agents
-manifest authenticates from the same `GH_TOKEN`. On Linux the zsh aliases do this for
-`claude`, `opencode`, `oc` (`opencode --auto`), `omp` (`--approval-mode=yolo`) and `codex`; see
-`zsh/.config/zsh/aliases.zsh`.
+Start every agent through `agent-env`, which injects the LLM gateway keys and `MCPHUB_DEFAULT_KEY`
+from `harness/dev_maghub` into the process environment. Doppler can keep an [encrypted fallback
+snapshot](https://docs.doppler.com/docs/automatic-fallbacks) on disk.
+
+    agent-env claude --agent implementer
+
+On Linux the zsh aliases do this for `claude`, `cc`, `opencode`, `oc` (`opencode --auto`), `omp`
+(`--approval-mode=yolo`) and `codex`, and the `hc` / `rex` wrappers do it for non-interactive launches;
+see `zsh/.config/zsh/aliases.zsh` and `docs/doppler-agent-env.md`.
+
+The project pin is not optional. A bare `doppler run` resolves the closest directory scope, so in a repo
+with its own `doppler setup` it injects that project instead: `~/REPOS/aws-platform` resolves
+`agents-pi/aws-platform`, which hands the agent `ARGOCD_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` and
+friends. A service token can also override the project and config flags. `agent-env` checks the
+scope returned by Doppler before starting the agent and refuses missing or mismatched metadata.
+There is no per-launch allow-list, so anything added to `harness/dev_maghub` reaches every agent:
+keep it to keys every agent may hold.
+
+**GitHub access is no longer `GH_TOKEN`.** Agents use the `github` tools served by mcphub (the
+`mcphub-dev` MCP group, authenticated with `MCPHUB_DEFAULT_KEY`). Wired for omp only so far - see
+`docs/doppler-agent-env.md` for the rollout state. The `gh` CLI wrapper and `git-credential-doppler` still
+fetch `GH_TOKEN` from `harness/dev` on their own, independently of the agent environment.
 
 **Agents starting other agents** (new herdr panes, worktrees, delegated sessions): spell out the full
 command, because aliases exist only in interactive zsh and a pane's environment is not the parent agent's:
 
-    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- claude --agent implementer'
-    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- opencode --auto'
-    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && doppler run -p harness -c dev --only-secrets GH_TOKEN -- omp --approval-mode=yolo'
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && agent-env claude --agent implementer'
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && agent-env opencode --auto'
+    herdr pane run <pane-id> 'cd ~/REPOS/<repo> && agent-env omp --approval-mode=yolo'
 
-- `-p harness -c dev` is the project and config the git credential helper falls back to. Use it for a
-  new worktree or a repo with no `doppler setup`: without `-p`/`-c`, doppler picks the project from the
-  directory's setup and fails to start the agent where there is none.
+- `agent-env` lives in `~/.local/bin`, which is on PATH in every shell here. It needs Doppler auth on the
+  host it runs on, so a command sent to another machine needs it there too.
 - A worktree is a new directory under `~/REPOS`, so it is inside the write boundary: `git worktree add
   ../<repo>-<branch> -b <branch>`, then start the agent in it as above.
 - Nothing else is needed per session: Claude reads `/etc/claude-code/managed-settings.json`, opencode
   `/etc/opencode/opencode.json` and omp `~/.omp/agent/config.yml` in every directory, so a pane in any repo
   or worktree, and every subagent, gets the same policy.
 
-**What the token exposes.** Everything that runs in the session can read `GH_TOKEN`: sandboxed commands,
-scripts the agent writes, subagents. `env`/`printenv` are denied by rule, but that is accident protection,
-not a barrier. The token must be fine-grained, repo-scoped and without admin rights, so the exposure is
-what the agent can already do (push branches, open and edit PRs). Rotate it on any leak. The guard's
-checks on chains, pipes and `<` `>` backticks in git/gh commands are unchanged.
+**What the environment exposes.** Everything that runs in the session can read the injected secrets:
+sandboxed commands, scripts the agent writes, subagents. `env`/`printenv` are denied by rule, but that is
+accident protection, not a barrier. Keep that config limited to keys an agent may hold (LLM gateway keys,
+the mcphub key); never put a personal access token in `harness/dev_maghub`. The guard's checks on chains,
+pipes and `<` `>` backticks in git/gh commands are unchanged.
 
 ## Which rules file each agent reads
 
