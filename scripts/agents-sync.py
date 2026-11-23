@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sync agent skills, links, MCP servers and Claude plugins from the manifest.
 
-Source of truth: agents/.agents/manifest.json. Stdlib only, Python 3.9 safe.
+Source of truth: agents/.agents/manifest.json. Python 3.9 safe.
 Usage: agents-sync.py [--dry-run] [--project DIR] {fetch|link|mcp|project|plugins|all|check}
 `check` is a read-only drift report and is not part of `all`.
 """
@@ -308,9 +308,8 @@ def link_target(manifest, dry, harness, tdir, src_dir, names):
             print("linked  %s" % path)
 
 # --- mcp ---------------------------------------------------------------------
-# Every manifest MCP applicable to a present harness is managed there: created
-# if missing, updated if different, left alone if equal. Names not in the
-# manifest are never touched, and nothing is ever removed.
+# The global MCP lists of installed harnesses are managed from mcp_hub.
+# The old mcp section still supplies explicit project opt-ins.
 
 MCP_START = "# >>> agents-sync managed MCP (do not edit)"
 MCP_END = "# <<< agents-sync managed MCP"
@@ -343,9 +342,6 @@ def mcp_error(e):
     if not isinstance(e.get("project", False), bool):
         return "'project' must be true or false"
     targets = mcp_targets(e)
-    if headers and "hermes" in targets and not e.get("project"):  # hermes has no project config
-        # `hermes config get` prints resolved values, so ${VAR} headers can't be compared
-        return "hermes does not support 'headers' here; add \"hermes\" to 'except'"
     if "codex" in targets and any(ENV_REF.search(v) and not codex_env(k, v)
                                   for k, v in headers.items()):
         return ("codex takes only a whole ${VAR} header value or 'Authorization: Bearer "
@@ -367,10 +363,10 @@ def codex_env(header, value):
     return ("env", m.group(1)) if m else None
 
 
-def mcp_entries(manifest, report=True):
+def mcp_entries(manifest, report=True, key="mcp_hub"):
     """Valid manifest MCP entries and the number of invalid ones (skipped)."""
     entries, bad = {}, 0
-    for name, e in (manifest.get("mcp") or {}).items():
+    for name, e in (manifest.get(key) or {}).items():
         err = mcp_error(e)
         if err is None:
             entries[name] = e
@@ -503,7 +499,7 @@ def drop_legacy(legacy, name, dry, where):
 
 
 def mcp_json(harness, want, dry):
-    """claude (via its CLI), cursor, omp, opencode: create or update manifest names."""
+    """Reconcile the user server list, preserving other configuration."""
     path, doc, legacy, servers = load_servers(harness)
     changed = False
     for name in sorted(want):
@@ -520,6 +516,16 @@ def mcp_json(harness, want, dry):
             say(dry, "update" if name in servers else "add", harness, name)
             servers[name] = new
             changed = True
+    for name in sorted(servers.keys() - want.keys()):
+        if harness == "claude":
+            run_cli(["claude", "mcp", "remove", "--scope", "user", "--", name], dry)
+        else:
+            say(dry, "remove", harness, name)
+            del servers[name]
+            changed = True
+    if legacy is not None:
+        for name in sorted(legacy.keys() - {"servers", "timeout"}):
+            changed = drop_legacy(legacy, name, dry, harness) or changed
     if changed and not dry:
         atomic_write(path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
@@ -611,24 +617,23 @@ def mcp_codex(want, dry, path=None, where="codex", prune=False):
         atomic_write(path, "\n".join(new) + "\n")
 
 
-def hermes_todo(name, e):
-    values = [("url", e["url"]), ("enabled", "true")]
-    if e.get("auth"):
-        values.append(("auth", e["auth"]))
-    todo = []
-    for k, v in values:
-        r = cli(["hermes", "config", "get", "mcp_servers.%s.%s" % (name, k)])
-        cur = r.stdout.decode(errors="replace").strip().strip("'\"") if r.returncode == 0 else ""
-        if cur.lower() not in ("true", "yes") if k == "enabled" else cur != v:
-            todo.append((k, v))
-    return todo
-
-
 def mcp_hermes(want, dry):
-    for name in sorted(want):
-        for k, v in hermes_todo(name, want[name]):
-            run_cli(["hermes", "config", "set", "--force",
-                     "mcp_servers.%s.%s" % (name, k), v], dry)
+    # Read the literal YAML so we never compare or print resolved credentials.
+    try:
+        import yaml
+    except ImportError:
+        raise RuntimeError("Hermes MCP sync requires PyYAML (also used by regen-agent-host.sh)") from None
+    path = os.path.join(hermes_home(), "config.yaml")
+    try:
+        with open(path, encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        config = {}
+    except yaml.YAMLError:
+        raise RuntimeError("cannot parse %s" % path) from None
+    wanted = {name: {"url": entry["url"], **env_headers(entry, "${%s}")} for name, entry in want.items()}
+    if config.get("mcp_servers") != wanted:
+        run_cli(["hermes", "config", "set", "--force", "mcp_servers", json.dumps(wanted)], dry)
 
 
 _OPENCODE_V1 = []
@@ -658,7 +663,10 @@ def opencode_v1_skip(present):
 
 def mcp(manifest, dry):
     entries, bad = mcp_entries(manifest)
-    rc = 1 if bad else 0
+    if bad or not entries:
+        print("ERROR  no valid MCPHub list to sync")
+        return 1
+    rc = 0
     present = mcp_present()
     opencode_v1_skip(present)
     for harness in MCP_HARNESSES:
@@ -669,7 +677,11 @@ def mcp(manifest, dry):
         want = applicable(entries, harness)
         try:
             if harness == "codex":
-                mcp_codex(want, dry)
+                path = os.path.join(home(), ".codex", "config.toml")
+                _, _, _, _, outside = codex_read(path)
+                for name in sorted(outside - want.keys()):
+                    run_cli(["codex", "mcp", "remove", "--", name], dry)
+                mcp_codex(want, dry, path=path, prune=True)
             elif harness == "hermes":
                 mcp_hermes(want, dry)
             else:
@@ -681,9 +693,7 @@ def mcp(manifest, dry):
 
 
 # --- project MCPs ------------------------------------------------------------
-# A repo opts in with .agents/project.json: {"mcp": ["aws", "eks"]}, naming manifest
-# entries marked "project": true. Those entries are never installed globally; in an
-# opted-in repo they are present exactly when listed (removed when dropped from the list).
+# A repo opts in with .agents/project.json, naming manifest entries marked "project": true.
 PROJECT_FILE = os.path.join(".agents", "project.json")
 PROJECTS_ROOT = "REPOS"  # opted-in repos are found one level below ~/REPOS
 # (harnesses that read the file, file in the repo, servers key, renderer)
@@ -756,7 +766,7 @@ def project(d, entries, present, dry):
 
 def projects(manifest, dry, dirs=None):
     """Write each opted-in repo's project MCP files (Hermes has no project config)."""
-    entries = mcp_entries(manifest, report=False)[0]  # the mcp step reports invalid entries
+    entries = mcp_entries(manifest, report=False, key="mcp")[0]
     rc = 0
     present = mcp_present()
     opencode_v1_skip(present)

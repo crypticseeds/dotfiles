@@ -131,6 +131,16 @@
       ]
     }
   ],
+  "mcp_hub": {
+    "mcphub-dev": {
+      "url": "http://10.10.25.11:3100/mcp/dev",
+      "headers": {"Authorization": "Bearer ${MCPHUB_DEFAULT_KEY}"}
+    },
+    "mcphub-web": {
+      "url": "http://10.10.25.11:3100/mcp/web",
+      "headers": {"Authorization": "Bearer ${MCPHUB_DEFAULT_KEY}"}
+    }
+  },
   "mcp": {
     "playwright": {
       "command": "npx",
