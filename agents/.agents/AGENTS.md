@@ -65,17 +65,19 @@ Which multiplexer you are in:
 
 - Before driving panes, terminals or workers, run `agent-mux` once per session. It prints `herdr`, `herdr-app` or `none`, from the process tree, not the environment.
 - `herdr` (herdr in a terminal, or herdr-gui): use the `herdr` skill (`herdr --skill`) and `delegate-visibly`.
-- `herdr-app` (the Herdr desktop app, herdr-core): use the `herdr-app` skill, which loads `hc --skill` and `herdr-app --skill`. Never run `herdr ...` commands there.
-- `none`: delegate with the normal task tool.
+- `herdr-app` (Herdr Core) is the preferred environment. Follow the `herdr-app` skill for terminal operations and load `hc --skill` first. The app CLI is only needed to control the window programmatically.
+- `none`: use the normal task tool outside Herdr. If Herdr variables are present but the host cannot be verified, report that before falling back.
 - Never decide from `HERDR_ENV` or `HC_TERMINAL_ID` alone: each daemon passes its variables on to everything it starts, so they leak into the other app's terminals. The answer belongs to this session on this machine; the same project may be open in herdr on one machine and herdr-app on another.
 
 Worktrees and panes:
 
-- Delegate to a visible worker only when it will likely block (approvals, clarifying questions, an ambiguous spec) or run long; do quick edits yourself. Read-only agents (research, review, test runs that only report) run as hidden subagents in the orchestrator's checkout, with no pane or worktree.
-- Inside herdr, workers follow the `delegate-visibly` skill: never in the orchestrator's own tab, max 2x2 panes per tab, workers on the same work share a tab. Default worker model: Sonnet 5.5 at high effort. Inside herdr-app, follow the `herdr-app` skill with the same rules.
+- Do quick work yourself. In Herdr Core, run all delegated engineering work, including scouts, reviewers and implementers, as named interactive `hc run --bg` children. This routing also applies when another skill calls for built-in subagents. Open a child from the sidebar and click **Keep** when you want a dedicated tab.
+- In Herdr Core, each agent starts its own dev servers, watchers, slow builds, test suites and local CI jobs in named `hc run --bg` child terminals so the hierarchy shows who owns each job. Report an `hc` blocker before switching execution methods. On other hosts, use the host's normal execution method.
+- Give each worker an explicit task, working directory and boundaries. Preserve normal approval prompts. Never auto-approve destructive operations or allow workers to delegate further without explicit authorization.
+- In the legacy Herdr TUI, use `delegate-visibly` for pane placement and scope.
 - One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get their own worktree on a local `agent/<slug>` branch: `herdr worktree create` in herdr, `git worktree add .worktrees/<slug>` in herdr-app.
 - After creating a worktree, run `agent-worktree-setup <worktree-path>` as its own command before starting a worker: a new worktree has no `.venv`.
-- Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
+- Exception to the commit rule below: where the launch permits Git writes, workers may commit to their own `agent/<slug>` branch and never push. Workers launched with `agent-launch --subagent` leave edits uncommitted. The orchestrator verifies those edits and commits them in the worker checkout before merging when authorized. After merging, remove the worktree and delete the merged branch. Never remove a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
 
 ## Code review (CodeRabbit)
 

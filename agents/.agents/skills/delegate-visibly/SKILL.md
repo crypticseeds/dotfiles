@@ -67,6 +67,8 @@ Label extra tabs by purpose (`agents-2`, `tests`). Use only Herdr worktrees insi
 
 ## Start the worker
 
+On the Pi, start the worker once with `herdr pane run <pane> 'agent-launch --subagent <harness> -- <native args>'`. Claude's nested Bash sandbox currently fails under nono on the Pi; use a direct Claude session instead, understanding it lacks nono and read-only Git metadata protections. OpenCode's shared server may execute outside the client sandbox; its scoped environment and filesystem protections are unverified. Workers may inspect Git and GitHub. Leave commits, pushes, and merges to the parent or operator. For a worker that needs a special secret, put `--doppler PROJECT/CONFIG --secret NAME` before the harness name.
+
 Default kind is the harness you are running in: `claude` in Claude Code, `opencode` in opencode, `omp` in omp. Use another kind only when the user asks; when the user asks for opencode workers, follow the `opencode-workers` skill instead of this section. Native arguments go after `--`. Default model is **Sonnet 5.5 at high effort**; use Haiku only for small-tier work per the tiering table in AGENTS.md, and always pass the model explicitly.
 
 | Kind | Sonnet 5.5, high (default) | Haiku 5.5 |
@@ -83,12 +85,15 @@ opencode api post /api/session -d '{"id":"ses_<repo>_<slug>","title":"<role>","a
 
 The pane's status bar then shows the agent, model and effort. Messaging, reading and unblocking that session through the opencode API are in the `opencode-workers` skill.
 
+Rename the pane first. Then choose exactly one launch path:
+
 ```bash
 herdr pane rename <pane> "<role>"     # e.g. impl-auth, test-auth, fix-auth
+# Direct Claude session, including on the Pi (without agent-launch protections):
 herdr agent start <agent-name> --kind claude --pane <pane> --timeout 90000 -- --agent implementer --model claude-sonnet-5-5 --effort high
 ```
 
-`<agent-name>` is unique and matches `[a-z][a-z0-9_-]{0,31}`. After `agent start` returns, read the pane once (`herdr agent read <agent-name> --source visible`): an update or trust dialog can sit on screen while Herdr still reports `idle`. If startup returns `agent_not_ready`/`blocked`, read the pane and ask the user. If the agent CLI fails to start, report the error; do not silently fall back.
+`<agent-name>` is unique and matches `[a-z][a-z0-9_-]{0,31}`. For `agent start`, inspect `herdr agent read <agent-name> --source visible` after startup because an update or trust dialog can sit on screen while Herdr reports `idle`. If startup is blocked, read the pane and ask the user. If launch or detection fails, report it.
 
 ## Brief it
 

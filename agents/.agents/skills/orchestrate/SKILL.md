@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. You act as orchestrator - you plan, route each task to the cheapest capable model tier (Haiku, Sonnet, or yourself), delegate implementers to visible herdr panes or worktrees and reviewers to hidden subagents, verify results yourself, and loop fixes until every criterion passes. Skip for small single-file edits you can do and verify directly.
+description: Use when a task is big enough to plan and split - multi-step features, refactors, or fixes where work should be delegated, independently reviewed, and verified against concrete acceptance criteria. Choose the model tier, delegate using the host's workflow, and verify the results yourself. Skip for small edits you can do and verify directly.
 ---
 
 # orchestrate
@@ -20,11 +20,12 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
 
 ## 2. Delegate
 
-- Research and read-only review: inline via the Agent tool in your own checkout, always with an explicit `model`. Subagents cannot spawn subagents, so you coordinate all of them.
+- First select the host with `agent-mux`. In Herdr Core, use the `herdr-app` skill for all workers and long jobs. In the legacy Herdr TUI, use `delegate-visibly` for visible workers. Outside Herdr, use the normal task tool.
+- Research and read-only review: use the orchestrator's checkout and an explicit model. In Core, start these as interactive children. In the legacy TUI or outside Herdr, use the Agent tool. Require explicit authorization before any worker delegates further.
   - `codebase-researcher`: `haiku` for quick lookups, `sonnet` for medium or very thorough.
   - `code-reviewer`: `sonnet`; `opus` when the diff touches auth, IAM, secrets, Terraform, or exposes a service.
   - `security-reviewer`: `opus`.
-- Implementation, fixes, builds, long or approval-prone work: an `implementer` worker started via the `delegate-visibly` skill (default Sonnet 5.5 at high effort; Haiku only for small-tier tasks). It places the worker in a delegation tab (single writer) or a Herdr worktree on branch `agent/<slug>` (parallel writers or own-branch work). One writer per checkout. Quick edits you can verify yourself need no worker.
+- Implementation and fixes: use an `implementer` worker (default Sonnet 5.5 at high effort, Haiku only for small-tier tasks). Use a worktree on `agent/<slug>` for parallel writers or own-branch work. Keep one writer per checkout. Quick edits you can verify yourself need no worker.
 - Each delegation prompt contains: the task spec with acceptance criteria verbatim, scope, the checkout or worktree path and branch, the report path, and the contract below.
 - Do not do mid- or small-tier work yourself to save a round trip. Your tokens go to planning, specs, verification, and the tasks the table reserves for the top tier.
 
@@ -33,6 +34,7 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
 After a worker reports:
 
 1. Run the acceptance checks yourself, inside the worker's worktree. Do not accept the worker's output as evidence.
+   For a worker with read-only Git metadata (`agent-launch --subagent`), review its working-tree diff, including any new files.
 2. Request independent review: `code-reviewer` with the plan and the diff range; add `security-reviewer` when the change touches auth, secrets, IAM, network, input handling, or CI. Pass the acceptance criteria so the review is judged against them.
 3. Build a criteria table: each criterion PASS / FAIL / UNVERIFIED with evidence.
 4. Read the report's `## Remember` section. Save only lessons that are durable, non-obvious and not already recorded in the repo, using your memory rules (update an existing memory rather than adding a duplicate). A worker's lesson is a claim like any other: confirm it before saving it. Drop the rest.
@@ -45,12 +47,15 @@ After a worker reports:
 
 ## Integrate and clean up (after a task is verified)
 
+If the worker left verified edits uncommitted because Git metadata was read-only, the parent commits only those edits in the worker's worktree before merging. Get authorization if the task does not already authorize a commit. When the worker could commit to its own branch, merge its verified commit as usual.
+
 Run from your own checkout, one task at a time:
 
     git merge agent/<slug>                 # stop and ask on any conflict you cannot resolve trivially
     # re-run the task's acceptance checks on the merged result
-    # close the worker's panes first (see Pane lifecycle): a process inside keeps the worktree
-    herdr worktree remove --workspace <worktree-ws>   # never --force
+    # close the worker's terminals first (see Terminal lifecycle)
+    # Core: git worktree remove <path>
+    # Legacy TUI: herdr worktree remove --workspace <worktree-ws>
     git branch -d agent/<slug>             # never -D
 
 Where `agent-clean` is installed, run `agent-clean <worktree-path>` afterwards for leftovers. You own this cleanup; do not leave it to the user. Never remove a worktree or branch whose work is unmerged, unverified, or still needed for a heal round. Workers that ran in your own checkout have no worktree or branch to merge: verify their diff in place.
@@ -58,9 +63,11 @@ Where `agent-clean` is installed, run `agent-clean <worktree-path>` afterwards f
 
 ## 5. Finish
 
-Report: what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), open concerns. Run the pane sweep (see Pane lifecycle) first, then `agent-clean`, and confirm `git worktree list` shows no leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
+Report what changed, the criteria table with evidence, review verdicts, which tier ran each task (and any escalations), and open concerns. Review the terminal lifecycle first, then run `agent-clean` and check `git worktree list` for leftover `agent/*` worktrees. Your merges of `agent/*` branches are local; do not commit further, push, or open a PR unless the user asks.
 
-## Pane lifecycle (you decide; panes are shared space)
+## Terminal lifecycle
+
+In Herdr Core, follow `herdr-app` for reading, waiting and cleaning up child terminals. Retain workers needed for a fix round or awaiting the user's input. List retained workers and jobs in the report. The pane rules below apply to the legacy Herdr TUI.
 
 After each verification pass, decide for every pane you spawned. Never touch panes you did not spawn.
 
@@ -72,4 +79,4 @@ After each verification pass, decide for every pane you spawned. Never touch pan
 
 ## Worker contract (include in every delegation)
 
-Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. End the report with a `## Remember` section: lessons the next worker on this project should know (a non-obvious convention, a gotcha, a command that works), one line each, or "none". Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.
+Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. If the launcher makes Git metadata read-only (`agent-launch --subagent`), leave edits uncommitted for the parent. Otherwise, when every criterion passes and you have an assigned `agent/<slug>` branch, commit your change there (Conventional Commits, no AI attribution). Never push or touch other branches. End the report with a `## Remember` section: lessons the next worker on this project should know (a non-obvious convention, a gotcha, a command that works), one line each, or "none". Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.

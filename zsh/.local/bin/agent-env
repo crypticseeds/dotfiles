@@ -10,6 +10,18 @@
 # See docs/doppler-agent-env.md.
 set -euo pipefail
 
+project=harness
+config=dev_maghub
+selected=''
+if [[ ${1:-} == --scope ]]; then
+  if [[ $# -lt 6 || $5 != -- || -z $4 ]]; then
+    echo 'usage: agent-env --scope PROJECT CONFIG SECRET_NAMES -- COMMAND [ARGS...]' >&2
+    exit 2
+  fi
+  project=$2 config=$3 selected=$4
+  shift 5
+fi
+
 if [ $# -eq 0 ]; then
   echo "usage: agent-env <command> [args...]" >&2
   exit 2
@@ -20,21 +32,47 @@ trap 'rm -f -- "$mount_dir/secrets.json"; rmdir -- "$mount_dir"' EXIT
 
 # Mount through a FIFO so an unexpected payload cannot affect the verifier's
 # environment, including interpreter or dynamic loader settings.
-doppler run -p harness -c dev_maghub --mount "$mount_dir/secrets.json" --mount-max-reads 1 -- \
-  python3 -I -S -c '
+doppler run -p "$project" -c "$config" --mount "$mount_dir/secrets.json" --mount-max-reads 1 -- \
+  /usr/bin/python3 -I -S -c '
 import json
 import os
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as payload:
+payload_path, project, config, selected, *command = sys.argv[1:]
+with open(payload_path, encoding="utf-8") as payload:
     secrets = json.load(payload)
 
-if (secrets.get("DOPPLER_PROJECT"), secrets.get("DOPPLER_CONFIG")) != ("harness", "dev_maghub"):
-    sys.exit("agent-env: expected Doppler scope harness/dev_maghub; refusing to launch")
+if (secrets.get("DOPPLER_PROJECT"), secrets.get("DOPPLER_CONFIG")) != (project, config):
+    sys.exit(f"agent-env: expected Doppler scope {project}/{config}; refusing to launch")
+
+if os.path.basename(command[0]) == "codex":
+    args = command[1:]
+    if "--" in args:
+        args = args[:args.index("--")]
+    remote = any(arg == "--remote" or arg.startswith("--remote=") for arg in args)
+    if remote and selected:
+        print("agent-env: scoped Codex launches require a local executor", file=sys.stderr)
+        sys.exit(2)
+    if not remote and "--no-daemon" not in args:
+        command.insert(1, "--no-daemon")
+
+if selected:
+    # The bootstrap can use its normal login. The worker starts with only
+    # terminal/runtime settings and explicitly selected values from the payload.
+    runtime = ("HOME", "USER", "LOGNAME", "SHELL", "PATH", "TERM", "COLORTERM", "LANG", "LC_ALL",
+               "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR")
+    environment = {name: os.environ[name] for name in runtime if name in os.environ}
+    for name in selected.split(","):
+        if not name.isascii() or not name.isidentifier() or name != name.upper() or name in runtime or name.startswith(("DOPPLER_", "LD_", "DYLD_", "NONO_", "PYTHON", "NODE_", "BASH_", "GIT_", "XDG_")) or name in ("ENV", "BASH_ENV", "IFS", "SSH_AUTH_SOCK", "GH_TOKEN", "GITHUB_TOKEN"):
+            sys.exit(f"agent-env: disallowed worker environment name: {name}")
+        if name not in secrets:
+            sys.exit(f"agent-env: selected Doppler variable is missing: {name}")
+        environment[name] = secrets[name]
+    os.execvpe(command[0], command, environment)
 
 os.environ.pop("DOPPLER_CLI_SECRETS_PATH", None)
-for name in ("PATH", "PS1", "HOME"):
-    secrets.pop(name, None)
-os.environ.update(secrets)
-os.execvp(sys.argv[2], sys.argv[2:])
-' "$mount_dir/secrets.json" "$@"
+for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL", "MCPHUB_DEFAULT_KEY"):
+    if name in secrets:
+        os.environ[name] = secrets[name]
+os.execvp(command[0], command)
+' "$mount_dir/secrets.json" "$project" "$config" "$selected" "$@"

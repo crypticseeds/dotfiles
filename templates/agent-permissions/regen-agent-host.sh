@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Regenerate and install the Pi's (agent host) permission policy for Claude, opencode and omp.
-# Always use this script there: a plain generate.py run drops --agent-host and the enabled .mcp.json
-# servers. Run it yourself: it needs sudo, agents cannot.
+# Always use this script there: a plain generate.py run drops --agent-host.
+# MCPHub user connections are managed separately by scripts/agents-sync.py.
+# Run it yourself: it needs sudo, agents cannot.
 #   bash regen-agent-host.sh [DIR]   default: install
 #     Claude   -> /etc/claude-code/managed-settings.json   (root-owned, every project)
 #     opencode -> /etc/opencode/opencode.json              (root-owned managed config, every project)
@@ -29,7 +30,7 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -f "$tmp"/*; rmdir "$tmp"' EXIT
 step 3 "generating the Claude, opencode and omp configs"
-# Claude approves project .mcp.json servers by name: every "project": true manifest MCP.
+# Keep approving the existing project-scoped MCPs while the hub migration is tested.
 names="$(python3 -c '
 import json, sys
 for n, e in json.load(open(sys.argv[1]))["mcp"].items():

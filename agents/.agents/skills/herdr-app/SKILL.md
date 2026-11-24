@@ -1,21 +1,21 @@
 ---
 name: herdr-app
-description: Use when `agent-mux` prints herdr-app (you run in a terminal of the Herdr desktop app, driven by herdr-core `hc`) and you need to inspect or control terminals, agents, spaces, tabs or panes, or delegate to a visible worker. Loads the live manuals (`hc --skill`, `herdr-app --skill`) and maps the herdr delegation rules onto hc. Do NOT use the herdr or delegate-visibly skills here, even if HERDR_ENV=1 is set - in herdr-app that variable can be stale.
+description: Use when `agent-mux` prints herdr-app and you need to delegate work, run long jobs, or operate Herdr Core terminals. Read `hc --skill` for terminal operations and `herdr-app --skill` for optional window controls. Use `delegate-visibly` only for the legacy Herdr TUI.
 ---
 
 # herdr-app
 
 The Herdr desktop app (`herdr-app`) shows spaces, tabs and panes. herdr-core (`hc`) runs the terminals and agents in them and keeps them alive when the window closes. It is not `herdr`, the terminal multiplexer: the `herdr` CLI and its pane IDs do not apply here.
 
-Precondition: `agent-mux` prints `herdr-app`. If it prints `herdr`, use the herdr and delegate-visibly skills instead; if `none`, you are in neither, so delegate with the normal task tool.
+Precondition: `agent-mux` prints `herdr-app`. It checks the terminal process against your shell's ancestors so stale environment variables cannot select the wrong host. If it prints `herdr`, use the `herdr` and `delegate-visibly` skills. If it prints `none` with Herdr variables present, report that the host could not be verified before falling back.
 
 ## Load the manuals first
 
-They ship with the binaries and stay current, so read them instead of guessing syntax:
+Read the live manual for the operation you need:
 
 ```sh
 hc --skill          # run, read, message, wait on and clean up programs and agents
-herdr-app --skill   # change what the person sees: spaces, tabs, panes, focus
+herdr-app --skill   # optional, for programmatic control of spaces, tabs and panes
 ```
 
 `hc` is for the work, `herdr-app` only for the window. Your address is `$HC_TERMINAL_ID` (a terminal like `t9`), not a pane ID.
@@ -24,14 +24,20 @@ herdr-app --skill   # change what the person sees: spaces, tabs, panes, focus
 
 The global rules (tiers, explicit model, one writer per checkout, `agent/<slug>` branches) still apply. In herdr-app they map like this:
 
-- **Start a worker:** check `hc templates` first, then `hc run --bg --name <slug> --cwd <dir> <template-or-agent> "<task>"`, with the model set explicitly on the agent's command line. Tell it to report with `hc send $HC_TERMINAL_ID` when done or stuck.
-- **Wait and read:** `hc wait <name>`, `hc read <name> --lines 80`. Never poll in a loop.
-- **Show it to the person:** only when the work earns a visible worker (it will block on approvals or questions, or runs long). Open it in its own tab, never the tab hosting this conversation: `herdr-app do tab.new --name <slug> --argv '[...]'`. Use IDs from `herdr-app ls`, never the focused pane by default.
+- **Start a worker.** Check `hc templates` first, then `hc run --bg --name <slug> --cwd <dir> <template-or-agent> "<task>"`. Use an explicit model and an interactive launch for every delegated worker, including scouts, reviewers and implementers. Use `--no-daemon` for Codex, including in templates. Give the worker a scope, write boundaries and your actual terminal address for `hc send <parent-id> "<result or blocker>"`. Require explicit authorization before it delegates further.
+- **GitHub access on the Pi.** Start delegated coding workers with `hc run --bg --cwd <worktree> agent-launch --subagent <harness> -- <native args>`. Claude's nested Bash sandbox currently fails under nono on the Pi; use a direct Claude session instead, understanding it lacks the launcher's nono and read-only Git metadata protections. OpenCode's shared server may execute outside the client sandbox; its scoped environment and filesystem protections are unverified. Leave commits, pushes, and merges to the parent or operator. If a worker needs a special secret, put `--doppler PROJECT/CONFIG --secret NAME` before the harness name.
+- **Wait and read.** Use `hc wait <child>` and `hc read --lines 80 <child>`. For a blocked worker, read its output and let the user handle the prompt. Preserve permission and trust prompts.
+- **Show a child.** Workers appear beneath their parent in the Herdr sidebar. Open a child from that list. Click **Keep** in the upper right to retain that same terminal in a dedicated tab. Leave routine workers in the child list.
 - **Worktrees:** herdr-app has no worktree command. Create one with `git worktree add .worktrees/<slug> -b agent/<slug>`, run `agent-worktree-setup .worktrees/<slug>`, then start the worker with `--cwd` there.
-- **Clean up** only what you started: `hc kill <t>`, `hc rm <t>`, close the tab you opened, and `agent-clean <worktree-path>` after merging.
+
+## Running jobs
+
+- Start dev servers, watchers, slow builds, test suites and local CI from the agent that owns them with `hc run --bg --name <job> --cwd <dir> -- <command>`. This makes the job a child of that agent. Report a launch failure before switching execution methods. Avoid shell background mode for these jobs.
+- Use `hc wait <job>` for a one-off job and `hc read --lines 80 <job>` to inspect output. For server readiness, `hc wait <job> --output <marker>` matches output printed after the wait starts. Use `hc read` if the marker has already appeared.
+- Leave active servers available. Use `--outlive-parent` explicitly if a job needs to survive its owning session. Once you have collected a completed one-off job's output, use `hc rm <job>`. For an interactive worker that has finished its assignment, use `hc kill <child>` before removing its terminal if the agent is still running. Clean up only terminals you started and no longer need, and check with the user before closing a tab they kept.
 
 ## Never
 
 - Never stop, restart or update the person's core or app (`hc server stop|restart`, `hc update`) unless asked.
-- Never launch bare `herdr-app` to inspect: it opens or raises the window. Use `herdr-app ls` and `herdr-app status`.
-- Never use `herdr ...` commands from here: a leaked `HERDR_PANE_ID` points at an unrelated herdr pane.
+- Never launch bare `herdr-app` to inspect. Use `herdr-app ls` or `herdr-app status` when the app CLI is available.
+- Use `hc` for Core terminals. A leaked `HERDR_PANE_ID` can point to an unrelated legacy pane.

@@ -1,0 +1,10 @@
+{
+  "meta": {"name": "pi-agent-host", "version": "0.1.0"},
+  "extends": "default",
+  "workdir": {"access": "readwrite"},
+  "linux": {"af_unix_mediation": "pathname"},
+  "security": {"capability_elevation": false},
+  "environment": {
+    "deny_vars": ["DOPPLER_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"]
+  }
+}
