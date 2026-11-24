@@ -3,6 +3,9 @@
   "extends": "default",
   "workdir": {"access": "readwrite"},
   "linux": {"af_unix_mediation": "pathname"},
+  "filesystem": {
+    "unix_socket": ["$XDG_RUNTIME_DIR/herdr-core/default.sock"]
+  },
   "security": {"capability_elevation": false},
   "environment": {
     "deny_vars": ["DOPPLER_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"]

@@ -59,6 +59,10 @@ OpenCode's shared server may execute outside nono with its own environment and G
 The client sandbox's protections for server-side execution are unverified; do not assume scoped
 secrets, filesystem grants, or read-only Git metadata apply to the shared server.
 
+The shared `pi-agent-host` profile allows connections to the default Herdr Core socket,
+so sandboxed agents can use `hc`. Core launches processes with its own permissions;
+those processes do not automatically inherit the agent's nono sandbox.
+
 On the Pi, Claude Code 2.1.331 under nono 0.82.0 failed to start sandboxed Bash with
 `bwrap: setting up uid map: Permission denied` in isolated tests with both the old and new
 managed policies. Direct Claude launches from the target workspace passed the Bash write tests.

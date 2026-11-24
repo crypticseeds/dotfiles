@@ -60,7 +60,8 @@ if selected:
     # The bootstrap can use its normal login. The worker starts with only
     # terminal/runtime settings and explicitly selected values from the payload.
     runtime = ("HOME", "USER", "LOGNAME", "SHELL", "PATH", "TERM", "COLORTERM", "LANG", "LC_ALL",
-               "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR")
+               "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR",
+               "HC_TERMINAL_ID")
     environment = {name: os.environ[name] for name in runtime if name in os.environ}
     for name in selected.split(","):
         if not name.isascii() or not name.isidentifier() or name != name.upper() or name in runtime or name.startswith(("DOPPLER_", "LD_", "DYLD_", "NONO_", "PYTHON", "NODE_", "BASH_", "GIT_", "XDG_")) or name in ("ENV", "BASH_ENV", "IFS", "SSH_AUTH_SOCK", "GH_TOKEN", "GITHUB_TOKEN"):
