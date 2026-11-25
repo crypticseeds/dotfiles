@@ -22,6 +22,15 @@ scope for both the aliases and the non-interactive wrappers.
   `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `MCPHUB_DEFAULT_KEY`.
   Only these names are injected from the default payload; other payload variables,
   including dynamic loader settings, are ignored. Existing inherited environment variables are retained.
+  Exception: `claude` uses its own login, as in `agent-launch`. It gets only `MCPHUB_DEFAULT_KEY`, and
+  `ANTHROPIC_*`/`OPENAI_*` inherited from the shell are removed. Use `agent-launch -g claude` for the gateway.
+- **`MCPHUB_STATE_ID` is generated per launch, not stored in Doppler.** MCPHub's browser tools
+  (Playwright, Chrome DevTools) need a UUID v4 in the `X-MCPHub-State-Id` header; the `mcphub-web`
+  entry in `agents/.agents/manifest.json` fills it from this variable. `agent-env` sets a fresh one
+  on every launch (also replacing an inherited one, so a worker never shares its parent's browser),
+  on both the plain and the `agent-launch` path. A Doppler value would be one fixed id shared by
+  every agent. The opencode shared server sets its own at startup, so its sessions share one browser;
+  `agent-launch -s opencode` gets a private server with its own id.
 
 Measured 2026-11-15 with `~/REPOS/aws-platform` as the working directory:
 

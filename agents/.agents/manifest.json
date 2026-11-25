@@ -138,7 +138,7 @@
     },
     "mcphub-web": {
       "url": "http://10.10.25.11:3100/mcp/web",
-      "headers": {"Authorization": "Bearer ${MCPHUB_DEFAULT_KEY}"}
+      "headers": {"Authorization": "Bearer ${MCPHUB_DEFAULT_KEY}", "X-MCPHub-State-Id": "${MCPHUB_STATE_ID}"}
     }
   },
   "mcp": {
