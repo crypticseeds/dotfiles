@@ -17,7 +17,10 @@ subcommands" or look at files, so this guard covers what they cannot, for two co
   - destruction: recursive rm, git reset --hard / clean / history rewrites / force push (except
     --force-with-lease to a branch other than main/master), gh deletes and `pr merge --admin`, and the live
     infrastructure tools (terraform, aws, kubectl, helm, docker) limited to read-only subcommands.
-`hc run [flags] -- <cmd>` (Herdr Core starts <cmd> outside any sandbox) gets the same checks on <cmd>.
+`hc run [flags] -- <cmd>` (Herdr Core starts <cmd> outside any sandbox) gets the same checks on <cmd>, plus
+the secret_print_patterns of the policy (the harness deny rules only see `hc`, not the command inside it).
+Accident-level: shell commands that write agent config the sandbox cannot protect (.mcp.json, opencode.json,
+.envrc, .omp/, .claude/ except .claude/worktrees/) are denied, so a missing file cannot be planted.
 With policy flag explain_sandboxed_chains (Claude's own bwrap sandbox only) it also explains, instead of
 letting them fail with an auth error, the commands Claude runs inside the sandbox although their tool is
 excluded (in a chain or pipeline, or containing < > ` or $(). herdr's arguments are never checked (owner
@@ -44,6 +47,8 @@ HOOKS_PATHS = {}    # repo dir -> the repo-local core.hooksPath its config may s
 EXPLAIN = True      # explain chains that run sandboxed (policy flag, and only for the claude harness)
 SECRET_RX = []
 SECRET_DIRS = set()
+SECRET_PRINT_PATTERNS = []  # command-line globs that print secrets (same semantics as the harness deny rules)
+SECRET_PRINT_RX = []
 
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
@@ -169,17 +174,24 @@ def _regex(glob):
 
 def set_policy(p):
     global SECRET_GLOBS, REPO_ROOTS, CREDITS_UNTIL, EXCLUDED, HOOKS_PATHS, EXPLAIN, SECRET_RX, SECRET_DIRS
+    global SECRET_PRINT_PATTERNS, SECRET_PRINT_RX
     SECRET_GLOBS, REPO_ROOTS = list(p["secret_globs"]), list(p["repo_roots"])
     CREDITS_UNTIL, EXCLUDED = p["coderabbit_credits_until"], list(p["excluded_commands"])
     HOOKS_PATHS, EXPLAIN = dict(p["hooks_paths"]), p["explain_sandboxed_chains"]
     SECRET_RX = [_regex(g) for g in SECRET_GLOBS]
+    SECRET_PRINT_PATTERNS = list(p["secret_print_patterns"])
+    # `*` matches anything (also across spaces), the rest is literal, the whole line must match; case-insensitive
+    # so `kubectl get SECRET` cannot dodge a lower-case pattern
+    SECRET_PRINT_RX = [re.compile(".*".join(re.escape(x) for x in g.split("*")), re.S | re.I)
+                       for g in SECRET_PRINT_PATTERNS]
     # Directories above each absolute secret path (~/.aws, ~, /): an argument naming one reaches the secret.
     SECRET_DIRS = {os.path.dirname(re.split(r"[*?\[]", HOME + g[1:] if g.startswith("~/") else g)[0])
                    for g in SECRET_GLOBS if g.startswith(("~/", "/"))}
 
 
 POLICY_TYPES = {"secret_globs": list, "repo_roots": list, "coderabbit_credits_until": str,
-                "excluded_commands": list, "hooks_paths": dict, "explain_sandboxed_chains": bool}
+                "excluded_commands": list, "hooks_paths": dict, "explain_sandboxed_chains": bool,
+                "secret_print_patterns": list}
 
 
 def policy_path():
@@ -464,9 +476,58 @@ def check_hc_run(args, cwd):
     if len(inner) == 1 and re.search(r"\s", inner[0]):  # one string: may be a whole command line
         check_command(inner[0], cwd, explain=False, outside=True)
     check_segment(inner, cwd, outside=True)
-    shell = os.path.basename(inner[0])
-    if SHELLS.fullmatch(shell) and "-c" in inner[1:-1]:
-        check_command(inner[inner.index("-c") + 1], cwd, explain=False, outside=True)
+    if SHELLS.fullmatch(os.path.basename(inner[0])):
+        body = shell_c_body(inner)
+        if body is not None:
+            check_command(body, cwd, explain=False, outside=True)
+
+
+def shell_c_body(words):
+    """The command string of `sh -c X`, also with combined options (-lc, -ec, `-l -c`, -ic): the argument after
+    the first one that is `-c` or a short-option cluster containing c. None if there is none."""
+    for n, a in enumerate(words[1:], 1):
+        if re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", a):
+            return words[n + 1] if n + 1 < len(words) else None
+    return None
+
+
+# Agent config the sandbox protects only where the file exists (agent-launch binds existing ones read-only):
+# a shell command may not create or change these either. Accident-level, not a barrier.
+PROTECTED_NAMES = {".mcp.json", "opencode.json", ".envrc"}
+WRITE_TOOLS = {"tee", "cp", "mv", "install", "ln", "touch", "sed"}
+
+
+def protected_path(path, cwd):
+    p = os.path.normpath(os.path.join(cwd, os.path.expanduser(path)))
+    parts = p.split(os.sep)
+    if parts[-1] in PROTECTED_NAMES:
+        return True
+    for n, part in enumerate(parts):
+        if part in (".omp", ".claude") and not (part == ".claude" and parts[n + 1:n + 2] == ["worktrees"]):
+            return True
+    return False
+
+
+def check_write_target(path, cwd):
+    if path and protected_path(path, cwd):
+        deny("%s is agent config (.mcp.json, opencode.json, .envrc, .omp/, .claude/ except .claude/worktrees/): "
+             "shell commands may not write it, ask the owner to change it" % path)
+
+
+def check_protected_writes(tool, args, cwd):
+    """Destination of tee, cp, mv, install, ln, touch and `sed -i`. mv checks every operand (it removes sources)."""
+    if tool not in WRITE_TOOLS or (tool == "sed" and not any(
+            a == "--in-place" or a.startswith("--in-place=") or re.fullmatch(r"-[A-Za-z]*i.*", a) for a in args)):
+        return
+    pos = [a for a in args if not a.startswith("-")]
+    dests = pos if tool in ("tee", "touch", "sed", "mv") else pos[-1:]
+    for n, a in enumerate(args):
+        if a in ("-t", "--target-directory") and n + 1 < len(args):
+            dests = dests + [args[n + 1]]
+        elif a.startswith("--target-directory="):
+            dests = dests + [a.split("=", 1)[1]]
+    for d in dests:
+        check_write_target(d, cwd)
 
 
 def check_segment(t, cwd, outside=False):
@@ -476,6 +537,11 @@ def check_segment(t, cwd, outside=False):
     if not t:
         return
     tool, args = os.path.basename(t[0]), t[1:]
+    if outside:  # started by hc run: the harness rules saw only `hc`, so the secret-printing commands are checked here
+        line = " ".join(t)
+        if any(rx.fullmatch(line) for rx in SECRET_PRINT_RX):
+            deny("`%s` prints secrets (hc run starts it outside every sandbox)" % line)
+    check_protected_writes(tool, args, cwd)
     if tool == "hc" and args[:1] == ["run"]:
         check_hc_run(args[1:], cwd)
     if tool == "rm" or (tool not in OUTSIDE and "rm" in args):
@@ -648,6 +714,9 @@ def check_command(cmd, cwd, explain=None, outside=False):
             deny("could not parse the command")
         return
     segs, seg = [], []
+    for n, tok in enumerate(tokens):
+        if tok in (">", ">>", "2>", "&>", ">|") and n + 1 < len(tokens):
+            check_write_target(tokens[n + 1], cwd)
     for tok in tokens + [";"]:
         if tok in SEPARATORS or tok == "\n":
             if seg:
@@ -741,7 +810,8 @@ def selftest():
     os.mkdir(os.path.join(repo, "src"))
     os.symlink(os.path.join(home, ".doppler/.doppler.yaml"), os.path.join(repo, "values.yaml"))
     policy = dict(secret_globs=SECRET_GLOBS, repo_roots=[root], coderabbit_credits_until="",
-                  excluded_commands=EXCLUDED, hooks_paths={}, explain_sandboxed_chains=True)
+                  excluded_commands=EXCLUDED, hooks_paths={}, explain_sandboxed_chains=True,
+                  secret_print_patterns=SECRET_PRINT_PATTERNS)
     set_policy(policy)
     # (command, harness, denied)
     samples = [
@@ -776,6 +846,26 @@ def selftest():
         ("hc run -- cat values.yaml", "opencode", True), ("hc run --cwd %s -- python3 values.yaml" % repo, "omp", True),
         ("hc run -- bash -c 'cat values.yaml'", "opencode", True), ("hc run 'cat values.yaml'", "omp", True),
         ("hc run -- cat README.md", "opencode", False), ("hc run -- cat README.md", "omp", False),
+        # hc run: the harness rules see only `hc`, so secret-printing commands inside it are denied here;
+        # the same commands run directly are the harness's job (the guard does not see them as secret prints)
+        ("hc run -- kubectl get secret app -o yaml", "claude", True), ("kubectl get secret app -o yaml", "claude", False),
+        ("hc run -- aws secretsmanager get-secret-value --secret-id app", "opencode", True),
+        ("aws secretsmanager get-secret-value --secret-id app", "claude", False),
+        ("hc run -- bash -lc 'cat ~/.aws/credentials'", "claude", True),
+        ("hc run -- sh -ec 'doppler secrets'", "claude", True), ("hc run -- zsh -ic 'printenv'", "omp", True),
+        ("hc run -- bash -l -c 'env'", "claude", True), ("hc run -- doppler run -- printenv", "claude", True),
+        ("hc run -- kubectl get Secret -A", "claude", True), ("hc run -- terraform output -json", "claude", True),
+        ("hc run -- gh auth token", "claude", True), ("hc run -- helm get values x", "claude", True),
+        ("hc run -- kubectl get pods", "claude", False), ("hc run -- bash -lc 'make test'", "claude", False),
+        ("hc run -- doppler secrets --only-names", "claude", False), ("hc run -- terraform plan", "claude", False),
+        # agent config: no shell writes (accident-level; agent-launch binds the existing files read-only)
+        ("echo '{}' > .mcp.json", "claude", True), ("cp x .claude/settings.local.json", "claude", True),
+        ("tee opencode.json", "claude", True), ("sed -i s/a/b/ .envrc", "claude", True),
+        ("touch .omp/config.yml", "claude", True), ("mv x .claude/hooks", "claude", True),
+        ("cp -t .claude x", "claude", True), ("echo x >> sub/.mcp.json", "opencode", True),
+        ("cat .mcp.json", "claude", False), ("git worktree add .claude/worktrees/x", "claude", False),
+        ("cp x .claude/worktrees/y", "claude", False), ("sed s/a/b/ .envrc", "claude", False),
+        ("echo x > notes.txt", "claude", False),
         # chained excluded commands: explained only for Claude when the policy says its sandbox applies
         ("git status && git push origin feat/x", "claude", True),
         ("git status && git push origin feat/x", "opencode", False),

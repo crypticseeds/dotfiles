@@ -111,12 +111,17 @@ hc run --bg --cwd "$HOME/REPOS/redress" agent-launch --subagent codex
 
 Every launch inside a Git checkout, not only `--subagent`, runs under an outer `bwrap` that
 mounts these paths read-only for the sandboxed client: the common Git directory's `hooks` and
-`config` (so the agent cannot plant hooks or change `core.hooksPath`), the workspace's agent
-configuration when it exists (`.claude/settings*.json`, `.claude/{hooks,skills,agents,commands,workflows}`,
-`.claude/scheduled_tasks.json`, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`; the rest of `.claude/`
-stays writable for `.claude/worktrees`), and `/dev/null` over every `.env` and `.env.*` regular file found in the
-workspace (excluding `.git` and `node_modules`), except `.env.example` and `.env.example.bak`.
-Outside Git none of the Git and workspace masks apply. Every launch, in Git or not, also gets
+`config` (so the agent cannot plant hooks or change `core.hooksPath`), the effective hooks directory
+when `core.hooksPath` points elsewhere (resolved against the worktree root), any `config.worktree`
+(`extensions.worktreeConfig`), and the workspace's agent configuration when it exists: the whole
+`.claude` directory (with `.claude/worktrees` re-bound writable, created if missing) plus `.mcp.json`,
+`opencode.json`, `.omp` and `.envrc` one by one. The root entries that do not exist yet cannot be
+bound, so `agent_guard.py` denies shell commands that write them (`>`, `>>`, `tee`, `cp`, `mv`, `install`,
+`ln`, `touch`, `sed -i`); this is accident-level protection, not a barrier.
+Every launch, in Git or not, also gets `/dev/null` over every `.env` and `.env.*` regular file or
+symlink found in the workspace (excluding `.git` and `node_modules`), except `.env.example` and
+`.env.example.bak`. bwrap binds onto the resolved target, so a symlink masks the file it points to,
+even outside the workspace; a dangling symlink is skipped. Every launch also gets
 `/dev/null` over the other harnesses' stored logins (`~/.claude/.credentials.json`,
 `~/.codex/auth.json`, `~/.local/share/opencode/auth.json`); the launched harness keeps its own, so a
 script it runs can still read that one. The other harnesses' config directories (`~/.claude`,

@@ -176,21 +176,40 @@ if $in_worktree; then
     if [[ -d $common_dir/hooks ]]; then outer+=(--ro-bind "$common_dir/hooks" "$common_dir/hooks"); fi
     if [[ -f $common_dir/config ]]; then outer+=(--ro-bind "$common_dir/config" "$common_dir/config"); fi
   fi
-  # Agent config that would loosen the next session. Not all of .claude: worktrees live in .claude/worktrees.
-  for protected in .claude/settings.json .claude/settings.local.json .claude/hooks .claude/skills \
-      .claude/agents .claude/commands .claude/workflows .claude/scheduled_tasks.json \
-      .mcp.json opencode.json .omp .envrc; do
+  # The effective hooks dir when core.hooksPath moves it (relative: to the worktree root; /dev/null = none).
+  hooks_path=$(/usr/bin/git config --type=path --get core.hooksPath || true)
+  if [[ -n $hooks_path && $hooks_path != /dev/null ]]; then
+    if [[ $hooks_path != /* ]]; then hooks_path=$workspace/$hooks_path; fi
+    if [[ -d $hooks_path ]]; then outer+=(--ro-bind "$hooks_path" "$hooks_path"); fi
+  fi
+  # Per-worktree config (extensions.worktreeConfig) sets core.* settings too.
+  for worktree_config in "$git_dir/config.worktree" "$common_dir/config.worktree"; do
+    if [[ -f $worktree_config ]]; then outer+=(--ro-bind "$worktree_config" "$worktree_config"); fi
+    if [[ $git_dir == "$common_dir" ]]; then break; fi
+  done
+  # Agent config that would loosen the next session. All of .claude read-only, except .claude/worktrees
+  # (where worktrees live). The mount point must exist, so create it first.
+  if [[ -d $workspace/.claude ]]; then
+    mkdir -p -- "$workspace/.claude/worktrees"
+    outer+=(--ro-bind "$workspace/.claude" "$workspace/.claude"
+      --bind "$workspace/.claude/worktrees" "$workspace/.claude/worktrees")
+  fi
+  # Root entries are bound one by one only when they exist; agent_guard.py denies shell writes that would
+  # create the missing ones (accident-level).
+  for protected in .mcp.json opencode.json .omp .envrc; do
     if [[ -e $workspace/$protected ]]; then outer+=(--ro-bind "$workspace/$protected" "$workspace/$protected"); fi
   done
-  # find, not git ls-files: it also sees untracked and ignored files, and pruning .git and
-  # node_modules keeps the walk cheap. Regular files only; a file created later is not masked.
-  mask_files=()
-  while IFS= read -r -d '' mask_file; do
-    mask_files+=("$mask_file")
-  done < <(find "$workspace" \( -name .git -o -name node_modules \) -prune -o \
-    -type f \( -name .env -o -name '.env.*' \) ! -name .env.example ! -name .env.example.bak -print0)
-  for mask_file in "${mask_files[@]}"; do outer+=(--ro-bind /dev/null "$mask_file"); done
 fi
+# Dotenv files are masked in every workspace, Git or not. find, not git ls-files: it also sees untracked
+# and ignored files, and pruning .git and node_modules keeps the walk cheap. Files and symlinks: bwrap
+# binds onto the resolved target, so a symlink masks the file it points to (even outside the workspace);
+# a dangling one is skipped. A file created later is not masked.
+mask_files=()
+while IFS= read -r -d '' mask_file; do
+  if [[ -e $mask_file ]]; then mask_files+=("$mask_file"); fi
+done < <(find "$workspace" \( -name .git -o -name node_modules \) -prune -o \
+  \( -type f -o -type l \) \( -name .env -o -name '.env.*' \) ! -name .env.example ! -name .env.example.bak -print0)
+for mask_file in "${mask_files[@]}"; do outer+=(--ro-bind /dev/null "$mask_file"); done
 outer+=(--)
 for name in "${extra_names[@]}"; do names+=",$name"; done
 cmd=("$HOME/.local/bin/agent-env" --scope "$project" "$config" "$names" --

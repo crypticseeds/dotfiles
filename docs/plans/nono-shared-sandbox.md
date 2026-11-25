@@ -157,6 +157,18 @@ Implemented, uncommitted. Deviations from the task text above, and what remains:
   calls, not on file tools (nono covers those). Decision for the owner: give omp a stow package instead of
   the copy step.
 
+CodeRabbit round fixed (F1-F7, 2026-11-25):
+
+- F1/F2: `policy.json` has `secret_print_patterns` (generated from `SECRET_PRINT_BASH` in `generate.py`, a
+  checked subset of `DENY_BASH`); the guard matches them against each command inside `hc run`, whose inner
+  commands the harness rules never see. A missing key fails closed, so reinstall the guard script and policy
+  together (`regen-agent-host.sh`). Shell `-c` detection handles `-lc`, `-ec`, `-l -c`, `-ic`.
+- F3-F7 (`agent-launch`): dotenv masking also outside Git and for symlinks; whole `.claude` read-only with
+  `.claude/worktrees` writable; effective `core.hooksPath` dir and `config.worktree` read-only. Missing root
+  agent files are covered by a guard check on shell writes.
+- Rejected: the finding about inherited `ANTHROPIC_*` variables, because `agent-env` rebuilds the environment
+  from an allowlist, so they never reach the agent.
+
 ## Phase 3 (needs owner decisions and sudo)
 
 ### T5 - Claude on nono only

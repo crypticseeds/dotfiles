@@ -333,6 +333,27 @@ DENY_BASH = [
     "=sh", "=bash", "=zsh",
 ]
 
+# The secret-PRINTING part of DENY_BASH, for the guard's policy (secret_print_patterns): `hc run` starts its command
+# outside every sandbox and the harness rules see only `hc`, so the guard matches these against the inner command.
+# `check()` requires every entry to be in DENY_BASH, so the two cannot drift. `doppler secrets` is left out: the guard
+# allows `--only-names` and denies every other form itself.
+SECRET_PRINT_BASH = [
+    "=env", "printenv", "=export -p", "=set", "declare -p", "declare -x", "typeset -x", "cat /proc/*/environ*",
+    "gh auth token", "gh auth status *-t*", "gh auth status *--show-token*",
+    "doppler configure", "doppler *--plain*", "doppler run *-- env", "doppler run *-- env *",
+    "doppler run *-- printenv*", "doppler run *-- export*",
+    "systemctl show", "secret-tool", "pbpaste", "xclip -o", "xsel -o", "wl-paste",
+    "aws configure get", "aws configure export-credentials", "aws sts get-session-token", "aws sts assume-role*",
+    "aws sts get-federation-token", "aws sso get-role-credentials",
+    "aws secretsmanager *get-secret-value*", "aws ssm get-parameter*", "aws kms decrypt",
+    "aws ecr get-login-password", "aws ecr get-authorization-token", "aws eks get-token",
+    "terraform state pull", "terraform state show", "terraform show *-json*", "terraform output *-json*",
+    "terraform output *-raw*", "ansible-vault view", "ansible-vault decrypt",
+    "kubectl get *secret*", "kubectl describe *secret*", "kubectl get *Secret*", "kubectl describe *Secret*",
+    "kubectl get *SECRET*", "kubectl describe *SECRET*", "kubectl config view *--raw*",
+    "helm get values", "helm get all", "helm get manifest",
+]
+
 # The AWS profiles / permission sets the agent must never use (the human's admin role).
 # Matched as a substring of the profile name, case-sensitively, so list each spelling.
 # Add your exact profile and sso-session names here once they exist.
@@ -847,6 +868,9 @@ def guard_policy(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CRED
             "explain_sandboxed_chains: true for Claude's own bwrap sandbox, where a chained excluded command",
             "runs sandboxed and fails; false under nono, where nothing is excluded. Only the claude harness",
             "uses it; opencode and omp calls never get these explanations.",
+            "secret_print_patterns: command-line globs (`*` = anything, case-insensitive) the guard denies inside",
+            "`hc run`, which runs outside every sandbox where the harness deny rules see only `hc`; generated from",
+            "SECRET_PRINT_BASH in generate.py (the secret-printing part of DENY_BASH).",
         ],
         "secret_globs": home_paths(os_name) + abs_paths(os_name) + PROC_SECRET_PATHS + SECRET_PATHS_ANY,
         "repo_roots": list(repo_roots),
@@ -854,6 +878,8 @@ def guard_policy(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CRED
         "excluded_commands": excluded_commands(True),
         "hooks_paths": dict(hooks_paths),
         "explain_sandboxed_chains": explain_sandboxed_chains,
+        "secret_print_patterns": expand_all(with_k3s(with_tofu(SECRET_PRINT_BASH))
+                                            + wrap(with_k3s(with_tofu(SECRET_PRINT_BASH)), allow=False)),
     }
 
 
@@ -1461,6 +1487,9 @@ def check():
     tiers = {t: [re.fullmatch(r"Bash\((.*)\)", e, re.S).group(1) for e in host["permissions"][t] if e.startswith("Bash(")]
              for t in ("deny", "ask", "allow")}
     # the installed guard allows git-in only under ~/REPOS; the tests build one whose repo root is a temp dir
+    expect("[agent-host] SECRET_PRINT_BASH is part of DENY_BASH", [], [c for c in SECRET_PRINT_BASH if c not in DENY_BASH])
+    expect("[agent-host] guard policy carries secret_print_patterns", True,
+           bool(guard_policy("linux")["secret_print_patterns"]))
     expect("[agent-host] guard policy has ~/REPOS as the git-in root", ["~/REPOS"], guard_policy("linux")["repo_roots"])
     expect("[agent-host] the committed policy.json loads and allows git status", False,
            hook_denies({"hooks": [{"command": "AGENT_GUARD_POLICY=%s python3 %s" % (
@@ -1620,7 +1649,15 @@ def check():
                         ("hc run -- git reset --hard", True), ("hc run --cwd . -- docker run -v /home/ai:/h alpine", True),
                         ("hc run -- bash -c 'git clean -fd'", True), ("hc run git push -f origin x", True),
                         ("hc run -- cat README.md", False), ("hc run --bg --name t -- git status", False), ("hc run --name t -- ls -la", False),
-                        ("hc run -- bash -c 'git add -A && git commit -m x'", False), ("hc run", False)):
+                        ("hc run -- bash -c 'git add -A && git commit -m x'", False), ("hc run", False),
+                        # secret-printing commands inside hc run (the harness rules see only `hc`), combined -c options
+                        ("hc run -- kubectl get secret app -o yaml", True),
+                        ("hc run -- aws secretsmanager get-secret-value --secret-id app", True),
+                        ("hc run -- bash -lc 'cat ~/.aws/credentials'", True), ("hc run -- sh -ec 'doppler secrets'", True),
+                        ("hc run -- k3s kubectl get Secret -A", True), ("hc run -- tofu output -json", True),
+                        ("hc run -- doppler run --only-secrets X -- terraform output -raw x", True),
+                        ("hc run -- kubectl get pods", False), ("hc run -- bash -lc 'make test'", False),
+                        ("hc run -- doppler secrets --only-names", False), ("hc run -- terraform plan", False)):
         expect("[agent-host guard, hc run] %s" % cmd, denied,
                hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
     # ~, $HOME and ${HOME} spellings run in --selftest (fake home); here the symlink fixtures
