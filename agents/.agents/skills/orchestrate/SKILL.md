@@ -34,6 +34,7 @@ You are the orchestrator. You do not trust a worker's success claim: you verify 
 After a worker reports:
 
 1. Run the acceptance checks yourself, inside the worker's worktree. Do not accept the worker's output as evidence.
+   For a worker with read-only Git metadata (`agent-launch --subagent`), review its working-tree diff, including any new files.
 2. Request independent review: `code-reviewer` with the plan and the diff range; add `security-reviewer` when the change touches auth, secrets, IAM, network, input handling, or CI. Pass the acceptance criteria so the review is judged against them.
 3. Build a criteria table: each criterion PASS / FAIL / UNVERIFIED with evidence.
 4. Read the report's `## Remember` section. Save only lessons that are durable, non-obvious and not already recorded in the repo, using your memory rules (update an existing memory rather than adding a duplicate). A worker's lesson is a claim like any other: confirm it before saving it. Drop the rest.
@@ -45,6 +46,8 @@ After a worker reports:
 - Re-verify from step 3. Maximum 3 heal rounds per task across all tiers. Then stop, summarize what was tried and learned, and ask the user.
 
 ## Integrate and clean up (after a task is verified)
+
+If the worker left verified edits uncommitted because Git metadata was read-only, the parent commits only those edits in the worker's worktree before merging. Get authorization if the task does not already authorize a commit. When the worker could commit to its own branch, merge its verified commit as usual.
 
 Run from your own checkout, one task at a time:
 
@@ -76,4 +79,4 @@ After each verification pass, decide for every pane you spawned. Never touch pan
 
 ## Worker contract (include in every delegation)
 
-Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. When every criterion passes, commit your change to the given `agent/<slug>` branch (Conventional Commits, no AI attribution); never push, never touch other branches. End the report with a `## Remember` section: lessons the next worker on this project should know (a non-obvious convention, a gotcha, a command that works), one line each, or "none". Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.
+Work only inside the given checkout or worktree. Report each acceptance criterion as PASS/FAIL/UNVERIFIED with evidence. If the launcher makes Git metadata read-only (`agent-launch --subagent`), leave edits uncommitted for the parent. Otherwise, when every criterion passes and you have an assigned `agent/<slug>` branch, commit your change there (Conventional Commits, no AI attribution). Never push or touch other branches. End the report with a `## Remember` section: lessons the next worker on this project should know (a non-obvious convention, a gotcha, a command that works), one line each, or "none". Write the final report to the given path, then state DONE. If blocked by an approval or a question, ask in your session and wait. Report out-of-scope problems; do not fix them.

@@ -1,0 +1,14 @@
+{
+  "meta": {"name": "pi-agent-host", "version": "0.1.0"},
+  "extends": "default",
+  "workdir": {"access": "readwrite"},
+  "linux": {"af_unix_mediation": "pathname"},
+  "filesystem": {
+    "read": ["$XDG_STATE_HOME/herdr-core/default/files"],
+    "unix_socket": ["$XDG_RUNTIME_DIR/herdr-core/default.sock", "/run/docker.sock"]
+  },
+  "security": {"capability_elevation": false},
+  "environment": {
+    "deny_vars": ["DOPPLER_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"]
+  }
+}

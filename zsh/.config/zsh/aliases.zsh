@@ -165,7 +165,7 @@ else
   alias claude='agent-env claude'
   alias cc='agent-env claude'
   alias omp='agent-env omp --approval-mode=yolo'
-  alias codex='agent-env codex --no-daemon'
+  alias codex='agent-env codex'
 fi
 alias oca='doppler run --only-secrets OPENCODE_SERVER_PASSWORD,OPENCODE_SERVER_USERNAME -- opencode attach https://opencode.internal.devopsfoundry.com'
 

@@ -72,12 +72,12 @@ Which multiplexer you are in:
 Worktrees and panes:
 
 - Do quick work yourself. In Herdr Core, run all delegated engineering work, including scouts, reviewers and implementers, as named interactive `hc run --bg` children. This routing also applies when another skill calls for built-in subagents. Open a child from the sidebar and click **Keep** when you want a dedicated tab.
-- Each agent starts its own dev servers, watchers, slow builds, test suites and local CI jobs in named `hc run --bg` child terminals so the hierarchy shows who owns each job. Report an `hc` blocker before switching execution methods.
+- In Herdr Core, each agent starts its own dev servers, watchers, slow builds, test suites and local CI jobs in named `hc run --bg` child terminals so the hierarchy shows who owns each job. Report an `hc` blocker before switching execution methods. On other hosts, use the host's normal execution method.
 - Give each worker an explicit task, working directory and boundaries. Preserve normal approval prompts. Never auto-approve destructive operations or allow workers to delegate further without explicit authorization.
 - In the legacy Herdr TUI, use `delegate-visibly` for pane placement and scope.
 - One writer per checkout. A single writer may run in the orchestrator's checkout; parallel writers or own-branch work get their own worktree on a local `agent/<slug>` branch: `herdr worktree create` in herdr, `git worktree add .worktrees/<slug>` in herdr-app.
 - After creating a worktree, run `agent-worktree-setup <worktree-path>` as its own command before starting a worker: a new worktree has no `.venv`.
-- Exception to the commit rule below: workers may commit to their own `agent/<slug>` branch, never push. The orchestrator verifies, merges the branch locally into the working branch, then removes the worktree and deletes the merged `agent/<slug>` branch itself. It never removes a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
+- Exception to the commit rule below: where the launch permits Git writes, workers may commit to their own `agent/<slug>` branch and never push. Workers launched with `agent-launch --subagent` leave edits uncommitted. The orchestrator verifies those edits and commits them in the worker checkout before merging when authorized. After merging, remove the worktree and delete the merged branch. Never remove a worktree with unmerged or unverified work. Pushing and PRs still follow the git rules.
 
 ## Code review (CodeRabbit)
 

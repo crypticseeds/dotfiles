@@ -4,15 +4,15 @@ nono needs Landlock to enforce its Linux filesystem sandbox. The stock Raspberry
 
 ## Boot files
 
-- `/boot/firmware/config.txt` controls normal boots. The stock boot uses `kernel_2712.img` and `initramfs_2712` in that directory.
-- `/boot/firmware/tryboot.txt` includes `config.txt` and selects `landlock-trial/` for a one-shot boot. That directory contains `kernel-landlock.img`, `initramfs-landlock`, and the matching Pi 5 device trees and overlays. Both entries use the existing `/boot/firmware/cmdline.txt` and Debian root filesystem.
+- `/boot/firmware/config.txt` selects `landlock-trial/kernel-landlock.img` for normal boots. `auto_initramfs=1` selects the matching `initramfs-landlock`.
+- `/boot/firmware/tryboot.txt` includes `config.stock.txt` for a one-shot Trixie boot. The stock `kernel_2712.img` and `initramfs_2712` remain in `/boot/firmware`. The previous Ubuntu trial configuration is saved as `tryboot.ubuntu-trial.txt`.
 - `/usr/lib/modules/7.0.0-1023-raspi/` contains the matching Ubuntu modules. The kernel and modules came from Ubuntu `linux-raspi` packages version `7.0.0-1023.23`, extracted manually. Debian APT updates the stock kernel. Ubuntu trial files and their security updates need separate maintenance. [Ubuntu kernel release](https://launchpad.net/ubuntu/+source/linux-raspi/7.0.0-1023.23)
 
 ## Test, keep, or roll back
 
-With physical reset access, run `sudo reboot '0 tryboot'` for a one-shot test. A subsequent normal reboot uses `config.txt`. If the trial hangs or loses network access, reset the Pi locally. [Raspberry Pi tryboot](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#fail-safe-os-updates-tryboot)
+With physical reset access, run `sudo reboot '0 tryboot'` for a one-shot Trixie fallback. A subsequent normal reboot uses `config.txt` and selects the Ubuntu kernel. If a boot fails, reset the Pi locally. [Raspberry Pi tryboot](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#fail-safe-os-updates-tryboot)
 
-To make the trial kernel the default, save `/boot/firmware/config.txt` as `config.stock.txt` in the same directory, then append the following to `config.txt`. Keep the stock kernel and initramfs on the card. As of 2026-11-22, the trial had succeeded and `config.txt` still selected the stock kernel.
+The installed normal-boot selection is:
 
 ```ini
 [all]
@@ -22,6 +22,8 @@ cmdline=/cmdline.txt
 ```
 
 To roll back a permanent change, restore `config.stock.txt` over `config.txt` and reboot. If the Pi cannot boot, restore the file on the SD card from another computer. This restores the stock boot path. Both kernels use the same live filesystem, so a kernel rollback does not roll back changes to app data.
+
+The saved `config.stock.txt` and `tryboot.ubuntu-trial.txt` were verified against the original files after installation. The new normal and fallback configurations have not yet been tested by rebooting.
 
 After any boot change, check the running kernel and nono startup:
 

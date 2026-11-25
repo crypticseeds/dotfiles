@@ -20,8 +20,8 @@ scope for both the aliases and the non-interactive wrappers.
   Doppler's encrypted fallback can remain on disk and is subject to the same scope check.
 - **`-c dev_maghub` is the config every agent gets**: `ANTHROPIC_API_KEY`,
   `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `MCPHUB_DEFAULT_KEY`.
-  There is no allow-list, so anything added to that config reaches every agent: keep
-  it to keys every agent may hold, and nothing personal.
+  Only these names are injected from the default payload; other payload variables,
+  including dynamic loader settings, are ignored. Existing inherited environment variables are retained.
 
 Measured 2026-11-15 with `~/REPOS/aws-platform` as the working directory:
 
@@ -29,6 +29,109 @@ Measured 2026-11-15 with `~/REPOS/aws-platform` as the working directory:
 |---|---|---|
 | `doppler run -- ...` | `agents-pi/aws-platform` | `ARGOCD_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, `DOCKERHUB_PULL_TOKEN`, `GH_TOKEN`, ... present |
 | `doppler run -p harness -c dev_maghub -- ...` | `harness/dev_maghub` | all absent |
+
+## Sandboxed launches on the Pi
+
+Run `agent-launch` with a supported harness from your workspace. In a Git checkout, the launcher uses the
+worktree root. Outside Git, it uses the current directory. For a fresh agent that needs a special
+secret, put the standard gateway values and the extra secret in one dedicated Doppler
+config. Select the config and name the extra variable for that launch:
+
+```bash
+hc run --bg --cwd "$HOME/REPOS/redress" \
+  agent-launch --doppler my-project/dev --secret SERVICE_API_KEY codex
+```
+
+The launcher verifies the selected Doppler scope and passes the standard gateway
+variables plus requested names from that single config. A missing variable or scope
+mismatch stops the launch. Local subprocesses inherit the worker environment. Launch
+a separate worker through `hc` with the default config to give it the normal credentials.
+Use `--read DIR` or `--allow DIR` before the harness name to grant another directory. For
+Claude, `--read` keeps the nono grant read-only and `--allow` also adds the directory to
+Claude's working directories, granting sandboxed Bash recursive write access at that layer.
+It can include sibling agent configuration files for Bash, while Claude's file-tool permission
+rules still apply.
+
+`agent-launch` applies the named harness pack and `pi-agent-host` nono profile to the client. Claude
+uses `--permission-mode auto`; OMP, OpenCode and Codex enable automatic approval. Codex also uses
+`--no-daemon`. The named harness pack and executable must be available on the worker host.
+OpenCode's shared server may execute outside nono with its own environment and Git access.
+The client sandbox's protections for server-side execution are unverified; do not assume scoped
+secrets, filesystem grants, or read-only Git metadata apply to the shared server.
+
+The shared `pi-agent-host` profile allows connections to the default Herdr Core socket,
+so sandboxed agents can use `hc`. Core launches processes with its own permissions;
+those processes do not automatically inherit the agent's nono sandbox.
+The profile also grants read-only access to `$XDG_STATE_HOME/herdr-core/default/files`
+(`~/.local/state/herdr-core/default/files` by default) for copied and pasted files.
+
+The profile also grants access to `/run/docker.sock` for Docker diagnostics and container
+operations. Docker socket access gives the client the daemon's full authority, including
+access outside nono's filesystem restrictions; nono does not restrict Docker subcommands.
+Other harness-specific permissions still apply. Restart an agent session to pick up changes.
+
+On the Pi, Claude Code 2.1.331 under nono 0.82.0 failed to start sandboxed Bash with
+`bwrap: setting up uid map: Permission denied` in isolated tests with both the old and new
+managed policies. Direct Claude launches from the target workspace passed the Bash write tests.
+[See Claude's sandbox troubleshooting](https://code.claude.com/docs/en/sandboxing).
+
+Direct Codex launches through `agent-env` also use `--no-daemon` for local sessions.
+An unscoped launch can use `--remote` with the arguments unchanged. A scoped launch rejects
+`--remote` because the remote executor would use its own environment.
+
+Use `agent-launch --subagent` for supported delegated Pi workers. It uses the normal `harness/dev_maghub` config by default. GitHub permissions through mcphub are controlled by the server. Workers must leave GitHub writes to the parent or operator. Claude's nested Bash sandbox currently fails under nono; a direct Claude session lacks nono and the read-only Git metadata protection.
+
+```bash
+hc run --bg --cwd "$HOME/REPOS/redress" agent-launch --subagent codex
+```
+
+Worker checkout files stay writable. When launched in a Git worktree, the launcher mounts
+the repository and linked-worktree Git metadata read-only for the sandboxed client. Extra
+directories are read-only in worker mode. OpenCode server-side enforcement is unverified.
+The parent or operator handles commits, pushes, and merges.
+For a special secret, select a separate config with `--doppler PROJECT/CONFIG`
+and `--secret NAME`.
+On this Pi, a grant over the live dotfiles repo overlaps the protected `.zshrc`
+target. Use a separate worktree for sandboxed changes there.
+
+### Deferred: Claude and nono sandbox design
+
+The scoped Linux policy changes in this checkout are not installed. On the Pi, Claude
+Code 2.1.331's Bash sandbox fails inside nono 0.82.0 before the command starts. The same
+UID-map failure occurred with both the existing and proposed Claude policies, and with
+Claude's `enableWeakerNestedSandbox` setting. Do not treat the combined Bash path as
+verified until an end-to-end launch succeeds.
+
+The proposed simpler design is to run Claude under nono without Claude's inner Bash
+sandbox. A disposable `agent-launch` test with the inner sandbox disabled confirmed
+workspace writes, denial of ungranted sibling access, read-only `--read`, and writable
+`--allow`, including sibling paths created after launch. A separate local proxy test
+allowed a listed hostname, rejected an unlisted one, and blocked direct TCP.
+
+This is not an equivalent replacement yet:
+
+- Linux Landlock cannot enforce a deny inside a recursively granted writable directory
+  in this nono version. An existing denied child makes nono refuse startup; a matching
+  child created after startup was readable. Keep secrets and other files that must be
+  hidden outside the workspace and every directory granted with `--allow`.
+- Disabling Claude's Bash sandbox made a synthetic file readable through Bash despite
+  a managed Claude `Read` deny. Native tool permission rules are not a substitute for
+  filesystem enforcement against arbitrary Bash programs.
+- The current nono profile does not reproduce Claude's Bash domain allowlist. A
+  session-wide proxy needs the actual model and MCP destinations and must be tested
+  with all required traffic before rollout.
+- Claude's built-in configuration protections, excluded commands, and trusted-tool
+  workflows need separate review. Host daemon sockets and broad credential access
+  must not be granted merely to make those workflows run.
+
+An owner-installed AppArmor policy could potentially enforce path restrictions inside
+writable directories, but adds a host-maintained security policy and has not been
+tested here. The alternative is a narrower workspace layout that gives up arbitrary
+root-level writes. Neither option has been selected or installed.
+
+Evidence: [nono Landlock deny-overlap issue](https://github.com/nolabs-ai/nono/issues/2296),
+[Linux Landlock documentation](https://docs.kernel.org/userspace-api/landlock.html), and
+[Claude sandboxing](https://code.claude.com/docs/en/sandboxing).
 
 ## Which launches get the environment
 
@@ -109,6 +212,10 @@ GitHub tools now come from the mcphub MCP server, not from a `GH_TOKEN` header.
   `mcp_hub` section in the supported harnesses. The `mcp` section retains the old server
   definitions for reference and continues to supply explicit project opt-ins.
 
+The OpenCode v2 shared server uses its own `MCPHUB_DEFAULT_KEY`. Its launcher honors an
+inherited key or fetches only that key from `harness/dev_maghub`. An already-running server
+keeps its launch environment until restarted.
+
 ## Deliberately left on `harness/dev`
 
 These still read `dev` and keep working after the `$HOME` scope moves, but they are not
@@ -126,9 +233,6 @@ on the new funnel and each needs a decision:
   with no `-p`/`-c`. It works today only because the `$HOME` scope is still
   `harness/dev`; the moment that scope moves to `dev_maghub` it fails with "secrets ...
   do not exist". Left as is by request.
-- `opencode/.local/bin/opencode-shared-server` - pins `-c dev` because the `github` MCP
-  header needs `GH_TOKEN` in the server process. Move it once the opencode harness reads
-  GitHub through mcphub, or add `GH_TOKEN` back if the header has to stay.
 
 ## Open items
 
@@ -141,6 +245,5 @@ on the new funnel and each needs a decision:
   the model layer in both scopes (`claude-opus-5-5`, `claude-sonnet-5-5`, and
   `kimi-k2.5` under `dev`), so the keys authenticated but no completion was verified.
   Confirm with a real interactive launch.
-- **No allow-list on launches.** One `dev_maghub` serves every agent, so a key added
-  there for one purpose reaches all of them. That is the accepted trade for a single
-  clean command; the per-directory alternative was dropped.
+- **Default launch scope is fixed.** Only the five standard names are injected from
+  `dev_maghub`; use a scoped `agent-launch --secret NAME` for an additional variable.

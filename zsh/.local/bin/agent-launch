@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project=harness
+config=dev_maghub
+names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL,MCPHUB_DEFAULT_KEY
+extra_names=()
+worker=false
+write_dirs=()
+permissions=()
+usage() {
+  echo 'usage: agent-launch [--subagent] [--doppler PROJECT/CONFIG] [--secret NAME] [--read DIR | --allow DIR] HARNESS [--] [ARGS...]' >&2
+}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h) usage; exit 0 ;;
+    --subagent) worker=true; shift ;;
+    --doppler|--secret|--read|--allow)
+      if [[ $# -lt 2 || $2 == -* || -z $2 ]]; then usage; exit 2; fi
+      case "$1" in
+        --doppler)
+          if [[ ! $2 =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then usage; exit 2; fi
+          project=${2%/*} config=${2#*/} ;;
+        --secret)
+          if [[ ! $2 =~ ^[A-Z_][A-Z0-9_]*$ ]]; then usage; exit 2; fi
+          extra_names+=("$2") ;;
+        --read|--allow)
+          dir=$(realpath -e -- "$2")
+          if [[ ! -d $dir || $dir == / || $dir == "$HOME" ]]; then usage; exit 2; fi
+          permissions+=("$1" "$dir")
+          if [[ $1 == --allow ]]; then write_dirs+=("$dir"); fi ;;
+      esac
+      shift 2 ;;
+    *) break ;;
+  esac
+done
+
+native=()
+case "${1:-}" in
+  claude) profile=claude; binary=$HOME/.local/bin/claude; native=(--permission-mode auto) ;;
+  omp) profile=omp; binary=$HOME/.bun/bin/omp; native=(--approval-mode=yolo) ;;
+  opencode) profile=opencode; binary=$HOME/.opencode/bin/opencode; native=(--auto) ;;
+  codex) profile=codex; binary=$HOME/.local/bin/codex; native=(--no-daemon --ask-for-approval never) ;;
+  agy|antigravity) profile=antigravity; binary=$(command -v agy) ;;
+  *) usage; exit 2 ;;
+esac
+shift
+if [[ ${1:-} == -- ]]; then shift; fi
+if [[ $profile == codex ]]; then
+  for arg in "$@"; do
+    [[ $arg == -- ]] && break
+    if [[ $arg == --remote || $arg == --remote=* ]]; then
+      echo 'agent-launch: scoped Codex launches require a local executor' >&2
+      exit 2
+    fi
+  done
+fi
+if [[ ! -x $binary ]]; then printf 'agent-launch: executable unavailable: %s\n' "$binary" >&2; exit 1; fi
+if [[ $profile == claude && -f /etc/claude-code/managed-settings.json ]]; then
+  permissions+=(--read-file /etc/claude-code/managed-settings.json)
+fi
+if [[ $profile == claude ]]; then
+  # Claude's Bash sandbox needs its own write grant, inside nono's grant.
+  if [[ ${#write_dirs[@]} -ne 0 ]]; then native=(--add-dir "${write_dirs[@]}" "${native[@]}"); fi
+  claude_socket_dir="$HOME/.claude/tmp/claude-$(id -u)"
+  (umask 077; mkdir -p -- "$claude_socket_dir")
+  permissions+=(--allow-unix-socket-dir-bind "$claude_socket_dir")
+fi
+if [[ $profile == opencode ]]; then
+  config_target=$(realpath -e -- "$HOME/.config/opencode/opencode.jsonc")
+  permissions+=(--read "${config_target%/*}")
+  pty_dir="/tmp/opencode-pty-$(id -u)"
+  if [[ ! -d $pty_dir ]]; then mkdir -m 700 -- "$pty_dir"; fi
+  permissions+=(--allow-unix-socket-dir-bind "$pty_dir")
+  moshi_socket="${XDG_RUNTIME_DIR:-/tmp}/moshi-hook.sock"
+  if [[ -S $moshi_socket ]]; then permissions+=(--allow-unix-socket "$moshi_socket"); fi
+  if [[ ${1:-} == run ]]; then
+    native=()
+    shift
+    set -- run --auto "$@"
+  fi
+fi
+
+in_worktree=true
+if ! workspace=$(LC_ALL=C /usr/bin/git rev-parse --show-toplevel 2>&1); then
+  case "$workspace" in
+    'fatal: not a git repository (or any of the parent directories): .git'*|\
+    'fatal: not a git repository (or any parent up to mount point '*)
+      workspace=$(pwd -P)
+      in_worktree=false ;;
+    *) printf 'agent-launch: %s\n' "$workspace" >&2; exit 1 ;;
+  esac
+fi
+if [[ $workspace == / || $workspace == "$HOME" ]]; then
+  echo 'agent-launch: choose a workspace below your home or filesystem root' >&2
+  exit 2
+fi
+cd -- "$workspace"
+outer=()
+if $worker && [[ ${#write_dirs[@]} -ne 0 ]]; then
+  echo 'agent-launch: subagents only accept extra read grants' >&2
+  exit 2
+fi
+if $worker && $in_worktree; then
+  git_paths=$(/usr/bin/git rev-parse --path-format=absolute --git-dir --git-common-dir)
+  git_dir=${git_paths%%$'\n'*}
+  common_dir=${git_paths#*$'\n'}
+  outer=(/usr/bin/bwrap --unshare-user --disable-userns --bind / / --dev-bind /dev /dev
+    --ro-bind "$common_dir" "$common_dir")
+  if [[ $git_dir != "$common_dir" ]]; then outer+=(--ro-bind "$git_dir" "$git_dir"); fi
+  if [[ -f $workspace/.git ]]; then outer+=(--ro-bind "$workspace/.git" "$workspace/.git"); fi
+  permissions+=(--read "$common_dir" --read "$git_dir")
+  outer+=(--)
+fi
+for name in "${extra_names[@]}"; do names+=",$name"; done
+"$HOME/.local/bin/nono" profile validate "nolabs-ai/$profile" >/dev/null
+exec "$HOME/.local/bin/agent-env" --scope "$project" "$config" "$names" -- \
+  "${outer[@]}" "$HOME/.local/bin/nono" run --profile "nolabs-ai/$profile" --extends pi-agent-host \
+  --workdir "$workspace" --allow-cwd "${permissions[@]}" -- "$binary" "${native[@]}" "$@"

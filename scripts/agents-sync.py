@@ -16,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(REPO, "agents", ".agents", "manifest.json")
@@ -588,21 +589,38 @@ def codex_read(path):
 
 
 def mcp_codex(want, dry, path=None, where="codex", prune=False):
-    """Regenerate the managed block. Names in it that are not in `want` are kept, or with
-    `prune` (a project file, whose block holds only that project's list) removed."""
-    path = path or os.path.join(home(), ".codex", "config.toml")
+    """Regenerate the managed block. Only user sync adopts tables outside it."""
+    user_config = path is None
+    path = path or os.path.join(os.environ.get("CODEX_HOME") or os.path.join(home(), ".codex"),
+                               "config.toml")
     lines, start, end, chunks, outside = codex_read(path)
+    original = lines
+    if user_config and outside:
+        for name in sorted(outside - want.keys()):
+            say(dry, "remove", where, name)
+        if not dry:
+            # Codex can remove comments attached to the following table. Keep the
+            # managed block out of its edit and publish only the complete result.
+            unmanaged = lines[:start] + lines[end + 1:] if start is not None else lines
+            with tempfile.TemporaryDirectory() as tmp:
+                scratch = os.path.join(tmp, "config.toml")
+                atomic_write(scratch, "\n".join(unmanaged) + "\n")
+                for name in sorted(outside):
+                    run_cli(["env", "CODEX_HOME=" + tmp, "codex", "mcp", "remove", "--", name], False)
+                with open(scratch, encoding="utf-8") as f:
+                    lines = f.read().splitlines()
+            start = end = None
     final = {} if prune else dict((n, c) for n, c in chunks.items() if n not in outside)
     for name in sorted(set(chunks) - set(want) if prune else ()):
         say(dry, "remove", where, name)
     for name in sorted(want):
-        if name in outside:
+        if name in outside and not user_config:
             print("WARN  %s: %s has a [mcp_servers.%s] table outside the managed "
                   "block, not managed" % (where, name, name))
             continue
         final[name] = codex_chunk(name, want[name])
-        if chunks.get(name) != final[name]:
-            say(dry, "update" if name in chunks else "add", where, name)
+        if chunks.get(name) != final[name] or name in outside:
+            say(dry, "update" if name in chunks or name in outside else "add", where, name)
     block = [MCP_START]
     for i, name in enumerate(sorted(final)):
         block += ([""] if i else []) + final[name]
@@ -613,7 +631,7 @@ def mcp_codex(want, dry, path=None, where="codex", prune=False):
         new = lines + ([""] if lines and lines[-1] != "" else []) + block
     else:
         new = lines
-    if new != lines and not dry:
+    if new != original and not dry:
         atomic_write(path, "\n".join(new) + "\n")
 
 
@@ -626,11 +644,15 @@ def mcp_hermes(want, dry):
     path = os.path.join(hermes_home(), "config.yaml")
     try:
         with open(path, encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
+            config = yaml.safe_load(f)
     except FileNotFoundError:
         config = {}
     except yaml.YAMLError:
         raise RuntimeError("cannot parse %s" % path) from None
+    if config is None:
+        config = {}
+    elif not isinstance(config, dict):
+        raise RuntimeError("%s must contain a YAML mapping" % path)
     wanted = {name: {"url": entry["url"], **env_headers(entry, "${%s}")} for name, entry in want.items()}
     if config.get("mcp_servers") != wanted:
         run_cli(["hermes", "config", "set", "--force", "mcp_servers", json.dumps(wanted)], dry)
@@ -677,11 +699,7 @@ def mcp(manifest, dry):
         want = applicable(entries, harness)
         try:
             if harness == "codex":
-                path = os.path.join(home(), ".codex", "config.toml")
-                _, _, _, _, outside = codex_read(path)
-                for name in sorted(outside - want.keys()):
-                    run_cli(["codex", "mcp", "remove", "--", name], dry)
-                mcp_codex(want, dry, path=path, prune=True)
+                mcp_codex(want, dry, prune=True)
             elif harness == "hermes":
                 mcp_hermes(want, dry)
             else:
