@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 # agent-mux - print which multiplexer hosts this shell: herdr-app, herdr, or none.
+# agent-mux --rules [host] - print the short routing rule block for that host (nothing for none), for the
+# harness hooks and plugins that inject it at session start (see agent-route).
 # herdr = the herdr server's panes (herdr in a terminal, or herdr-gui). herdr-app = herdr-core (hc).
 # The env vars alone are not proof: herdr-core and the herdr server pass their HC_* / HERDR_* on
 # to everything they start, so a core started from a herdr pane leaks HERDR_* into every herdr-app
@@ -21,21 +23,59 @@ depth() {
   ancestors | grep -nx "$1" | cut -d: -f1
 }
 
-hc_depth=""
-if [ -n "${HC_TERMINAL_ID:-}" ] && command -v hc >/dev/null 2>&1; then
-  hc_depth=$(depth "$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.pid // empty')")
-fi
+detect() {
+  hc_depth=""
+  if [ -n "${HC_TERMINAL_ID:-}" ] && command -v hc >/dev/null 2>&1; then
+    hc_depth=$(depth "$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.pid // empty')")
+  fi
 
-herdr_depth=""
-if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] && command -v herdr >/dev/null 2>&1; then
-  herdr_depth=$(depth "$(herdr pane process-info --pane "$HERDR_PANE_ID" 2>/dev/null |
-    jq -r '.result.process_info.shell_pid // empty')")
-fi
+  herdr_depth=""
+  if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] && command -v herdr >/dev/null 2>&1; then
+    herdr_depth=$(depth "$(herdr pane process-info --pane "$HERDR_PANE_ID" 2>/dev/null |
+      jq -r '.result.process_info.shell_pid // empty')")
+  fi
 
-if [ -n "$hc_depth" ] && { [ -z "$herdr_depth" ] || [ "$hc_depth" -lt "$herdr_depth" ]; }; then
-  echo herdr-app
-elif [ -n "$herdr_depth" ]; then
-  echo herdr
-else
-  echo none
-fi
+  if [ -n "$hc_depth" ] && { [ -z "$herdr_depth" ] || [ "$hc_depth" -lt "$herdr_depth" ]; }; then
+    echo herdr-app
+  elif [ -n "$herdr_depth" ]; then
+    echo herdr
+  else
+    echo none
+  fi
+}
+
+# One rules function per host: adding a host (rex) is one detect branch plus one rules_<host> function.
+rules_herdr_app() {
+  cat <<'EOF'
+Herdr Core (herdr-app) hosts this session. Delegated agents and long or background jobs run as visible hc children. Your harness blocks its own subagent and background features here, and the error gives the command.
+- Delegated agent (subagent, scout, reviewer, implementer): hc run --bg --name <slug> --cwd <dir> <template-or-agent> "<task>". Check hc templates first. Explicit model, interactive launch.
+- Test suite, build, server, watcher, local CI: hc run --bg --name <job> --cwd <dir> -- <command>. Then hc wait <job> and hc read --lines 80 <job>.
+- Never use run_in_background, a shell &, or the Agent/Task/Workflow tool for these. Quick commands (ls, cat, git status) stay normal tool calls.
+- Details: load the herdr-app skill and run hc --skill.
+EOF
+}
+
+rules_herdr() {
+  cat <<'EOF'
+The Herdr terminal UI (herdr) hosts this session. Delegated agents and long or background jobs run in visible herdr panes. Your harness blocks its own subagent and background features here, and the error gives the command.
+- Delegated agent (subagent, scout, reviewer, implementer): herdr agent start <name> --kind <claude|opencode|omp> --pane <pane> -- <native args>, then herdr agent prompt <name> '<task>'. Never the main tab, max 2x2 panes per tab.
+- Test suite, build, server, watcher, local CI: herdr pane run <pane> '<command>'. Then herdr agent wait <name> or herdr pane read <pane>.
+- Never use run_in_background, a shell &, or the Agent/Task/Workflow tool for these. Quick commands (ls, cat, git status) stay normal tool calls.
+- Details: load the delegate-visibly skill (and the herdr skill for CLI syntax).
+EOF
+}
+
+case "${1:-}" in
+  --rules)
+    # an explicit host skips detection (agent-route passes its cached answer)
+    case ${2:-$(detect)} in
+      herdr-app) rules_herdr_app ;;
+      herdr) rules_herdr ;;
+    esac
+    ;;
+  "") detect ;;
+  *)
+    echo "usage: agent-mux [--rules [host]]" >&2
+    exit 2
+    ;;
+esac

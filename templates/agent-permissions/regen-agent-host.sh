@@ -11,6 +11,7 @@
 #     agent-clean -> /usr/local/bin/agent-clean            (root-owned: agents clean up, see bin/agent-clean)
 #     guard    -> /usr/local/lib/agent-guard/agent_guard.py (root-owned: the Claude, opencode and omp command guard)
 #     omp ext  -> ~/.omp/agent/extensions/agent-guard.ts   (user-owned: omp calls the installed guard before bash)
+#     omp route-> ~/.omp/agent/extensions/mux-route.ts     (user-owned: omp multiplexer routing, needs ~/.local/bin/agent-route from `make restow`)
 #     policy   -> /etc/agent-guard/policy.json             (root-owned, from ../agent-guard/policy.json; edit that file)
 #   with DIR: write the three files into DIR instead, without sudo, for a dry run
 set -euo pipefail
@@ -75,5 +76,6 @@ else
   sudo install -D -m 0755 -o root -g root "$here/bin/agent-clean" /usr/local/bin/agent-clean
   install -D -m 0600 "$tmp/omp.yml" "$omp_target"
   install -D -m 0644 "$here/../agent-guard/adapters/omp-agent-guard.ts" "$HOME/.omp/agent/extensions/agent-guard.ts"
+  install -D -m 0644 "$here/../agent-guard/adapters/omp-mux-route.ts" "$HOME/.omp/agent/extensions/mux-route.ts"
   echo "regen-agent-host: done, installed Claude, opencode and omp policies, git-in, agent-clean and the guard with its policy (restart their sessions)"
 fi

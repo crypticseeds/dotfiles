@@ -2,6 +2,14 @@
 
 Default behavior for all agents in all projects. A project-level AGENTS.md and explicit user instructions override this file.
 
+## Multiplexer routing (Herdr)
+
+Applies whenever `agent-mux` prints `herdr-app` (Herdr Core) or `herdr` (the Herdr terminal UI). This is unconditional and survives resume and compaction.
+
+- Delegated agents (subagents, scouts, reviewers, implementers) and long or background jobs (test suites, builds, dev servers, watchers, local CI) run as visible multiplexer children, never through your harness's own subagent or background features. Quick commands (ls, cat, git status) stay normal tool calls.
+- Your harness enforces this. It injects the rules at session start, resume and compaction, and refuses the Agent/Task/Workflow tool, `task`, and background shell calls, with the exact command to run instead: `hc run --bg --name <slug> --cwd <dir> -- <cmd>` in herdr-app, `herdr agent start` / `herdr pane run` in herdr. Run that command; do not retry the refused call or ask the user to repeat the rule.
+- Outside both (`agent-mux` prints `none`) nothing changes: use the normal task tool.
+
 ## Think before coding
 
 Don't assume. Don't hide confusion.
@@ -63,7 +71,7 @@ Route each task to the cheapest tier that can do it reliably. Judge by complexit
 
 Which multiplexer you are in:
 
-- Before driving panes, terminals or workers, run `agent-mux` once per session. It prints `herdr`, `herdr-app` or `none`, from the process tree, not the environment.
+- The routing block at the top applies when `agent-mux` prints `herdr` or `herdr-app`. Before driving panes, terminals or workers, run `agent-mux` once per session; it reads the process tree, not the environment. `agent-mux --rules` prints the live rules for the host.
 - `herdr` (herdr in a terminal, or herdr-gui): use the `herdr` skill (`herdr --skill`) and `delegate-visibly`.
 - `herdr-app` (Herdr Core) is the preferred environment. Follow the `herdr-app` skill for terminal operations and load `hc --skill` first. The app CLI is only needed to control the window programmatically.
 - `none`: use the normal task tool outside Herdr. If Herdr variables are present but the host cannot be verified, report that before falling back.

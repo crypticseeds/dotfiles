@@ -1,6 +1,6 @@
 ---
 name: herdr-app
-description: Use when `agent-mux` prints herdr-app and you need to delegate work, run long jobs, or operate Herdr Core terminals. Read `hc --skill` for terminal operations and `herdr-app --skill` for optional window controls. Use `delegate-visibly` only for the legacy Herdr TUI.
+description: Use when `agent-mux` prints herdr-app (Herdr Core, `hc`) and you are about to delegate to a subagent, scout, reviewer or implementer, start a background or long-running job (test suite, build, dev server, server, watcher, local CI), or operate Herdr Core terminals. Delegated agents and long jobs run as `hc run --bg` children, never through the harness's own subagent or background features, which are blocked there. Read `hc --skill` for terminal operations and `herdr-app --skill` for optional window controls. Use `delegate-visibly` only for the legacy Herdr TUI.
 ---
 
 # herdr-app

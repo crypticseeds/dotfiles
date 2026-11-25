@@ -1344,6 +1344,28 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|Agent|Task|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -x \"$f\" ] || exit 0; exec \"$f\" check",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -x \"$f\" ] || exit 0; exec \"$f\" session-start",
+            "timeout": 20
+          }
+        ]
       }
     ]
   },

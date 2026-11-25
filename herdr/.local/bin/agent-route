@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""agent-route: keep delegated agents and long or background jobs on the multiplexer that hosts the session.
+
+One script for every harness hook, plugin and extension (Claude, Codex, opencode, omp). The host comes from
+`agent-mux` (herdr-app, herdr or none); the rule text from `agent-mux --rules`; the redirect messages from
+the HOSTS table below. Adding a host (rex) is one agent-mux branch, one rules function there and one HOSTS entry.
+
+  agent-route session-start     SessionStart hook (Claude, Codex): print the rules as additionalContext JSON
+  agent-route rules             print the rules for this host (nothing for none), for plugins that inject text
+  agent-route check [--neutral] PreToolUse routing check. Input (stdin JSON): a Claude/Codex payload
+                                {tool_name, tool_input, cwd} or {"tool": ..., "input": {...}, "cwd": ...}.
+                                Default output: Claude's PreToolUse deny JSON. --neutral: exit 0 = allow,
+                                exit 2 and the reason on stdout = deny.
+
+Not a security boundary: this is a workflow rule, so every failure (no agent-mux, no hc, a bad payload, an
+unwritable cache) means "allow" and exit 0. It denies only when the host is verified, and never a command that
+already goes through hc or herdr. The host is cached per terminal (agent-mux calls hc/herdr, which is slow):
+a found host for an hour, `none` for five minutes when Herdr variables were set but detection failed.
+"""
+import hashlib
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+
+POSITIVE_TTL = 3600
+NEGATIVE_TTL = 300
+
+# Tools that start a delegated agent, per harness: Claude Agent (Task is its old name) and Workflow,
+# opencode and omp `task`, Codex spawn_agent.
+DELEGATION_TOOLS = {"agent", "task", "workflow", "spawn_agent"}
+# Background flags of the shell tool: Claude run_in_background, opencode background, omp async.
+BACKGROUND_KEYS = ("run_in_background", "background", "async")
+BASH_TOOLS = {"bash"}
+ENV_ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _hc_job(cwd, command):
+    cmd = "<command>"
+    if command and len(command) <= 300:
+        cmd = "sh -c " + shlex.quote(command)
+    return ("hc run --bg --name <slug> --cwd %s -- %s. Then hc wait <slug> and hc read --lines 80 <slug>"
+            % (shlex.quote(cwd or "<dir>"), cmd))
+
+
+def _hc_agent(cwd):
+    return ("hc run --bg --name <slug> --cwd %s <template-or-agent> \"<task>\" (check hc templates first, "
+            "explicit model, interactive launch). Then hc wait <slug> and hc read --lines 80 <slug>"
+            % shlex.quote(cwd or "<dir>"))
+
+
+def _herdr_job(cwd, command):
+    cmd = "'<command>'"
+    if command and len(command) <= 300:
+        cmd = shlex.quote(command)
+    return ("herdr pane run <pane> %s in a pane you created for it (cwd %s, never the main tab, max 2x2 panes "
+            "per tab). Then herdr pane read <pane>" % (cmd, cwd or "<dir>"))
+
+
+def _herdr_agent(cwd):
+    return ("herdr agent start <name> --kind <claude|opencode|omp> --pane <pane> -- <native args>, then "
+            "herdr agent prompt <name> '<task>' (pane placement per the delegate-visibly skill, never the main "
+            "tab, max 2x2 panes per tab, cwd %s). Then herdr agent wait <name>" % (cwd or "<dir>"))
+
+
+# One entry per host: how to say "run it as a child" for a job and for an agent, and where the details are.
+HOSTS = {
+    "herdr-app": {"label": "Herdr Core (herdr-app)", "job": _hc_job, "agent": _hc_agent,
+                  "see": "Load the herdr-app skill and run hc --skill."},
+    "herdr": {"label": "the Herdr terminal UI (herdr)", "job": _herdr_job, "agent": _herdr_agent,
+              "see": "Load the delegate-visibly skill (and the herdr skill for CLI syntax)."},
+}
+
+
+def here():
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def agent_mux():
+    for cand in (os.path.join(here(), "agent-mux"), shutil.which("agent-mux")):
+        if cand and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def run_mux(*args):
+    mux = agent_mux()
+    if not mux:
+        return ""
+    try:
+        out = subprocess.run([mux, *args], capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout if out.returncode == 0 else ""
+
+
+def cache_file():
+    key = "|".join(os.environ.get(k, "") for k in ("HC_TERMINAL_ID", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_SOCKET_PATH"))
+    base = os.environ.get("XDG_RUNTIME_DIR") or os.environ.get("TMPDIR") or "/tmp"
+    return os.path.join(base, "agent-route-%d" % os.getuid(), hashlib.sha1(key.encode()).hexdigest())
+
+
+def host():
+    """herdr-app, herdr or none. Cached per terminal; any failure is none."""
+    if not (os.environ.get("HC_TERMINAL_ID") or os.environ.get("HERDR_ENV") == "1"):
+        return "none"  # no Herdr variable at all: nothing to detect, nothing to cache
+    path = cache_file()
+    try:
+        with open(path) as f:
+            name, stamp = f.read().split()
+        if name in HOSTS and time.time() - float(stamp) < POSITIVE_TTL:
+            return name
+        if name == "none" and time.time() - float(stamp) < NEGATIVE_TTL:
+            return name
+    except (OSError, ValueError):
+        pass
+    name = run_mux().strip()
+    if name not in HOSTS:
+        name = "none"
+    try:
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        with open(path, "w") as f:
+            f.write("%s %f\n" % (name, time.time()))
+    except OSError:
+        pass
+    return name
+
+
+def rules():
+    name = host()
+    return run_mux("--rules", name).strip() if name != "none" else ""
+
+
+def goes_through_multiplexer(command):
+    """True when the command's first word is hc or herdr (after VAR=value prefixes)."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    for w in words:
+        if ENV_ASSIGN.match(w):
+            continue
+        return os.path.basename(w) in ("hc", "herdr")
+    return False
+
+
+def route(tool, tool_input, cwd, name):
+    """The redirect message for a call that must go through the multiplexer, or None to allow it."""
+    if name not in HOSTS:
+        return None
+    tool = (tool or "").lower()
+    entry, where = HOSTS[name], cwd or os.getcwd()
+    if tool in DELEGATION_TOOLS:
+        what, how = "the %s tool (a delegated agent)" % tool, entry["agent"](where)
+    elif tool in BASH_TOOLS and any(tool_input.get(k) is True for k in BACKGROUND_KEYS):
+        command = str(tool_input.get("command") or "")
+        if goes_through_multiplexer(command):
+            return None
+        what, how = "a background shell command", entry["job"](where, command)
+    else:
+        return None
+    return ("%s hosts this session, so %s may not run through your harness. Run it as a visible child instead: %s. "
+            "Delegated agents and long or background jobs always go through the multiplexer; quick foreground "
+            "commands stay normal. %s" % (entry["label"][0].upper() + entry["label"][1:], what, how, entry["see"]))
+
+
+def read_payload():
+    data = json.load(sys.stdin)
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    if "tool_name" in data:  # Claude and Codex
+        return data.get("tool_name"), data.get("tool_input") or {}, data.get("cwd")
+    return data.get("tool"), data.get("input") or {}, data.get("cwd")
+
+
+def cmd_check(neutral):
+    try:
+        tool, tool_input, cwd = read_payload()
+        if not isinstance(tool_input, dict) or not isinstance(tool, str):
+            return 0
+        t = tool.lower()
+        if t not in DELEGATION_TOOLS and t not in BASH_TOOLS:
+            return 0  # cheapest exit: no host detection for tools we never route
+        if t in BASH_TOOLS and not any(tool_input.get(k) is True for k in BACKGROUND_KEYS):
+            return 0
+        reason = route(tool, tool_input, cwd, host())
+    except Exception:
+        return 0
+    if not reason:
+        return 0
+    if neutral:
+        print(reason)
+        return 2
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                             "permissionDecisionReason": reason}}))
+    return 0
+
+
+def cmd_session_start():
+    try:
+        text = rules()
+    except Exception:
+        return 0
+    if text:
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}))
+    return 0
+
+
+def main(argv):
+    if argv[:1] == ["check"]:
+        return cmd_check("--neutral" in argv)
+    if argv[:1] == ["session-start"]:
+        return cmd_session_start()
+    if argv[:1] == ["rules"]:
+        try:
+            text = rules()
+        except Exception:
+            return 0
+        if text:
+            print(text)
+        return 0
+    print("usage: agent-route session-start | rules | check [--neutral]", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

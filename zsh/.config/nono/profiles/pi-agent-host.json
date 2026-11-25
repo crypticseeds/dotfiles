@@ -5,7 +5,8 @@
   "linux": {"af_unix_mediation": "pathname"},
   "filesystem": {
     "read": ["$XDG_STATE_HOME/herdr-core/default/files"],
-    "unix_socket": ["$XDG_RUNTIME_DIR/herdr-core/default.sock", "/run/docker.sock"]
+    "unix_socket": ["$XDG_RUNTIME_DIR/herdr-core/default.sock", "/run/docker.sock"],
+    "unix_socket_subtree": ["$XDG_CONFIG_HOME/herdr/sessions"]
   },
   "security": {"capability_elevation": false}
 }

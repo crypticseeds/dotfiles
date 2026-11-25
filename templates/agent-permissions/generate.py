@@ -447,6 +447,21 @@ PROC_READ_HOOK = {
     "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(_PROC_HOOK_CODE), "timeout": 10}],
 }
 
+# Multiplexer routing (docs/plans/mux-routing-enforcement.md): herdr/.local/bin/agent-route injects the host's
+# rules at session start, resume, clear and compaction, and denies the harness's own background Bash,
+# Agent/Task and Workflow when agent-mux says herdr-app or herdr. It fails open (never blocks outside Herdr, or
+# when the script is missing), so the same entries go in every bundle; identical hooks from several settings
+# layers run once.
+_ROUTE = 'f="$HOME/.local/bin/agent-route"; [ -x "$f" ] || exit 0; exec "$f" '
+ROUTE_SESSION_HOOK = {
+    "matcher": "startup|resume|clear|compact",
+    "hooks": [{"type": "command", "command": _ROUTE + "session-start", "timeout": 20}],
+}
+ROUTE_PRETOOL_HOOK = {
+    "matcher": "Bash|Agent|Task|Workflow",
+    "hooks": [{"type": "command", "command": _ROUTE + "check", "timeout": 20}],
+}
+
 # --------------------------------------------------------------------------
 # Shell commands: always prompt (matters where a broader allow would otherwise win)
 # --------------------------------------------------------------------------
@@ -915,7 +930,9 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "ask": ["Bash(%s)" % p for p in r["ask"]],
             "deny": uniq(deny),
         },
-        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK, ATTRIBUTION_HOOK] + ([PROC_READ_HOOK] if os_name == "linux" else [])},
+        "hooks": {"PreToolUse": [SSO_LOGIN_HOOK, ATTRIBUTION_HOOK] + ([PROC_READ_HOOK] if os_name == "linux" else [])
+                  + [ROUTE_PRETOOL_HOOK],
+                  "SessionStart": [ROUTE_SESSION_HOOK]},
         # no "Generated with" / Co-Authored-By lines: Claude Code adds none and is not reminded to
         "attribution": {"commit": "", "pr": ""},
         "sandbox": {
@@ -1692,6 +1709,60 @@ def check():
                          ("gh pr create --title x --body 'Co-Authored-By: " + "Claude <noreply@anthropic.com>'", True),
                          ("git commit -m 'feat: add login'", False), ("git log --grep=Claude", False)):
         expect("[attribution hook] %s" % cmd[:50], blocked, hook_denies(ATTRIBUTION_HOOK, {"tool_input": {"command": cmd}}))
+
+    # --- multiplexer routing hooks (herdr/.local/bin/agent-route, run through the generated commands) ---
+    for name, st in [("%s/%s" % (pr, o), json.loads(claude_file(pr, o).read_text())) for pr in PROFILES for o in OSES] \
+            + [("agent-host", host)]:
+        expect("[%s] route hooks" % name, (True, True), (ROUTE_PRETOOL_HOOK in st["hooks"]["PreToolUse"],
+                                                         st["hooks"]["SessionStart"] == [ROUTE_SESSION_HOOK]))
+    expect("[agent-host] the guard stays the last PreToolUse hook", GUARD_COMMAND,
+           host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])
+    bin_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "herdr" / ".local" / "bin"
+    fake_home = pathlib.Path(tempfile.mkdtemp(prefix="route-home-"))
+    (fake_home / ".local" / "bin").mkdir(parents=True)
+    stubs = pathlib.Path(tempfile.mkdtemp(prefix="route-stubs-"))
+    # this process is an ancestor of the hook, so these stubs make agent-mux see a live hc terminal / herdr pane
+    (stubs / "hc").write_text('#!/bin/sh\necho "{\\"pid\\": $FAKE_PID}"\n')
+    (stubs / "herdr").write_text('#!/bin/sh\necho "{\\"result\\":{\\"process_info\\":{\\"shell_pid\\": $FAKE_PID}}}"\n')
+    for stub in stubs.iterdir():
+        stub.chmod(0o755)
+    for tool in ("agent-route", "agent-mux"):
+        (fake_home / ".local" / "bin" / tool).symlink_to(bin_dir / tool)
+    hosts_env = {"herdr-app": {"HC_TERMINAL_ID": "t1"}, "herdr": {"HERDR_ENV": "1", "HERDR_PANE_ID": "p1"}, "none": {}}
+
+    def route_run(entry, payload, where, home=fake_home):
+        env = {k: v for k, v in os.environ.items() if k not in ("HC_TERMINAL_ID", "HERDR_ENV", "HERDR_PANE_ID")}
+        env.update(HOME=str(home), PATH="%s:%s" % (stubs, os.environ["PATH"]), FAKE_PID=str(os.getpid()),
+                   XDG_RUNTIME_DIR=tempfile.mkdtemp(prefix="route-rt-"), **hosts_env[where])
+        out = subprocess.run(["sh", "-c", entry["hooks"][0]["command"]], input=json.dumps(payload),
+                             capture_output=True, text=True, env=env)
+        expect("[route hook runs cleanly] %s" % str(payload)[:50], ("", 0), (out.stderr, out.returncode))
+        return out.stdout
+
+    for where in hosts_env:
+        out = route_run(ROUTE_SESSION_HOOK, {"hook_event_name": "SessionStart", "source": "resume"}, where)
+        got = json.loads(out)["hookSpecificOutput"] if out else None
+        expect("[route session hook] %s" % where, None if where == "none" else "SessionStart",
+               got and got["hookEventName"])
+        expect("[route session hook] %s rules mention the host command" % where,
+               None if where == "none" else True, got and ("hc run --bg" if where == "herdr-app" else "herdr agent start") in got["additionalContext"])
+    bg = {"command": "npm test", "run_in_background": True}
+    for where, tool, tool_input, denied, cmd in (
+            ("herdr-app", "Bash", bg, True, "hc run --bg --name <slug> --cwd"),
+            ("herdr-app", "Agent", {"subagent_type": "Explore"}, True, "hc run --bg"),
+            ("herdr-app", "Task", {}, True, "hc run --bg"), ("herdr-app", "Workflow", {}, True, "hc run --bg"),
+            ("herdr", "Bash", bg, True, "herdr pane run"), ("herdr", "Agent", {}, True, "herdr agent start"),
+            ("none", "Bash", bg, False, ""), ("none", "Agent", {}, False, ""),
+            ("herdr-app", "Bash", {"command": "ls"}, False, ""),
+            ("herdr-app", "Bash", {"command": "hc run --bg --name x -- npm test", "run_in_background": True}, False, ""),
+            ("herdr", "Bash", {"command": "herdr agent wait w", "run_in_background": True}, False, "")):
+        out = route_run(ROUTE_PRETOOL_HOOK, {"tool_name": tool, "tool_input": tool_input, "cwd": str(root)}, where)
+        reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"] if out else ""
+        expect("[route hook] %s %s %s" % (where, tool, tool_input.get("command", "")), denied, bool(out) and cmd in reason)
+    expect("[route hook] a missing agent-route is a silent allow", "",
+           route_run(ROUTE_PRETOOL_HOOK, {"tool_name": "Agent", "tool_input": {}}, "herdr-app", home=stubs))
+    shutil.rmtree(fake_home)
+    shutil.rmtree(stubs)
 
     print("%d checks, %d failures" % (total, failures))
     return 1 if failures else 0
