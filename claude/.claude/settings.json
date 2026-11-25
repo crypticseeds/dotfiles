@@ -24,7 +24,11 @@
     "command": "bash ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
-    "aws-core@claude-plugins-official": false
+    "aws-core@claude-plugins-official": false,
+    "nono@nolabs-ai": true
+  },
+  "permissions": {
+    "defaultMode": "auto"
   },
   "theme": "dark",
   "autoCompactEnabled": false,

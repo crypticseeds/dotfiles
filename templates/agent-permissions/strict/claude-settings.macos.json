@@ -1174,6 +1174,28 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|Agent|Task|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -r \"$f\" ] || exit 0; python3 \"$f\" check || true",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -r \"$f\" ] || exit 0; python3 \"$f\" session-start || true",
+            "timeout": 20
+          }
+        ]
       }
     ]
   },

@@ -1,6 +1,6 @@
 ---
 name: delegate-visibly
-description: Use inside Herdr (`agent-mux` prints herdr; in herdr-app use the herdr-app skill instead) when delegating work that will likely block on approvals or questions or that runs long - implementation, fixes from review feedback, builds, full test suites, servers. Starts the worker with herdr agent start in a delegation tab or a Herdr worktree (never the main tab, max 2x2 per tab), on Sonnet 5.5 at high effort by default, for Claude Code, opencode or omp. Waits with herdr agent wait, reads with herdr agent read, keeps a report file as a crash backup, and cleans up what it created. Overrides the herdr skill's "sibling pane in the current tab" default; load the herdr skill for CLI syntax. Do NOT use for quick edits you can do yourself or for read-only review, test or research agents - those stay hidden background subagents.
+description: Use inside the Herdr terminal UI (`agent-mux` prints herdr; in herdr-app use the herdr-app skill instead) when you are about to delegate to a subagent, scout, reviewer or implementer, or start a background or long-running job - implementation, fixes from review feedback, builds, full test suites, dev servers, watchers, local CI. The harness blocks its own subagent and background features there. Starts the worker with herdr agent start in a delegation tab or a Herdr worktree (never the main tab, max 2x2 per tab), on Sonnet 5.5 at high effort by default, for Claude Code, opencode or omp. Waits with herdr agent wait, reads with herdr agent read, keeps a report file as a crash backup, and cleans up what it created. Overrides the herdr skill's "sibling pane in the current tab" default; load the herdr skill for CLI syntax. Do NOT use for quick edits or lookups you can do yourself.
 ---
 
 # delegate-visibly
@@ -14,7 +14,7 @@ Precondition: `agent-mux` prints `herdr`. If it prints `herdr-app`, use the herd
 | Work | Where it goes |
 |---|---|
 | Quick edit you can do and verify yourself | Do it yourself. No worker. |
-| Read-only: code review, security review, research, lookups, a test or build run that only reports | Hidden background subagent (Agent tool, explicit `model`). No pane, no worktree. |
+| Read-only: code review, security review, research, a test or build run that only reports | A visible worker in a pane (explicit model), no worktree. Inside Herdr the harness refuses hidden subagents (Agent/Task tool) and background shell calls. |
 | Writer or long runner that will likely block (approvals, questions, judgment calls) or run long | A visible worker, placed per the topology below. |
 | Fixer for review feedback, when the fix is long or needs permissions | Prefer the original worker's pane (same session keeps its context). Otherwise a new pane in the same tab or worktree as the work it fixes. |
 | User asks to watch something | A visible worker, even if it would otherwise stay hidden. |

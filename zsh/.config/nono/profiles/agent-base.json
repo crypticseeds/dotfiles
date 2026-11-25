@@ -1,0 +1,35 @@
+{
+  "meta": {"name": "agent-base", "version": "0.1.0", "description": "Portable agent sandbox policy: secret denies, scrubbed env, cache writes"},
+  "extends": "default",
+  "filesystem": {
+    "allow": [
+      "~/.cache/uv",
+      "~/.cache/pnpm",
+      "~/.local/share/pnpm",
+      "~/.cache/pre-commit",
+      "~/.coderabbit/reviews",
+      "~/.coderabbit/logs",
+      "~/.cache/agent-usage"
+    ],
+    "deny": [
+      "~/.doppler",
+      "~/.config/magpie",
+      "~/.config/gh",
+      "~/.pypirc",
+      "~/.psql_history",
+      "~/.mysql_history",
+      "~/.mozilla",
+      "~/.thunderbird",
+      "~/.config/Bitwarden",
+      "~/.config/Signal",
+      "~/.local/share/TelegramDesktop",
+      "/etc/rancher",
+      "/var/lib/rancher/k3s/server/token",
+      "/var/lib/rancher/k3s/server/node-token",
+      "/var/lib/rancher/k3s/server/tls"
+    ]
+  },
+  "environment": {
+    "deny_vars": ["DOPPLER_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"]
+  }
+}

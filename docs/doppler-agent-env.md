@@ -22,6 +22,15 @@ scope for both the aliases and the non-interactive wrappers.
   `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `MCPHUB_DEFAULT_KEY`.
   Only these names are injected from the default payload; other payload variables,
   including dynamic loader settings, are ignored. Existing inherited environment variables are retained.
+  Exception: `claude` uses its own login, as in `agent-launch`. It gets only `MCPHUB_DEFAULT_KEY`, and
+  `ANTHROPIC_*`/`OPENAI_*` inherited from the shell are removed. Use `agent-launch -g claude` for the gateway.
+- **`MCPHUB_STATE_ID` is generated per launch, not stored in Doppler.** MCPHub's browser tools
+  (Playwright, Chrome DevTools) need a UUID v4 in the `X-MCPHub-State-Id` header; the `mcphub-web`
+  entry in `agents/.agents/manifest.json` fills it from this variable. `agent-env` sets a fresh one
+  on every launch (also replacing an inherited one, so a worker never shares its parent's browser),
+  on both the plain and the `agent-launch` path. A Doppler value would be one fixed id shared by
+  every agent. The opencode shared server sets its own at startup, so its sessions share one browser;
+  `agent-launch -s opencode` gets a private server with its own id.
 
 Measured 2026-11-15 with `~/REPOS/aws-platform` as the working directory:
 
@@ -55,9 +64,33 @@ rules still apply.
 `agent-launch` applies the named harness pack and `pi-agent-host` nono profile to the client. Claude
 uses `--permission-mode auto`; OMP, OpenCode and Codex enable automatic approval. Codex also uses
 `--no-daemon`. The named harness pack and executable must be available on the worker host.
-OpenCode's shared server may execute outside nono with its own environment and Git access.
-The client sandbox's protections for server-side execution are unverified; do not assume scoped
-secrets, filesystem grants, or read-only Git metadata apply to the shared server.
+
+Auth per launch: `-o` (`--own`) uses the harness's own login: only `MCPHUB_DEFAULT_KEY` and
+`--secret` names are passed. `-g` (`--gateway`) adds `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`,
+`OPENAI_API_KEY` and `OPENAI_BASE_URL`. Defaults are in the `auth_default`
+table at the top of the script: `claude` uses its own login, the others the gateway. The worker
+environment is rebuilt from scratch, so `ANTHROPIC_*` variables from the launching shell
+(including `ANTHROPIC_AUTH_TOKEN`) never reach the agent either way. `agent-launch -h` lists the flags.
+
+OpenCode's tools run in the shared background server (`opencode.service`), which runs outside
+nono and the launch's `bwrap` (verified 2026-11-25: an `agent-launch opencode` session wrote into
+`~/.claude`, which the launch mounts read-only). `-s` (`--standalone`) starts a private server
+inside the sandbox instead, so the tools are sandboxed; such sessions are not visible to the
+shared service (`opencode api`, the opencode-workers skill). Without `-s` the launcher prints a
+one-line reminder.
+
+The nono profiles are split in two (`zsh/.config/nono/profiles/`). `agent-base` is portable
+and OS-neutral: it extends `default` (every `deny_*` group nono ships), adds denies for secret
+stores the groups miss (`~/.doppler`, `~/.config/magpie`, `~/.config/gh`, `~/.pypirc`, database
+history files, Mozilla/Thunderbird/Signal/Telegram/Bitwarden data, `/etc/rancher` and the k3s
+server token and TLS), strips `DOPPLER_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` and `SSH_AUTH_SOCK`
+from the environment, and grants writes to the common caches (`~/.cache/uv`, `~/.cache/pnpm`,
+`~/.local/share/pnpm`, `~/.cache/pre-commit`, `~/.coderabbit/reviews`, `~/.coderabbit/logs`,
+`~/.cache/agent-usage`). `pi-agent-host` extends it with the host-specific parts below.
+Harness auth files (`~/.claude/.credentials.json`, `~/.codex/auth.json`,
+`~/.local/share/opencode/auth.json`) are not denied here: each harness pack grants its whole state
+directory read-write, and on Linux nono refuses to start when a deny sits inside a grant.
+`agent-launch` blanks them instead (see below), except the launched harness's own file.
 
 The shared `pi-agent-host` profile allows connections to the default Herdr Core socket,
 so sandboxed agents can use `hc`. Core launches processes with its own permissions;
@@ -84,6 +117,32 @@ Use `agent-launch --subagent` for supported delegated Pi workers. It uses the no
 ```bash
 hc run --bg --cwd "$HOME/REPOS/redress" agent-launch --subagent codex
 ```
+
+Every launch inside a Git checkout, not only `--subagent`, runs under an outer `bwrap` that
+mounts these paths read-only for the sandboxed client: the common Git directory's `hooks` and
+`config` (so the agent cannot plant hooks or change `core.hooksPath`), the effective hooks directory
+when `core.hooksPath` points elsewhere (resolved against the worktree root), any `config.worktree`
+(`extensions.worktreeConfig`), and the workspace's agent configuration when it exists: the whole
+`.claude` directory (with `.claude/worktrees` re-bound writable, created if missing) plus `.mcp.json`,
+`opencode.json`, `.omp` and `.envrc` one by one. The root entries that do not exist yet cannot be
+bound, so `agent_guard.py` denies shell commands that write them (`>`, `>>`, `tee`, `cp`, `mv`, `install`,
+`ln`, `touch`, `sed -i`); this is accident-level protection, not a barrier.
+Every launch, in Git or not, also gets `/dev/null` over every `.env` and `.env.*` regular file or
+symlink found in the workspace (excluding `.git` and `node_modules`), except `.env.example` and
+`.env.example.bak`. bwrap binds onto the resolved target, so a symlink masks the file it points to,
+even outside the workspace; a dangling symlink is skipped. Every launch also gets
+`/dev/null` over the other harnesses' stored logins (`~/.claude/.credentials.json`,
+`~/.codex/auth.json`, `~/.local/share/opencode/auth.json`); the launched harness keeps its own, so a
+script it runs can still read that one. The other harnesses' config directories (`~/.claude`,
+`~/.codex`) are also mounted read-only: the opencode pack grants both read-write, which would let
+one agent edit another's settings, hooks, or plugin bin directories that Claude puts on `PATH`.
+Every launch now needs working `bwrap` user namespaces.
+The mask list is built once at
+launch, so a `.env` file created after launch is not masked. For `claude`, the launcher also
+grants nono read access to the resolved `~/.claude/statusline-command.sh` and
+`~/.claude/settings.json` targets, which live outside the workspace.
+`AGENT_LAUNCH_DRY_RUN=1 agent-launch ...` prints the final command, one argument per line,
+without running it, validating the nono profile, or requiring the harness binary.
 
 Worker checkout files stay writable. When launched in a Git worktree, the launcher mounts
 the repository and linked-worktree Git metadata read-only for the sandboxed client. Extra

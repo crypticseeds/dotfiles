@@ -11,6 +11,11 @@ fi
 # A client starts its own server whenever none is running, e.g. after
 # `opencode service restart` stops this one. Stop it so the service file points back at us.
 opencode service stop >/dev/null 2>&1 || true
+# MCPHub's browser tools need X-MCPHub-State-Id (see agent-env). The server opens the MCP connections, so it
+# needs its own; every session on this shared server shares that one browser state (`agent-launch -s
+# opencode` gets a private server and its own id).
+MCPHUB_STATE_ID=$(python3 -c 'import uuid; print(uuid.uuid4())')
+export MCPHUB_STATE_ID
 if [ -n "$MCPHUB_DEFAULT_KEY" ]; then
   exec opencode serve --service
 fi

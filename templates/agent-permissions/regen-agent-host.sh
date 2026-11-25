@@ -9,6 +9,10 @@
 #     omp      -> ~/.omp/agent/config.yml                  (merged: your other omp settings are kept)
 #     git-in   -> /usr/local/bin/git-in                    (root-owned: git in another repo, see bin/git-in)
 #     agent-clean -> /usr/local/bin/agent-clean            (root-owned: agents clean up, see bin/agent-clean)
+#     guard    -> /usr/local/lib/agent-guard/agent_guard.py (root-owned: the Claude, opencode and omp command guard)
+#     omp ext  -> ~/.omp/agent/extensions/agent-guard.ts   (user-owned: omp calls the installed guard before bash)
+#     omp route-> ~/.omp/agent/extensions/mux-route.ts     (user-owned: omp multiplexer routing, needs ~/.local/bin/agent-route from `make restow`)
+#     policy   -> /etc/agent-guard/policy.json             (root-owned, from ../agent-guard/policy.json; edit that file)
 #   with DIR: write the three files into DIR instead, without sudo, for a dry run
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -63,10 +67,15 @@ if [ -n "$dir" ]; then
   echo "regen-agent-host: done, wrote $dir/{managed-settings.json,opencode.json,config.yml}"
 else
   step 4 "installing (sudo may ask for your password)"
+  # the guard first: the managed settings call it, and a missing guard blocks every Bash call
+  sudo install -D -m 0644 -o root -g root "$here/../agent-guard/agent_guard.py" /usr/local/lib/agent-guard/agent_guard.py
+  sudo install -D -m 0644 -o root -g root "$here/../agent-guard/policy.json" /etc/agent-guard/policy.json
   sudo install -D -m 0644 -o root -g root "$tmp/claude.json" /etc/claude-code/managed-settings.json
   sudo install -D -m 0644 -o root -g root "$here/agent-host/opencode.json" /etc/opencode/opencode.json
   sudo install -D -m 0755 -o root -g root "$here/bin/git-in" /usr/local/bin/git-in
   sudo install -D -m 0755 -o root -g root "$here/bin/agent-clean" /usr/local/bin/agent-clean
   install -D -m 0600 "$tmp/omp.yml" "$omp_target"
-  echo "regen-agent-host: done, installed Claude, opencode and omp policies, git-in and agent-clean (restart their sessions)"
+  install -D -m 0644 "$here/../agent-guard/adapters/omp-agent-guard.ts" "$HOME/.omp/agent/extensions/agent-guard.ts"
+  install -D -m 0644 "$here/../agent-guard/adapters/omp-mux-route.ts" "$HOME/.omp/agent/extensions/mux-route.ts"
+  echo "regen-agent-host: done, installed Claude, opencode and omp policies, git-in, agent-clean and the guard with its policy (restart their sessions)"
 fi

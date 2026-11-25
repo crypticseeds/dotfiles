@@ -3,18 +3,40 @@ set -euo pipefail
 
 project=harness
 config=dev_maghub
-names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL,MCPHUB_DEFAULT_KEY
+# Default auth per harness: `own` = the harness's own login (no Anthropic gateway variables),
+# `gateway` = the Doppler LLM gateway. -o / -g override it for one launch.
+declare -A auth_default=([claude]=own [omp]=gateway [opencode]=gateway [codex]=gateway [antigravity]=gateway)
+gateway_names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL
+common_names=MCPHUB_DEFAULT_KEY
+auth=
+standalone=false
 extra_names=()
 worker=false
 write_dirs=()
 permissions=()
 usage() {
-  echo 'usage: agent-launch [--subagent] [--doppler PROJECT/CONFIG] [--secret NAME] [--read DIR | --allow DIR] HARNESS [--] [ARGS...]' >&2
+  cat >&2 <<'EOF'
+usage: agent-launch [options] HARNESS [--] [ARGS...]
+  HARNESS                 claude | omp | opencode | codex | agy
+  -o, --own               use the harness's own login (no gateway variables: ANTHROPIC_*, OPENAI_*)
+  -g, --gateway           use the Doppler LLM gateway (ANTHROPIC_* and OPENAI_* keys)
+                          default: claude=own, others=gateway
+  -s, --standalone        opencode only: private server inside the sandbox (tools sandboxed)
+  --doppler PROJECT/CONFIG  take the variables from this Doppler config
+  --secret NAME           also pass this variable from the config (repeatable)
+  --read DIR | --allow DIR  grant DIR read-only | read-write
+  --subagent              worker mode: read-only git metadata, read-only extra grants
+EOF
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
     --subagent) worker=true; shift ;;
+    -o|--own|-g|--gateway)
+      new=own; if [[ $1 == -g || $1 == --gateway ]]; then new=gateway; fi
+      if [[ -n $auth && $auth != "$new" ]]; then echo 'agent-launch: use -o or -g, not both' >&2; exit 2; fi
+      auth=$new; shift ;;
+    -s|--standalone) standalone=true; shift ;;
     --doppler|--secret|--read|--allow)
       if [[ $# -lt 2 || $2 == -* || -z $2 ]]; then usage; exit 2; fi
       case "$1" in
@@ -31,6 +53,7 @@ while [[ $# -gt 0 ]]; do
           if [[ $1 == --allow ]]; then write_dirs+=("$dir"); fi ;;
       esac
       shift 2 ;;
+    -*) printf 'agent-launch: unknown option: %s\n' "$1" >&2; usage; exit 2 ;;
     *) break ;;
   esac
 done
@@ -45,6 +68,12 @@ case "${1:-}" in
   *) usage; exit 2 ;;
 esac
 shift
+auth=${auth:-${auth_default[$profile]}}
+names=$common_names
+if [[ $auth == gateway ]]; then names=$gateway_names,$names; fi
+if $standalone && [[ $profile != opencode ]]; then
+  echo 'agent-launch: -s/--standalone is for opencode only' >&2; exit 2
+fi
 if [[ ${1:-} == -- ]]; then shift; fi
 if [[ $profile == codex ]]; then
   for arg in "$@"; do
@@ -55,7 +84,15 @@ if [[ $profile == codex ]]; then
     fi
   done
 fi
-if [[ ! -x $binary ]]; then printf 'agent-launch: executable unavailable: %s\n' "$binary" >&2; exit 1; fi
+dry_run=${AGENT_LAUNCH_DRY_RUN:-}
+if [[ ! -x $binary ]]; then
+  printf 'agent-launch: executable unavailable: %s\n' "$binary" >&2
+  if [[ -z $dry_run ]]; then exit 1; fi
+fi
+# Every harness's routing hook reads agent-route and agent-mux, stow symlinks into the dotfiles repo.
+if route_target=$(realpath -e -- "$HOME/.local/bin/agent-route" 2>/dev/null); then
+  permissions+=(--read "${route_target%/*}")
+fi
 if [[ $profile == claude && -f /etc/claude-code/managed-settings.json ]]; then
   permissions+=(--read-file /etc/claude-code/managed-settings.json)
 fi
@@ -65,6 +102,12 @@ if [[ $profile == claude ]]; then
   claude_socket_dir="$HOME/.claude/tmp/claude-$(id -u)"
   (umask 077; mkdir -p -- "$claude_socket_dir")
   permissions+=(--allow-unix-socket-dir-bind "$claude_socket_dir")
+  # The status line script and settings are stow symlinks that resolve outside the workspace.
+  for claude_file in statusline-command.sh settings.json; do
+    if claude_target=$(realpath -e -- "$HOME/.claude/$claude_file" 2>/dev/null); then
+      permissions+=(--read-file "$claude_target")
+    fi
+  done
 fi
 if [[ $profile == opencode ]]; then
   config_target=$(realpath -e -- "$HOME/.config/opencode/opencode.jsonc")
@@ -78,6 +121,11 @@ if [[ $profile == opencode ]]; then
     native=()
     shift
     set -- run --auto "$@"
+  fi
+  if $standalone; then
+    if [[ ${1:-} == run ]]; then shift; set -- run --standalone "$@"; else native+=(--standalone); fi
+  else
+    echo 'agent-launch: opencode tools run in the shared server, outside the sandbox; use -s to sandbox them' >&2
   fi
 fi
 
@@ -96,24 +144,85 @@ if [[ $workspace == / || $workspace == "$HOME" ]]; then
   exit 2
 fi
 cd -- "$workspace"
-outer=()
 if $worker && [[ ${#write_dirs[@]} -ne 0 ]]; then
   echo 'agent-launch: subagents only accept extra read grants' >&2
   exit 2
 fi
-if $worker && $in_worktree; then
+outer=(/usr/bin/bwrap --unshare-user --disable-userns --bind / / --dev-bind /dev /dev)
+# Other harnesses' config dirs, read-only: some packs grant them read-write (opencode: ~/.claude and
+# ~/.codex), which would let one agent edit another's settings, hooks or plugin bin dirs on PATH.
+declare -A config_dirs=([claude]="$HOME/.claude" [codex]="$HOME/.codex")
+for owner in "${!config_dirs[@]}"; do
+  if [[ $owner != "$profile" && -d ${config_dirs[$owner]} ]]; then
+    outer+=(--ro-bind "${config_dirs[$owner]}" "${config_dirs[$owner]}")
+  fi
+done
+# Other harnesses' stored logins. nono cannot deny them (each harness pack grants its whole state
+# dir, and Landlock refuses a deny inside a grant), so blank them here. The launched harness keeps its own.
+declare -A auth_files=([claude]="$HOME/.claude/.credentials.json" [codex]="$HOME/.codex/auth.json"
+  [opencode]="$HOME/.local/share/opencode/auth.json")
+for owner in "${!auth_files[@]}"; do
+  if [[ $owner != "$profile" && -f ${auth_files[$owner]} ]]; then
+    outer+=(--ro-bind /dev/null "${auth_files[$owner]}")
+  fi
+done
+if $in_worktree; then
   git_paths=$(/usr/bin/git rev-parse --path-format=absolute --git-dir --git-common-dir)
   git_dir=${git_paths%%$'\n'*}
   common_dir=${git_paths#*$'\n'}
-  outer=(/usr/bin/bwrap --unshare-user --disable-userns --bind / / --dev-bind /dev /dev
-    --ro-bind "$common_dir" "$common_dir")
-  if [[ $git_dir != "$common_dir" ]]; then outer+=(--ro-bind "$git_dir" "$git_dir"); fi
-  if [[ -f $workspace/.git ]]; then outer+=(--ro-bind "$workspace/.git" "$workspace/.git"); fi
-  permissions+=(--read "$common_dir" --read "$git_dir")
-  outer+=(--)
+  if $worker; then
+    outer+=(--ro-bind "$common_dir" "$common_dir")
+    if [[ $git_dir != "$common_dir" ]]; then outer+=(--ro-bind "$git_dir" "$git_dir"); fi
+    if [[ -f $workspace/.git ]]; then outer+=(--ro-bind "$workspace/.git" "$workspace/.git"); fi
+    permissions+=(--read "$common_dir" --read "$git_dir")
+  else
+    # Hooks and config take effect outside the sandbox later (git hooks, core.* settings).
+    if [[ -d $common_dir/hooks ]]; then outer+=(--ro-bind "$common_dir/hooks" "$common_dir/hooks"); fi
+    if [[ -f $common_dir/config ]]; then outer+=(--ro-bind "$common_dir/config" "$common_dir/config"); fi
+  fi
+  # The effective hooks dir when core.hooksPath moves it (relative: to the worktree root; /dev/null = none).
+  hooks_path=$(/usr/bin/git config --type=path --get core.hooksPath || true)
+  if [[ -n $hooks_path && $hooks_path != /dev/null ]]; then
+    if [[ $hooks_path != /* ]]; then hooks_path=$workspace/$hooks_path; fi
+    if [[ -d $hooks_path ]]; then outer+=(--ro-bind "$hooks_path" "$hooks_path"); fi
+  fi
+  # Per-worktree config (extensions.worktreeConfig) sets core.* settings too.
+  for worktree_config in "$git_dir/config.worktree" "$common_dir/config.worktree"; do
+    if [[ -f $worktree_config ]]; then outer+=(--ro-bind "$worktree_config" "$worktree_config"); fi
+    if [[ $git_dir == "$common_dir" ]]; then break; fi
+  done
+  # Agent config that would loosen the next session. All of .claude read-only, except .claude/worktrees
+  # (where worktrees live). The mount point must exist, so create it first.
+  if [[ -d $workspace/.claude ]]; then
+    mkdir -p -- "$workspace/.claude/worktrees"
+    outer+=(--ro-bind "$workspace/.claude" "$workspace/.claude"
+      --bind "$workspace/.claude/worktrees" "$workspace/.claude/worktrees")
+  fi
+  # Root entries are bound one by one only when they exist; agent_guard.py denies shell writes that would
+  # create the missing ones (accident-level).
+  for protected in .mcp.json opencode.json .omp .envrc; do
+    if [[ -e $workspace/$protected ]]; then outer+=(--ro-bind "$workspace/$protected" "$workspace/$protected"); fi
+  done
 fi
+# Dotenv files are masked in every workspace, Git or not. find, not git ls-files: it also sees untracked
+# and ignored files, and pruning .git and node_modules keeps the walk cheap. Files and symlinks: bwrap
+# binds onto the resolved target, so a symlink masks the file it points to (even outside the workspace);
+# a dangling one is skipped. A file created later is not masked.
+mask_files=()
+while IFS= read -r -d '' mask_file; do
+  if [[ -e $mask_file ]]; then mask_files+=("$mask_file"); fi
+done < <(find "$workspace" \( -name .git -o -name node_modules \) -prune -o \
+  \( -type f -o -type l \) \( -name .env -o -name '.env.*' \) ! -name .env.example ! -name .env.example.bak -print0)
+for mask_file in "${mask_files[@]}"; do outer+=(--ro-bind /dev/null "$mask_file"); done
+outer+=(--)
 for name in "${extra_names[@]}"; do names+=",$name"; done
+cmd=("$HOME/.local/bin/agent-env" --scope "$project" "$config" "$names" --
+  "${outer[@]}" "$HOME/.local/bin/nono" run --profile "nolabs-ai/$profile" --extends pi-agent-host
+  --workdir "$workspace" --allow-cwd "${permissions[@]}" -- "$binary" "${native[@]}" "$@")
+if [[ -n $dry_run ]]; then
+  # Print the final argv, one argument per line; skip profile validation and exec.
+  printf '%s\n' "${cmd[@]}"
+  exit 0
+fi
 "$HOME/.local/bin/nono" profile validate "nolabs-ai/$profile" >/dev/null
-exec "$HOME/.local/bin/agent-env" --scope "$project" "$config" "$names" -- \
-  "${outer[@]}" "$HOME/.local/bin/nono" run --profile "nolabs-ai/$profile" --extends pi-agent-host \
-  --workdir "$workspace" --allow-cwd "${permissions[@]}" -- "$binary" "${native[@]}" "$@"
+exec "${cmd[@]}"

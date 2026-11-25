@@ -58,6 +58,9 @@ if command -v opencode >/dev/null 2>&1; then
       done
       if [ -z "$missing" ]; then echo "OK    opencode agents parse"
       else echo "FAIL  opencode agents not loaded:$missing (opencode's log names the rejected file; restart the service after fixing)"; fail=1; fi ;;
+    "")
+      # opencode cannot start (e.g. a sandbox that cannot write its log): not a parse failure
+      echo "SKIP  opencode agents not checked (opencode --version failed to run here)" ;;
     *)
       if opencode agent list >/dev/null 2>&1; then echo "OK    opencode agents parse"; else echo "FAIL  opencode agents do not parse"; fail=1; fi ;;
   esac

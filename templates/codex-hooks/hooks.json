@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "'/home/ai/.local/bin/moshi-hook' codex-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^spawn_agent$",
+        "hooks": [
+          {
+            "command": "/home/ai/.local/bin/agent-route check",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "'/home/ai/.local/bin/moshi-hook' codex-hook",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/home/ai/.local/bin/agent-route session-start",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "'/home/ai/.local/bin/moshi-hook' codex-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "'/home/ai/.local/bin/moshi-hook' codex-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
