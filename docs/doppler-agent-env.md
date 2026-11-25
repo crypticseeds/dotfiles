@@ -62,6 +62,13 @@ secrets, filesystem grants, or read-only Git metadata apply to the shared server
 The shared `pi-agent-host` profile allows connections to the default Herdr Core socket,
 so sandboxed agents can use `hc`. Core launches processes with its own permissions;
 those processes do not automatically inherit the agent's nono sandbox.
+The profile also grants read-only access to `$XDG_STATE_HOME/herdr-core/default/files`
+(`~/.local/state/herdr-core/default/files` by default) for copied and pasted files.
+
+The profile also grants access to `/run/docker.sock` for Docker diagnostics and container
+operations. Docker socket access gives the client the daemon's full authority, including
+access outside nono's filesystem restrictions; nono does not restrict Docker subcommands.
+Other harness-specific permissions still apply. Restart an agent session to pick up changes.
 
 On the Pi, Claude Code 2.1.331 under nono 0.82.0 failed to start sandboxed Bash with
 `bwrap: setting up uid map: Permission denied` in isolated tests with both the old and new
