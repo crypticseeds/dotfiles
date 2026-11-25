@@ -3,18 +3,40 @@ set -euo pipefail
 
 project=harness
 config=dev_maghub
-names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL,MCPHUB_DEFAULT_KEY
+# Default auth per harness: `own` = the harness's own login (no Anthropic gateway variables),
+# `gateway` = the Doppler LLM gateway. -o / -g override it for one launch.
+declare -A auth_default=([claude]=own [omp]=gateway [opencode]=gateway [codex]=gateway [antigravity]=gateway)
+gateway_names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL
+common_names=MCPHUB_DEFAULT_KEY
+auth=
+standalone=false
 extra_names=()
 worker=false
 write_dirs=()
 permissions=()
 usage() {
-  echo 'usage: agent-launch [--subagent] [--doppler PROJECT/CONFIG] [--secret NAME] [--read DIR | --allow DIR] HARNESS [--] [ARGS...]' >&2
+  cat >&2 <<'EOF'
+usage: agent-launch [options] HARNESS [--] [ARGS...]
+  HARNESS                 claude | omp | opencode | codex | agy
+  -o, --own               use the harness's own login (no gateway variables: ANTHROPIC_*, OPENAI_*)
+  -g, --gateway           use the Doppler LLM gateway (ANTHROPIC_* and OPENAI_* keys)
+                          default: claude=own, others=gateway
+  -s, --standalone        opencode only: private server inside the sandbox (tools sandboxed)
+  --doppler PROJECT/CONFIG  take the variables from this Doppler config
+  --secret NAME           also pass this variable from the config (repeatable)
+  --read DIR | --allow DIR  grant DIR read-only | read-write
+  --subagent              worker mode: read-only git metadata, read-only extra grants
+EOF
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
     --subagent) worker=true; shift ;;
+    -o|--own|-g|--gateway)
+      new=own; if [[ $1 == -g || $1 == --gateway ]]; then new=gateway; fi
+      if [[ -n $auth && $auth != "$new" ]]; then echo 'agent-launch: use -o or -g, not both' >&2; exit 2; fi
+      auth=$new; shift ;;
+    -s|--standalone) standalone=true; shift ;;
     --doppler|--secret|--read|--allow)
       if [[ $# -lt 2 || $2 == -* || -z $2 ]]; then usage; exit 2; fi
       case "$1" in
@@ -31,6 +53,7 @@ while [[ $# -gt 0 ]]; do
           if [[ $1 == --allow ]]; then write_dirs+=("$dir"); fi ;;
       esac
       shift 2 ;;
+    -*) printf 'agent-launch: unknown option: %s\n' "$1" >&2; usage; exit 2 ;;
     *) break ;;
   esac
 done
@@ -45,6 +68,12 @@ case "${1:-}" in
   *) usage; exit 2 ;;
 esac
 shift
+auth=${auth:-${auth_default[$profile]}}
+names=$common_names
+if [[ $auth == gateway ]]; then names=$gateway_names,$names; fi
+if $standalone && [[ $profile != opencode ]]; then
+  echo 'agent-launch: -s/--standalone is for opencode only' >&2; exit 2
+fi
 if [[ ${1:-} == -- ]]; then shift; fi
 if [[ $profile == codex ]]; then
   for arg in "$@"; do
@@ -88,6 +117,11 @@ if [[ $profile == opencode ]]; then
     native=()
     shift
     set -- run --auto "$@"
+  fi
+  if $standalone; then
+    if [[ ${1:-} == run ]]; then shift; set -- run --standalone "$@"; else native+=(--standalone); fi
+  else
+    echo 'agent-launch: opencode tools run in the shared server, outside the sandbox; use -s to sandbox them' >&2
   fi
 fi
 

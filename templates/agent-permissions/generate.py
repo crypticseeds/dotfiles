@@ -536,29 +536,29 @@ ALLOW_LIVE = [
 #    cannot write its log (~/.local/share/opencode) or reach its background service on localhost
 #    (verified 2026-10-31), and omp cannot write ~/.omp or reach its model APIs. Same trade-off as
 #    herdr: a worker they start is a full agent outside this sandbox, under its own harness's rules.
-# The guard hook (agent_host_guard.py) checks the destructive and secret-reading forms of all of
+# The guard hook (templates/agent-guard/agent_guard.py) checks the destructive and secret-reading forms of all of
 # these except herdr; the deny rules still apply.
 AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "hc *", "kubectl *", "helm *",
                        "agent-clean", "agent-clean *", "coderabbit review", "coderabbit review *",
                        "opencode *", "omp *"]
-# $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
-# `coderabbit review --use-credits` through this day, then the guard refuses it again. "" = never.
-CODERABBIT_CREDITS_UNTIL = "2026-11-01"
+# $25 promo credits granted 2026-10-25 expired after 2026-11-01: the guard refuses `coderabbit review
+# --use-credits` again. A date (YYYY-MM-DD) allows it through that day; "" = never.
+CODERABBIT_CREDITS_UNTIL = ""
 # Repos whose .git/config may set core.hooksPath to this repo-local value (owner decision 2026-11-02):
 # husky's `prepare` re-sets it on every pnpm install, so unsetting it does not last. Commits there run
 # .husky/ hooks (lint-staged: prettier, eslint from node_modules) outside the sandbox; worktrees match
 # through the common git dir. `core.hooksPath=/dev/null` (hooks off) is allowed everywhere.
 AGENT_HOST_HOOKS_PATHS = {"~/REPOS/tfl-journey-expense-calculator": ".husky/_"}
-# ~/.herdr/worktrees: herdr worktrees (<repo>/<slug>), where agent-worktree-setup creates the .venv;
-# ~/.cache/uv: its package cache (same filesystem, so installs are hardlinks).
+# ~/.cache/uv: the package cache used by agent-worktree-setup (same filesystem for hardlinks).
 # ~/.local/share/pnpm (store) and ~/.cache/pnpm (metadata cache): pnpm install in any repo or worktree.
 # ~/.coderabbit/reviews and logs: a review run sandboxed (by absolute path, as the code-review skill does,
 # which no excludedCommands entry matches) saves its local copy there for agents to read. Not the rest of
 # ~/.coderabbit: auth.json stays read-only.
-AGENT_HOST_WRITE = ["~/REPOS", "~/.herdr/worktrees", "~/.cache/pre-commit", "~/.cache/uv",
-                    "~/.local/share/pnpm", "~/.cache/pnpm", "~/.coderabbit/reviews", "~/.coderabbit/logs"]
-# NOTE: the Linux sandbox ignores these wildcard denyWrite entries (verified live 2026-10-04); only
-# the Edit-tool deny rules generated from them are enforced. Kept for macOS and future support.
+AGENT_HOST_REPO_ROOTS = ["~/REPOS", "~/.herdr/worktrees"]
+AGENT_HOST_WRITE = AGENT_HOST_REPO_ROOTS + ["~/.cache/pre-commit", "~/.cache/uv", "~/.local/share/pnpm",
+                                          "~/.cache/pnpm", "~/.coderabbit/reviews", "~/.coderabbit/logs"]
+# Mid-path write globs are unsupported by the Linux Bash sandbox. Keep them for file tools
+# and the macOS sandbox, where a wildcard can cover repos created after launch.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these
 # would let an agent loosen the next session in another repo or plant a git hook.
 # `.claude` itself stays writable: worktrees live in `.claude/worktrees`.
@@ -820,19 +820,41 @@ def claude_secret_paths(os_name):
     return home_paths(os_name) + [abs_claude(p) for p in abs_paths(os_name)] + any_paths
 
 
-def agent_host_guard_hook(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CREDITS_UNTIL,
-                          hooks_paths=AGENT_HOST_HOOKS_PATHS):
-    """agent_host_guard.py with this policy's secret paths, embedded inline so the
-    root-owned managed settings file is self-contained (no script an agent could edit)."""
-    src = (HERE / "agent_host_guard.py").read_text()
-    globs = home_paths(os_name) + abs_paths(os_name) + PROC_SECRET_PATHS + SECRET_PATHS_ANY
-    src = src.replace("SECRET_GLOBS = []", "SECRET_GLOBS = %r" % globs, 1)
-    src = src.replace("REPO_ROOTS = []", "REPO_ROOTS = %r" % list(repo_roots), 1)
-    src = src.replace('CREDITS_UNTIL = ""', "CREDITS_UNTIL = %r" % credits_until, 1)
-    src = src.replace("EXCLUDED = []", "EXCLUDED = %r" % excluded_commands(True), 1)
-    src = src.replace("HOOKS_PATHS = {}", "HOOKS_PATHS = %r" % dict(hooks_paths), 1)
-    return {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 -c " + shlex.quote(src),
-                                          "timeout": 30}]}
+# The guard is one standalone script (templates/agent-guard/agent_guard.py) that regen-agent-host.sh installs
+# root-owned, with its policy in /etc/agent-guard/policy.json. generate.py only calls it, and writes the policy
+# file on request (--write-guard-policy); after that the file is the source and is edited by hand.
+GUARD_SCRIPT = HERE.parent / "agent-guard" / "agent_guard.py"
+GUARD_POLICY_FILE = HERE.parent / "agent-guard" / "policy.json"
+GUARD_COMMAND = "python3 /usr/local/lib/agent-guard/agent_guard.py"
+
+
+def agent_host_guard_hook():
+    return {"matcher": "Bash", "hooks": [{"type": "command", "command": GUARD_COMMAND, "timeout": 30}]}
+
+
+def guard_policy(os_name, repo_roots=("~/REPOS",), credits_until=CODERABBIT_CREDITS_UNTIL,
+                 hooks_paths=AGENT_HOST_HOOKS_PATHS, explain_sandboxed_chains=True):
+    """The values the guard used to get by string substitution, as its policy file."""
+    return {
+        "_comment": [
+            "Policy for templates/agent-guard/agent_guard.py. Edit by hand; generate.py --write-guard-policy",
+            "rewrites it from its own lists (a convenience, not the source). Keys starting with _ are ignored.",
+            "secret_globs: every path an argument of an unsandboxed tool may not resolve into (~ = home).",
+            "repo_roots: where `git-in <dir>` may work (bin/git-in enforces the same).",
+            "coderabbit_credits_until: last day (YYYY-MM-DD) `coderabbit --use-credits` is allowed, \"\" = never.",
+            "excluded_commands: Claude's sandbox excludedCommands (`x *` = x and anything after, `x` = exactly x).",
+            "hooks_paths: repo dir -> the repo-local core.hooksPath its .git/config may keep.",
+            "explain_sandboxed_chains: true for Claude's own bwrap sandbox, where a chained excluded command",
+            "runs sandboxed and fails; false under nono, where nothing is excluded. Only the claude harness",
+            "uses it; opencode and omp calls never get these explanations.",
+        ],
+        "secret_globs": home_paths(os_name) + abs_paths(os_name) + PROC_SECRET_PATHS + SECRET_PATHS_ANY,
+        "repo_roots": list(repo_roots),
+        "coderabbit_credits_until": credits_until,
+        "excluded_commands": excluded_commands(True),
+        "hooks_paths": dict(hooks_paths),
+        "explain_sandboxed_chains": explain_sandboxed_chains,
+    }
 
 
 def excluded_commands(agent_host):
@@ -846,16 +868,20 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
     r = bash_rules(profile, agent_host, guarded=True)
     paths = claude_secret_paths(os_name)
     tmp = TMP_DIRS_BY_OS[os_name]
-    write = tmp + (AGENT_HOST_WRITE if agent_host else [])
+    read = tmp + (AGENT_HOST_WRITE if agent_host else [])
+    # Claude also turns Edit allow rules into Bash write grants. Omit both on Linux.
+    write = [d for d in read if os_name != "linux" or d not in AGENT_HOST_REPO_ROOTS]
     deny_write = AGENT_HOST_DENY_WRITE if agent_host else []
     deny = ["Read(%s)" % p for p in paths] + ["Edit(%s)" % p for p in paths]
     deny += ["Edit(%s)" % p for p in deny_write] + ["Edit(%s/**)" % p for p in deny_write]
     deny += ["Bash(%s)" % p for p in r["deny"]] + list(extra_deny)
     allow = ["Bash(%s)" % p for p in r["allow"]]
     allow += ["Read(%s)" % p for p in SKILL_DIRS + LOCAL_SKILL_DIRS]
-    for d in write:
-        d = abs_claude(d) if d.startswith("/") else d
-        allow += ["Read(%s/**)" % d, "Edit(%s/**)" % d]
+    for path in read:
+        d = abs_claude(path) if path.startswith("/") else path
+        allow.append("Read(%s/**)" % d)
+        if path in write:
+            allow.append("Edit(%s/**)" % d)
     settings = {
         "$schema": "https://json.schemastore.org/claude-code-settings.json",
         "permissions": {
@@ -873,7 +899,8 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
             "failIfUnavailable": True,
             # keep the prompts above in force instead of auto-approving sandboxed commands
             "autoAllowBashIfSandboxed": False,
-            "filesystem": {"allowWrite": write, "denyWrite": deny_write, "allowRead": SANDBOX_ALLOW_READ},
+            "filesystem": {"allowWrite": write, "denyWrite": deny_write if os_name == "macos" else [],
+                           "allowRead": SANDBOX_ALLOW_READ},
             "network": {"allowedDomains": ALLOWED_DOMAINS},
             "excludedCommands": excluded_commands(agent_host),
         },
@@ -883,7 +910,7 @@ def claude_settings(profile, os_name, extra_deny=(), sandbox=True, agent_host=Fa
         # command rules) is what keeps secret files unreadable, so nothing may leave it except
         # excludedCommands. An allowed unsandboxed retry would run with no OS read-deny at all.
         settings["permissions"]["allow"] += AGENT_HOST_CLAUDE_ALLOW + AGENT_HOST_ALLOW_TOOLS
-        settings["hooks"]["PreToolUse"].append(agent_host_guard_hook(os_name))
+        settings["hooks"]["PreToolUse"].append(agent_host_guard_hook())
         settings["sandbox"]["allowUnsandboxedCommands"] = False
         # Meant for /etc/claude-code/managed-settings.json: repo settings cannot add prompts that
         # stall an unattended run, nor loosen these rules. (Has no effect in a project file.)
@@ -1130,6 +1157,8 @@ AGENT_HOST_SECRET = [
     ("docker run -v /home/ai:/h alpine ls", "clean", False),
     ("coderabbit review --agent -c values.yaml", "link", True),
     ("gh gist create $HOME", "clean", True), ("coderabbit review --agent -c ${HOME}/.ssh", "clean", True),
+    # a store hidden from the guard (it may run inside nono) still counts: the command runs outside
+    ("hc run --bg --name t -- cat ~/.doppler/not-visible-here.yaml", "clean", False),
     ("opencode auth list", "clean", False), ("opencode api get /api/credential", "clean", False),
     ("opencode api credential.list", "clean", False), ("opencode debug heap-dump", "clean", False),
     ("omp auth export", "clean", False), ("omp clip x.cast", "clean", False),
@@ -1330,6 +1359,15 @@ def check():
             expect("[hook runs cleanly] %s" % str(payload)[:60], "", out.stderr)
         return '"permissionDecision": "deny"' in out.stdout
 
+    guard_tmp = tempfile.mkdtemp(prefix="guard-policy-")
+
+    def guard_entry(policy):
+        """A hook entry that runs the repo's agent_guard.py against a temp policy built from the old substitution values."""
+        path = pathlib.Path(guard_tmp, "policy-%d.json" % len(os.listdir(guard_tmp)))
+        path.write_text(json.dumps(policy))
+        return {"hooks": [{"command": "AGENT_GUARD_POLICY=%s python3 %s" % (shlex.quote(str(path)),
+                                                                          shlex.quote(str(GUARD_SCRIPT)))}]}
+
     # --- generation: every output file is current, parses, and keeps the sandbox safety switches ---
     host = claude_settings("standard", "linux", agent_host=True)
     expected = {claude_file(pr, o): dump(claude_settings(pr, o)) for pr in PROFILES for o in OSES}
@@ -1357,16 +1395,25 @@ def check():
                  "agent-clean", "agent-clean *", "coderabbit review *", "opencode *", "omp *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])
-    expect("[agent-host] ~/REPOS writable", True, "~/REPOS" in host["sandbox"]["filesystem"]["allowWrite"])
-    for path in ("~/.cache/uv", "~/.herdr/worktrees", "~/.local/share/pnpm", "~/.cache/pnpm",
+    host_fs = host["sandbox"]["filesystem"]
+    mac_host_fs = claude_settings("standard", "macos", agent_host=True)["sandbox"]["filesystem"]
+    for root in ("~/REPOS", "~/.herdr/worktrees"):
+        expect("[agent-host] %s never grants blanket Linux writes" % root, (False, False),
+               (root in host_fs["allowWrite"], "Edit(%s/**)" % root in host["permissions"]["allow"]))
+        expect("[agent-host] %s keeps macOS sandbox policy" % root, (True, True),
+               (root in mac_host_fs["allowWrite"], any(p.startswith(root + "/") for p in mac_host_fs["denyWrite"])))
+        expect("[agent-host] %s keeps Linux file-tool denies" % root, True,
+               any(p.startswith("Edit(" + root + "/") for p in host["permissions"]["deny"]))
+    expect("[agent-host] Linux sandbox has no unsupported write denies", [], host_fs["denyWrite"])
+    for path in ("~/.cache/uv", "~/.local/share/pnpm", "~/.cache/pnpm",
                  "~/.coderabbit/reviews", "~/.coderabbit/logs"):
         expect("[agent-host] %s writable, only there" % path, [True, False], [
             path in host["sandbox"]["filesystem"]["allowWrite"],
             any(path in claude_file(pr, o).read_text() for pr in PROFILES for o in OSES)])
     expect("[agent-host] herdr worktrees keep agent config write-protected", True, all(
         "Edit(~/.herdr/worktrees/*/*/%s)" % p in host["permissions"]["deny"] for p in _PROTECTED))
-    expect("[agent-host] the guard is installed", True,
-           "Agent-host guard" in host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])
+    expect("[agent-host] the guard is installed (root-owned path)", GUARD_COMMAND,
+           host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])
     try:
         claude_settings("standard", "linux", sandbox=False, agent_host=True)
         refused = False
@@ -1414,8 +1461,20 @@ def check():
     tiers = {t: [re.fullmatch(r"Bash\((.*)\)", e, re.S).group(1) for e in host["permissions"][t] if e.startswith("Bash(")]
              for t in ("deny", "ask", "allow")}
     # the installed guard allows git-in only under ~/REPOS; the tests build one whose repo root is a temp dir
-    expect("[agent-host] guard embeds ~/REPOS as the git-in root", True, "REPO_ROOTS = ['~/REPOS']" in
-           shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
+    expect("[agent-host] guard policy has ~/REPOS as the git-in root", ["~/REPOS"], guard_policy("linux")["repo_roots"])
+    expect("[agent-host] the committed policy.json loads and allows git status", False,
+           hook_denies({"hooks": [{"command": "AGENT_GUARD_POLICY=%s python3 %s" % (
+               shlex.quote(str(GUARD_POLICY_FILE)), shlex.quote(str(GUARD_SCRIPT)))}]},
+               {"tool_input": {"command": "git status"}, "cwd": str(HERE)}))
+    selftest = subprocess.run(["python3", str(GUARD_SCRIPT), "--selftest"], capture_output=True, text=True,
+                              env=dict(os.environ, AGENT_GUARD_POLICY=str(GUARD_POLICY_FILE)))
+    expect("[agent-host] agent_guard.py --selftest passes", 0, selftest.returncode)
+    if selftest.returncode:
+        print(selftest.stdout[-800:], selftest.stderr[-400:])
+    missing = subprocess.run(["python3", str(GUARD_SCRIPT), "--neutral"], input='{"command": "git status"}',
+                             capture_output=True, text=True, env=dict(os.environ, AGENT_GUARD_POLICY="/nonexistent"))
+    expect("[agent-host] a missing policy denies (neutral: exit 2 and a reason)", (2, True),
+           (missing.returncode, "failing closed" in missing.stdout))
     root = pathlib.Path(tempfile.mkdtemp(prefix="guard-root-"))
     made = [root]
 
@@ -1445,8 +1504,8 @@ def check():
     fixtures["huskytree"] = fixtures["husky"] + "-wt"
     subprocess.run(["git", "-C", fixtures["husky"], "worktree", "add", "-q", "-b", "feat/wt",
                     fixtures["huskytree"]], check=True)
-    guard = agent_host_guard_hook("linux", [str(root)], hooks_paths={
-        fixtures["husky"]: ".husky/_", fixtures["huskywrong"]: ".husky/_"})
+    guard = guard_entry(guard_policy("linux", [str(root)], hooks_paths={
+        fixtures["husky"]: ".husky/_", fixtures["huskywrong"]: ".husky/_"}))
 
     def claude_host(cmd, where):
         if hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}):
@@ -1538,27 +1597,53 @@ def check():
     for cmd in ("docker run --rm app", "docker build -t app .", "docker volume rm data", "docker rm -f c1"):
         for agent, rules, last in (("opencode", oc_rules, True), ("omp", omp_rules, False)):
             expect("[agent-host %s] %s is not allowed" % (agent, cmd), True, decide_ordered(cmd, rules, last) != "allow")
-    expect("[agent-host] guard embeds the hooksPath allowlist", True,
-           "HOOKS_PATHS = %r" % AGENT_HOST_HOOKS_PATHS in
-           shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
+    expect("[agent-host] guard policy carries the hooksPath allowlist", AGENT_HOST_HOOKS_PATHS,
+           guard_policy("linux")["hooks_paths"])
     # git hooks fail inside the sandbox, so a chained commit is explained only where the repo has hooks
     for cmd, where, denied in (("git add -A && git commit -m x", "hooked", True), ("git commit -m x", "hooked", False),
                                ("git add -A && git commit -m x", "clean", False)):
         expect("[agent-host guard, hooks] %s (%s)" % (cmd, where), denied,
                hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures[where]}))
     # --use-credits: the guard alone decides for Claude, by date; opencode and omp (no guard) never allow it
-    expect("[agent-host] guard embeds the credits date", True, "CREDITS_UNTIL = %r" % CODERABBIT_CREDITS_UNTIL in
-           shlex.split(host["hooks"]["PreToolUse"][-1]["hooks"][0]["command"])[2])
+    expect("[agent-host] guard policy carries the credits date", CODERABBIT_CREDITS_UNTIL,
+           guard_policy("linux")["coderabbit_credits_until"])
     for cmd in ("coderabbit review --agent --use-credits", "coderabbit review --use-credits=true --uncommitted"):
         expect("[agent-host claude rules] %s" % cmd, "allow", decide_claude(cmd, tiers["deny"], tiers["ask"], tiers["allow"]))
         for until, denied in (("9999-12-31", False), ("2000-01-01", True), ("", True)):
-            g = agent_host_guard_hook("linux", [str(root)], credits_until=until)
+            g = guard_entry(guard_policy("linux", [str(root)], credits_until=until))
             expect("[agent-host guard, credits until %r] %s" % (until, cmd), denied,
                    hook_denies(g, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
         for agent, rules, last in (("opencode", oc_rules, True), ("omp", omp_rules, False)):
             expect("[agent-host %s] %s" % (agent, cmd), "deny", decide_ordered(cmd, rules, last))
+    # hc run: Core starts the command outside every sandbox, so the guard checks the command after `hc run [flags] --`
+    for cmd, denied in (("hc run --bg --name t -- rm -rf build", True), ("hc run --bg --name t -- git push --force origin x", True),
+                        ("hc run -- git reset --hard", True), ("hc run --cwd . -- docker run -v /home/ai:/h alpine", True),
+                        ("hc run -- bash -c 'git clean -fd'", True), ("hc run git push -f origin x", True),
+                        ("hc run -- cat README.md", False), ("hc run --bg --name t -- git status", False), ("hc run --name t -- ls -la", False),
+                        ("hc run -- bash -c 'git add -A && git commit -m x'", False), ("hc run", False)):
+        expect("[agent-host guard, hc run] %s" % cmd, denied,
+               hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["clean"]}))
+    # ~, $HOME and ${HOME} spellings run in --selftest (fake home); here the symlink fixtures
+    for cmd in ("hc run -- cat values.yaml", "hc run --bg -- python3 values.yaml", "hc run -- bash -c 'cat values.yaml'",
+                "hc run 'cat values.yaml'"):
+        expect("[agent-host guard, hc run secret args] %s" % cmd, True,
+               hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["link"]}))
+    for cmd in ("hc run -- cat envlink.example",):
+        expect("[agent-host guard, hc run secret args] %s" % cmd, True,
+               hook_denies(guard, {"tool_input": {"command": cmd}, "cwd": fixtures["envex"]}))
+    # the sandboxed-chain explanations follow the policy flag and the harness (only claude uses the flag)
+    chain = "git status && git push origin feat/x"
+    for flag, harness, denied in ((True, "claude", True), (False, "claude", False), (True, "opencode", False),
+                                  (True, "omp", False)):
+        entry = guard_entry(guard_policy("linux", [str(root)], explain_sandboxed_chains=flag))
+        payload = {"command": chain, "cwd": fixtures["clean"], "harness": harness}
+        out = subprocess.run(["sh", "-c", entry["hooks"][0]["command"] + " --neutral"], input=json.dumps(payload),
+                             capture_output=True, text=True)
+        expect("[agent-host guard, neutral] chained push, explain=%s, harness=%s" % (flag, harness),
+               2 if denied else 0, out.returncode)
     for d in made:
         shutil.rmtree(d)
+    shutil.rmtree(guard_tmp)
 
     # --- hooks that every Claude file carries ---
     sso = json.loads(claude_file("standard", "linux").read_text())["hooks"]["PreToolUse"][0]
@@ -1590,13 +1675,18 @@ def main():
                     help="omit the Claude sandbox block (fallback if the sandbox will not start)")
     ap.add_argument("--force", action="store_true", help="with --install: overwrite existing files")
     ap.add_argument("--agent-host", action="store_true",
-                    help="with --claude-out/--install: machine used only by agents (push + PRs, ~/REPOS writable)")
+                    help="with --claude-out/--install: machine used only by agents (push + PRs)")
     ap.add_argument("--mcpjson-server", action="append", default=[], metavar="NAME",
                     help="with --claude-out: enable this project .mcp.json server (enabledMcpjsonServers)")
+    ap.add_argument("--write-guard-policy", action="store_true",
+                    help="write templates/agent-guard/policy.json from this file's lists (--os), replacing hand edits")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     if args.check:
         return check()
+    if args.write_guard_policy:
+        write(GUARD_POLICY_FILE, dump(guard_policy(args.os_name)))
+        return 0
     if args.install:
         install(args.install, args.profile, args.os_name, not args.no_sandbox, args.force,
                 args.extra_claude_deny, args.agent_host)

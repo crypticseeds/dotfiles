@@ -1,34 +1,49 @@
-"""Agent-host guard: a Claude PreToolUse hook for Bash (generate.py --agent-host embeds this file).
+"""Agent guard: one standalone, harness-neutral command guard for agents (Claude, opencode, omp).
+
+Policy lives in a JSON file, never in this script: $AGENT_GUARD_POLICY, else /etc/agent-guard/policy.json,
+else policy.json next to this script. No readable, valid policy means deny (fail closed).
+
+Input (stdin JSON): Claude's PreToolUse payload {tool_input: {command}, cwd}, or the neutral form
+{"command": ..., "cwd": ..., "harness": "claude|opencode|omp"}.
+Output: by default Claude's hookSpecificOutput JSON (deny only; allow prints nothing). With --neutral:
+exit 0 and empty stdout = allow, exit 2 and the reason on stdout = deny. `--selftest` runs built-in samples.
 
 The agent host allows every command its deny rules do not match. Glob rules cannot say "only these
-subcommands" or look at files, so this hook covers what they cannot, for two concerns only:
-  - secrets: tools that run OUTSIDE the sandbox (excludedCommands) can read every secret store, so
+subcommands" or look at files, so this guard covers what they cannot, for two concerns only:
+  - secrets: tools that run OUTSIDE the sandbox (excluded_commands) can read every secret store, so
     their arguments may not resolve into one, they may not use a flag that sends credentials
     elsewhere, and git may not be pointed at a program (`-c`, `git config`, local config keys);
     `doppler secrets` only with --only-names;
   - destruction: recursive rm, git reset --hard / clean / history rewrites / force push (except
     --force-with-lease to a branch other than main/master), gh deletes and `pr merge --admin`, and the live
     infrastructure tools (terraform, aws, kubectl, helm, docker) limited to read-only subcommands.
-It also explains, instead of letting them fail with an auth error, the commands Claude runs inside
-the sandbox although their tool is excluded (in a chain or pipeline, or containing < > ` or $().
-herdr's arguments are never checked (owner decision); the hook only explains herdr calls that would run
-sandboxed, where its socket is blocked. The hook only ever denies; what it passes still goes through the
-permission rules.
+`hc run [flags] -- <cmd>` (Herdr Core starts <cmd> outside any sandbox) gets the same checks on <cmd>.
+With policy flag explain_sandboxed_chains (Claude's own bwrap sandbox only) it also explains, instead of
+letting them fail with an auth error, the commands Claude runs inside the sandbox although their tool is
+excluded (in a chain or pipeline, or containing < > ` or $(). herdr's arguments are never checked (owner
+decision); the guard only explains herdr calls that would run sandboxed, where its socket is blocked.
+The guard only ever denies; what it passes still goes through the permission rules.
 """
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.parse
 
-SECRET_GLOBS = []  # filled in by generate.py: every secret path the policy denies
-REPO_ROOTS = []    # filled in by generate.py: where `git-in <dir>` may work (bin/git-in enforces it too)
-CREDITS_UNTIL = ""  # filled in by generate.py: last day (YYYY-MM-DD) `coderabbit --use-credits` is allowed
-EXCLUDED = []      # filled in by generate.py: the sandbox's excludedCommands
-HOOKS_PATHS = {}   # filled in by generate.py: repo dir -> the repo-local core.hooksPath its config may set
+# Policy values, set by set_policy() from the policy file (see load_policy).
+SECRET_GLOBS = []   # every secret path to deny
+REPO_ROOTS = []     # where `git-in <dir>` may work (bin/git-in enforces it too)
+CREDITS_UNTIL = ""  # last day (YYYY-MM-DD) `coderabbit --use-credits` is allowed; "" = never
+EXCLUDED = []       # the Claude sandbox's excludedCommands
+HOOKS_PATHS = {}    # repo dir -> the repo-local core.hooksPath its config may set
+EXPLAIN = True      # explain chains that run sandboxed (policy flag, and only for the claude harness)
+SECRET_RX = []
+SECRET_DIRS = set()
 
 HOME = os.path.expanduser("~")
 # excludedCommands that this hook checks (herdr is excluded too, but never checked)
@@ -129,11 +144,12 @@ GIT_PROGRAM_KEY = re.compile(
     r"(http|https)\..*proxy|url\..*\.(push)?insteadof|.*\.helper", re.I)
 
 
+class Denied(Exception):
+    pass
+
+
 def deny(why):
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse", "permissionDecision": "deny",
-        "permissionDecisionReason": "agent host: %s (blocked by the agent-host guard)" % why}}))
-    sys.exit(0)
+    raise Denied("agent host: %s (blocked by the agent-host guard)" % why)
 
 
 def _regex(glob):
@@ -151,10 +167,44 @@ def _regex(glob):
     return re.compile(out, re.I)
 
 
-SECRET_RX = [_regex(g) for g in SECRET_GLOBS]
-# Directories above each absolute secret path (~/.aws, ~, /): an argument naming one reaches the secret.
-SECRET_DIRS = {os.path.dirname(re.split(r"[*?\[]", HOME + g[1:] if g.startswith("~/") else g)[0])
-               for g in SECRET_GLOBS if g.startswith(("~/", "/"))}
+def set_policy(p):
+    global SECRET_GLOBS, REPO_ROOTS, CREDITS_UNTIL, EXCLUDED, HOOKS_PATHS, EXPLAIN, SECRET_RX, SECRET_DIRS
+    SECRET_GLOBS, REPO_ROOTS = list(p["secret_globs"]), list(p["repo_roots"])
+    CREDITS_UNTIL, EXCLUDED = p["coderabbit_credits_until"], list(p["excluded_commands"])
+    HOOKS_PATHS, EXPLAIN = dict(p["hooks_paths"]), p["explain_sandboxed_chains"]
+    SECRET_RX = [_regex(g) for g in SECRET_GLOBS]
+    # Directories above each absolute secret path (~/.aws, ~, /): an argument naming one reaches the secret.
+    SECRET_DIRS = {os.path.dirname(re.split(r"[*?\[]", HOME + g[1:] if g.startswith("~/") else g)[0])
+                   for g in SECRET_GLOBS if g.startswith(("~/", "/"))}
+
+
+POLICY_TYPES = {"secret_globs": list, "repo_roots": list, "coderabbit_credits_until": str,
+                "excluded_commands": list, "hooks_paths": dict, "explain_sandboxed_chains": bool}
+
+
+def policy_path():
+    """The env override wins and never falls through: a wrong path must fail, not load another policy."""
+    if os.environ.get("AGENT_GUARD_POLICY"):
+        return os.environ["AGENT_GUARD_POLICY"]
+    for path in ("/etc/agent-guard/policy.json", os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                                              "policy.json")):
+        if os.path.isfile(path):
+            return path
+    return "/etc/agent-guard/policy.json"
+
+
+def load_policy():
+    path = policy_path()
+    try:
+        with open(path) as f:
+            p = json.load(f)
+    except (OSError, ValueError) as e:
+        raise Denied("agent guard: cannot load policy %s (%s): failing closed" % (path, e))
+    bad = [k for k, t in POLICY_TYPES.items() if not isinstance(p.get(k), t)] if isinstance(p, dict) else ["*"]
+    if bad:
+        raise Denied("agent guard: policy %s is missing or has a wrong type for %s: failing closed"
+                     % (path, ", ".join(bad)))
+    set_policy(p)
 
 
 def reaches_secret(real):
@@ -177,9 +227,12 @@ def check_args(tool, args, cwd):
             if not cand or cand.startswith("-"):
                 continue
             p = os.path.join(cwd, os.path.expanduser(cand))
-            if os.path.lexists(p) and reaches_secret(os.path.realpath(p)) \
-                    and os.path.realpath(p) != os.path.realpath(cwd):
-                deny("%s resolves into a secret store" % cand)
+            # The written path counts even when it is not visible here: the guard may run inside a
+            # sandbox that hides the store (nono), while the command runs outside it (hc run, opencode
+            # shared server). Symlinks are resolved only where they can be seen.
+            for real in {os.path.normpath(p)} | ({os.path.realpath(p)} if os.path.lexists(p) else set()):
+                if reaches_secret(real) and real != os.path.realpath(cwd):
+                    deny("%s resolves into a secret store" % cand)
 
 
 def positionals(tool, args):
@@ -390,13 +443,41 @@ def check_docker(pos, args, cwd):
             check_bind(kv.get("source") or kv.get("src") or "/", root, cwd)
 
 
-def check_segment(t, cwd):
+# hc run flags that take a value (`--flag=value` needs no skipping)
+HC_VALUE_FLAGS = {"--name", "--cwd", "--on", "--label", "--parent", "--timeout"}
+SHELLS = re.compile(r"(ba|z|da|k)?sh")
+
+
+def check_hc_run(args, cwd):
+    """`hc run [flags] [--] <cmd...>`: Herdr Core starts <cmd> outside every sandbox, so it gets the checks any
+    command here gets. A bare `hc run` (the machine's shell) and a template name have nothing to check."""
+    i = 0
+    while i < len(args) and args[i] != "--" and args[i].startswith("-"):
+        if args[i].startswith("--cwd="):
+            cwd = os.path.join(cwd, os.path.expanduser(args[i].split("=", 1)[1]))
+        elif args[i] == "--cwd" and i + 1 < len(args):
+            cwd = os.path.join(cwd, os.path.expanduser(args[i + 1]))
+        i += 2 if args[i] in HC_VALUE_FLAGS else 1
+    inner = args[i + 1:] if args[i:i + 1] == ["--"] else args[i:]
+    if not inner:
+        return
+    if len(inner) == 1 and re.search(r"\s", inner[0]):  # one string: may be a whole command line
+        check_command(inner[0], cwd, explain=False, outside=True)
+    check_segment(inner, cwd, outside=True)
+    shell = os.path.basename(inner[0])
+    if SHELLS.fullmatch(shell) and "-c" in inner[1:-1]:
+        check_command(inner[inner.index("-c") + 1], cwd, explain=False, outside=True)
+
+
+def check_segment(t, cwd, outside=False):
     env = []
     while t and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", t[0]):
         env, t = env + [t[0]], t[1:]
     if not t:
         return
     tool, args = os.path.basename(t[0]), t[1:]
+    if tool == "hc" and args[:1] == ["run"]:
+        check_hc_run(args[1:], cwd)
     if tool == "rm" or (tool not in OUTSIDE and "rm" in args):
         tail = args[args.index("rm") + 1:] if tool != "rm" else args
         if any(a == "--recursive" or (re.fullmatch(r"-[A-Za-z]+", a) and re.search("[rR]", a)) for a in tail):
@@ -404,6 +485,8 @@ def check_segment(t, cwd):
     if tool == "ansible-playbook" and not set(args) & {"--check", "-C", "--syntax-check", "--list-tasks",
                                                       "--list-hosts", "--list-tags"}:
         deny("ansible-playbook only with --check, --syntax-check or --list-* (the owner applies)")
+    if outside and tool not in OUTSIDE:  # started by hc run: outside every sandbox, so no argument may reach a secret
+        check_args(tool, [t[0]] + args if "/" in t[0] else args, cwd)
     if tool not in OUTSIDE:
         return
     bad_env = [e for e in env if not ENV_OK.fullmatch(e)]
@@ -542,12 +625,9 @@ def talks_to_herdr(words):
         not set(words[1:]) & {"-h", "--help", "-V", "--version", "help"}
 
 
-def main():
-    data = json.load(sys.stdin)
-    check_command(data.get("tool_input", {}).get("command", ""), data.get("cwd") or os.getcwd())
-
-
-def check_command(cmd, cwd):
+def check_command(cmd, cwd, explain=None, outside=False):
+    """explain: None = the policy decides (EXPLAIN)."""
+    explain = EXPLAIN if explain is None else explain
     raw = cmd
     # replaces the `*.env.*` deny rule here: any `.env.<x>` mention except exactly `.env.example` or
     # `.env.example.bak` (followed by
@@ -556,7 +636,7 @@ def check_command(cmd, cwd):
         deny("the command names a .env.* file (only .env.example is allowed)")
     cmd, shell_bodies = split_heredocs(cmd)
     for body in shell_bodies:
-        check_command(body, cwd)
+        check_command(body, cwd, explain, outside)
     try:
         lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
         lex.whitespace_split = True
@@ -576,12 +656,14 @@ def check_command(cmd, cwd):
         else:
             seg.append(tok)
     for s in segs:
-        check_segment(s, cwd)
+        check_segment(s, cwd, outside)
     # Claude runs a command outside the sandbox only when it is a plain command of its own. In a loop,
     # pipeline or chain, or with < > ` $( anywhere in it (even quoted), it runs sandboxed and the
     # excluded tools fail with a confusing auth or permission error. Say so up front, with the fix.
     # herdr: quoted < > && are fine, but a pipe, chain, ` or $( (even in single quotes) puts it in the
     # sandbox (verified 2026-10-24)
+    if not explain:
+        return
     if any(talks_to_herdr(s) for s in segs) and (len(segs) > 1 or re.search(r"`|\$\(", raw)):
         deny("run `herdr ...` as its own Bash command, with no pipe, chain, ` or $( anywhere (even in single "
              "quotes): otherwise it runs inside the sandbox, which blocks the herdr socket "
@@ -603,5 +685,125 @@ def check_command(cmd, cwd):
              "`git-in <repo-dir> <git args>` instead of cd or -C for another repo" % (name, why, name))
 
 
+def decide(cmd, cwd, harness="claude"):
+    """The deny reason for cmd, or None. Only the claude harness gets the sandboxed-chain explanations, and
+    only if the policy asks for them: nono and the other harnesses run everything inside one sandbox."""
+    try:
+        check_command(cmd, cwd, explain=EXPLAIN and harness == "claude")
+    except Denied as e:
+        return str(e)
+    return None
+
+
+def emit(reason, neutral):
+    if not reason:
+        return 0
+    if neutral:
+        print(reason)
+        return 2
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                             "permissionDecisionReason": reason}}))
+    return 0
+
+
+def main(argv):
+    neutral = "--neutral" in argv
+    try:
+        load_policy()
+        data = json.load(sys.stdin)
+        if not isinstance(data, dict):
+            raise ValueError("input is not a JSON object")
+        if "tool_input" in data:  # Claude's PreToolUse payload
+            cmd, harness = (data["tool_input"] or {}).get("command", ""), "claude"
+        else:
+            cmd, harness = data.get("command", ""), data.get("harness") or "neutral"
+        reason = decide(cmd or "", data.get("cwd") or os.getcwd(), harness)
+    except Denied as e:
+        reason = str(e)
+    except Exception as e:  # a guard that crashes must not allow
+        reason = "agent guard: internal error (%s: %s): failing closed" % (type(e).__name__, e)
+    return emit(reason, neutral)
+
+
+def selftest():
+    """A representative subset of generate.py's guard samples, run against a temp repo and the loaded policy
+    (with the repo root, credits date and hooksPath allowlist replaced by test values)."""
+    load_policy()
+    root = os.path.realpath(tempfile.mkdtemp(prefix="agent-guard-selftest-"))
+    # a fake home with a fake secret, so the samples hold on any host (~, $HOME and ${HOME} resolve to it)
+    global HOME
+    home = HOME = os.path.join(root, "home")
+    os.makedirs(os.path.join(home, ".doppler"))
+    open(os.path.join(home, ".doppler/.doppler.yaml"), "w").close()
+    os.environ["HOME"] = home
+    repo = os.path.join(root, "repo")
+    subprocess.run(["git", "init", "-q", "-b", "feat/x", repo], check=True)
+    os.mkdir(os.path.join(repo, "src"))
+    os.symlink(os.path.join(home, ".doppler/.doppler.yaml"), os.path.join(repo, "values.yaml"))
+    policy = dict(secret_globs=SECRET_GLOBS, repo_roots=[root], coderabbit_credits_until="",
+                  excluded_commands=EXCLUDED, hooks_paths={}, explain_sandboxed_chains=True)
+    set_policy(policy)
+    # (command, harness, denied)
+    samples = [
+        # normal work
+        ("git status", "claude", False), ("git commit -m x", "claude", False),
+        ("git push origin feat/x", "claude", False), ("git push --force-with-lease origin feat/x", "claude", False),
+        ("gh pr create --title x --body y", "claude", False), ("ls | head", "claude", False),
+        ("doppler secrets --only-names", "claude", False), ("terraform plan", "claude", False),
+        ("docker run --rm app", "claude", False), ("docker run --rm -v ./src:/app/src app", "claude", False),
+        ("hc run --bg --name t -- git status", "claude", False), ("hc run", "claude", False),
+        ("git-in %s status" % repo, "claude", False),
+        # secrets
+        ("doppler secrets", "claude", True), ("gh auth token", "claude", True),
+        ("git add values.yaml", "claude", True), ("git add .env.local", "claude", True),
+        ("git -c core.sshCommand=x fetch", "claude", True), ("git-in /etc status", "claude", True),
+        # destructive
+        ("rm -rf build", "claude", True), ("rm -Rf build", "opencode", True),
+        ("git push --force origin x", "claude", True), ("git push --force origin x", "opencode", True),
+        ("git push -uf origin x", "omp", True), ("git reset --hard", "claude", True), ("git clean -fd", "claude", True),
+        ("gh pr merge --admin", "claude", True), ("terraform apply", "claude", True),
+        ("kubectl delete pod x", "claude", True), ("aws s3 rm s3://b/k", "claude", True),
+        # docker
+        ("docker run -v %s:/h alpine" % home, "claude", True), ("docker run --privileged app", "claude", True),
+        ("docker run -e GITHUB_TOKEN app", "claude", True), ("docker run -v /:/h app", "opencode", True),
+        # hc run: Core starts these outside every sandbox
+        ("hc run --bg --name t -- rm -rf build", "claude", True),
+        ("hc run --bg --name t -- git push --force origin x", "opencode", True),
+        ("hc run --name t -- docker run -v %s:/h alpine" % home, "claude", True),
+        ("hc run -- bash -c 'git reset --hard'", "claude", True), ("hc run 'git clean -fd'", "claude", True),
+        ("hc run --cwd %s -- doppler secrets" % repo, "claude", True),
+        # hc run, any program: no argument may resolve into a secret store (~, $HOME, ${HOME}, symlinks, --cwd)
+        ("hc run -- cat values.yaml", "opencode", True), ("hc run --cwd %s -- python3 values.yaml" % repo, "omp", True),
+        ("hc run -- bash -c 'cat values.yaml'", "opencode", True), ("hc run 'cat values.yaml'", "omp", True),
+        ("hc run -- cat README.md", "opencode", False), ("hc run -- cat README.md", "omp", False),
+        # chained excluded commands: explained only for Claude when the policy says its sandbox applies
+        ("git status && git push origin feat/x", "claude", True),
+        ("git status && git push origin feat/x", "opencode", False),
+        ("git status && git push origin feat/x", "neutral", False),
+    ]
+    for c in ("cat ~/.doppler/.doppler.yaml", "cp $HOME/.doppler/.doppler.yaml x",
+              "cat ${HOME}/.doppler/.doppler.yaml", "bash -c 'cat ~/.doppler/.doppler.yaml'"):
+        samples += [("hc run --bg --name t -- " + c, "opencode", True), ("hc run -- " + c, "omp", True)]
+    failures = 0
+    for cmd, harness, denied in samples:
+        got = decide(cmd, repo, harness) is not None
+        failures += got != denied
+        print("%s [%s] %s -> %s" % ("ok  " if got == denied else "FAIL", harness, cmd, "deny" if got else "allow"))
+    set_policy(dict(policy, explain_sandboxed_chains=False))
+    got = decide("git status && git push origin feat/x", repo, "claude") is not None
+    failures += got
+    print("%s [claude, explain_sandboxed_chains=false] chained push -> %s" % ("ok  " if not got else "FAIL",
+                                                                            "deny" if got else "allow"))
+    print("%d samples, %d failures" % (len(samples) + 1, failures))
+    shutil.rmtree(root, ignore_errors=True)
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
-    main()
+    if "--selftest" in sys.argv:
+        try:
+            sys.exit(selftest())
+        except Denied as e:
+            print(e)
+            sys.exit(1)
+    sys.exit(main(sys.argv[1:]))

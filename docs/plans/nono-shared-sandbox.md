@@ -134,6 +134,29 @@ script; a new `agent_guard.py --selftest` runs the same samples without `generat
 - Acceptance: a denied command (`git push --force origin x`, `docker run -v ~:/h alpine`) is refused
   in a live opencode and omp session with the guard's reason; `git status` runs.
 
+### Phase 2 status (2026-11-25)
+
+Implemented, uncommitted. Deviations from the task text above, and what remains:
+
+- Guard moved with `git mv` to `templates/agent-guard/agent_guard.py`; policy is `templates/agent-guard/policy.json`
+  (`$AGENT_GUARD_POLICY`, else `/etc/agent-guard/policy.json`, else next to the script; fail closed).
+  Input: Claude payload or neutral `{command, cwd, harness}`; `--neutral` output (exit 2 + reason = deny).
+  `explain_sandboxed_chains` gates the Claude-sandbox explanations (chains, herdr), and only the `claude`
+  harness uses it. `hc run [flags] -- <cmd>` is checked with the existing per-command checks (also `sh -c`
+  bodies and `--cwd`). `--selftest` added. `generate.py` calls the installed path, writes the policy only with
+  `--write-guard-policy`, and `--check` runs the repo script against a temp policy.
+- `coderabbit_credits_until` is now `""` (promo expired); `CODERABBIT_CREDITS_UNTIL` in `generate.py` too.
+- opencode: `opencode/.config/opencode/plugins/agent-guard.ts` (stowed). omp: its `tool_call` extension event
+  blocks with `{block, reason}`; the extension lives in `templates/agent-guard/adapters/omp-agent-guard.ts`
+  because omp has no stow package (`~/.omp` holds auth and state); `regen-agent-host.sh` copies it to
+  `~/.omp/agent/extensions/agent-guard.ts`.
+- `regen-agent-host.sh` installs the guard and policy (sudo, owner runs it), before the managed settings.
+- Remaining: live owner tests in real opencode and omp sessions (acceptance above); `make restow` for the
+  new opencode plugin (install the guard first: the plugin fails closed while it is missing); omp's
+  non-bash tools are unchecked and the omp extension is user-writable; guard checks run only on `bash` tool
+  calls, not on file tools (nono covers those). Decision for the owner: give omp a stow package instead of
+  the copy step.
+
 ## Phase 3 (needs owner decisions and sudo)
 
 ### T5 - Claude on nono only

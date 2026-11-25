@@ -121,13 +121,15 @@ feature branch, `gh pr create|edit|close|reopen|comment|ready|merge`, `gh run re
 - Sandbox on (bubblewrap), `allowUnsandboxedCommands: false`, `allowManagedPermissionRulesOnly: true`.
 - `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`, `hc *`,
   `kubectl *`, `helm *`, `coderabbit review *`, `opencode *`, `omp *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
-- Guard hook (`agent_host_guard.py`, embedded inline in the settings file) for what globs cannot
+- Guard hook (`templates/agent-guard/agent_guard.py`, see "The agent guard" below; the settings file only
+  calls the root-owned install, `python3 /usr/local/lib/agent-guard/agent_guard.py`) for what globs cannot
   express: spellings (`rm -Rf`, `git -C x reset --hard`, `gh -R o/r pr merge`), the branch a
   lease-push targets, arguments of unsandboxed tools that resolve into a secret store (also through a
   symlink), git config keys that run a program, live infra limited to read-only subcommands. It never
   checks `herdr`'s arguments (owner decision); it only explains a herdr call that would run sandboxed
   and fail on the blocked socket (a pipe, chain, `` ` `` or `$(`, even single-quoted).
-- Failing chains are explained, not left to fail: any `excludedCommands` entry (the list is embedded,
+- Failing chains are explained, not left to fail (policy flag `explain_sandboxed_chains`, true for
+  Claude's own sandbox): any `excludedCommands` entry (the list is in the policy file,
   so new entries are covered) chained, piped, looped or with `< > `` ` `` $(` runs sandboxed, so the guard
   denies it with the reason and the fix (run it as its own call). git only where sandboxed git fails:
   network calls, worktree add/remove/move/prune, and commit/merge/rebase in a repo with hooks. Chains of
@@ -149,26 +151,82 @@ feature branch, `gh pr create|edit|close|reopen|comment|ready|merge`, `gh run re
 - `~/.coderabbit/reviews` and `~/.coderabbit/logs` are writable (and readable with the file tools), so a
   review run sandboxed (by absolute path, which no `excludedCommands` entry matches) saves its local copy
   where agents can find it; the rest of `~/.coderabbit`, with `auth.json`, stays read-only.
-- `~/REPOS`, `~/.herdr/worktrees`, `~/.cache/pre-commit` and `~/.cache/uv` are writable (the last two
-  with `~/.herdr/worktrees` are what `agent-worktree-setup`, `uv sync --frozen` in a new herdr worktree,
-  needs). Sibling repos' and herdr worktrees' agent config stays write-denied
-  for the Edit tool (`AGENT_HOST_DENY_WRITE`); Linux ignores the wildcard sandbox `denyWrite`.
+- On Linux, sandboxed Bash can write in the session workspace, temp directories and the explicitly
+  listed cache and log directories. Sibling repos and worktrees under `~/REPOS` and
+  `~/.herdr/worktrees` cannot be written by sandboxed Bash by default, even if created after the
+  session starts. Start Claude in the worktree you want to edit. To deliberately grant another
+  directory, use Claude's `--add-dir DIR` in a direct session. `agent-launch --allow DIR claude`
+  grants both layers and `--read DIR` grants read-only access in nono, but Claude's nested Bash
+  sandbox currently fails under nono on the Pi; see `docs/doppler-agent-env.md`.
+  A write grant is recursive and includes sibling protected files inside the granted subtree for
+  sandboxed Bash. The managed `Edit` denies remain for the file tools. macOS keeps its sandbox
+  write globs for those files.
 
-**opencode and omp** (`agent-host/opencode.json`, `agent-host/omp-config.yml`) have no sandbox and no
-hook: the same deny rules, the ordinary dev commands above as allows, everything else still prompts.
-Gaps without the guard: they cannot see the current branch (`git push --force-with-lease` with no
-refspec while on main), combined short flags (`git push -uf`), lowercase `gh api --method=delete`,
-symlinks, or a repo's `.git/config`.
+**opencode and omp** (`agent-host/opencode.json`, `agent-host/omp-config.yml`) have no sandbox of their own:
+the same deny rules, the ordinary dev commands above as allows, everything else still prompts. They now run
+the same guard script as Claude, through an adapter that calls the installed
+`/usr/local/lib/agent-guard/agent_guard.py --neutral` before each bash call (see "The agent guard"), which
+closes the gaps the rules alone have: the current branch (`git push --force-with-lease` with no refspec
+while on main), combined short flags (`git push -uf`), lowercase `gh api --method=delete`, symlinks into a
+secret store, a repo's `.git/config`, docker, `hc run` arguments.
+
+## The agent guard (`templates/agent-guard/`)
+
+One standalone, harness-neutral script, `agent_guard.py`, with an editable policy file. `generate.py` is no
+longer its source: it only calls the installed script, and `--check` runs the repo copy.
+
+| File | What |
+|---|---|
+| `agent_guard.py` | the guard; python3 stdlib only. `--neutral` output mode, `--selftest` |
+| `policy.json` | the lists it reads (hand-editable, `_comment` keys explain each key) |
+| `adapters/omp-agent-guard.ts` | omp extension (`tool_call` event); installed by `regen-agent-host.sh` |
+| `opencode/.config/opencode/plugins/agent-guard.ts` | opencode plugin (`tool.execute.before`, bash); stowed |
+
+- **Policy** is read from `$AGENT_GUARD_POLICY`, else `/etc/agent-guard/policy.json`, else `policy.json` next
+  to the script. The env override never falls through to another file. No readable, valid policy (missing
+  key, wrong type) means every command is denied with "failing closed"; so does an internal error.
+  Keys: `secret_globs`, `repo_roots`, `coderabbit_credits_until` (`""` = never; the promo expired
+  2026-11-01), `excluded_commands`, `hooks_paths`, `explain_sandboxed_chains`.
+- **Adapt per agent, host and OS** by editing `policy.json` (or keeping one per host and pointing
+  `AGENT_GUARD_POLICY` at it): another host drops or adds `secret_globs` and `repo_roots`; a harness whose
+  commands all run inside one sandbox (nono) sets `explain_sandboxed_chains` to false. The flag matters only
+  for Claude's own bwrap sandbox, where a chained excluded command runs sandboxed and fails; the explanations
+  are never given to opencode or omp calls (`"harness"` field), whatever the flag says.
+  `python3 generate.py --write-guard-policy [--os linux|macos]` regenerates `policy.json` from the old lists in
+  `generate.py` (a convenience that overwrites hand edits, never run implicitly).
+- **Input**: Claude's PreToolUse payload (`{tool_input: {command}, cwd}`), or neutral
+  `{"command": ..., "cwd": ..., "harness": "claude|opencode|omp"}`. **Output**: Claude mode prints the
+  `hookSpecificOutput` deny JSON (allow prints nothing); `--neutral`: exit 0 and empty stdout = allow, exit 2
+  and the reason on stdout = deny.
+- **`hc run`**: Herdr Core starts the program outside every sandbox, so the command after `hc run [flags] --`
+  (or without `--`) gets the same checks as a direct call, plus a secret check on every argument of any
+  program (`cat ~/.doppler/x`, `$HOME`, `${HOME}`, symlinks, `--cwd`), including `sh -c '...'` bodies and `--cwd`. A bare
+  `hc run` (a shell) and a template name (`hc run reviewer "task"`) are not checked.
+- **Test**: `python3 templates/agent-guard/agent_guard.py --selftest` (samples without `generate.py`);
+  `generate.py --check` runs the full set of guard checks against the repo script with a temp policy, plus
+  the selftest, a missing-policy check, the `hc run` samples and the explain-flag matrix.
+- **Install** (`regen-agent-host.sh`, owner, sudo): `agent_guard.py` to `/usr/local/lib/agent-guard/`,
+  `policy.json` to `/etc/agent-guard/policy.json` (root-owned, 0644; edit the repo file and re-run, or edit
+  the installed one with sudo), and the omp extension to `~/.omp/agent/extensions/agent-guard.ts`. The
+  opencode plugin is stowed (`make restow`) and needs the installed guard: install first, because the plugin
+  fails closed and blocks every opencode bash call while the script is missing.
+- **opencode**: `tool.execute.before` on `bash` runs wherever opencode executes tools (the shared server or
+  a `--standalone` private server) and reads only server-side values (the tool args, its `directory`); a
+  denied call throws the guard's reason. Fails closed (missing script, spawn error, timeout, other exit code).
+- **omp** (19.1.0): the `tool_call` extension event supports `{block: true, reason}`; omp also blocks when a
+  handler throws or times out (30 s). Gaps: omp's non-bash tools (python and similar) are not checked, and
+  `~/.omp` is user-writable, so a process running as that user can remove the extension (omp has no managed
+  extension path). Guard text under `--neutral` mentions "agent host"; it is the same wording Claude gets.
 
 **Trade-offs (one line each; the owner decides):**
-- `git *` and `git-in *` outside the sandbox: commit hooks and push credentials work, but repo hooks run unsandboxed;
-  `.git/hooks` stays unwritable to sandboxed code (Claude's built-in protection), tracked hook
+- `git *` and `git-in *` outside the sandbox: commit hooks and push credentials work, but repo hooks run unsandboxed.
+  Claude's built-in Bash protection covers the current project's `.git/hooks`. Tracked hook
   definitions (`.pre-commit-config.yaml` local hooks, `.husky/`) do not.
 - `.git/config` writable by git (branch tracking works) instead of `branch.autoSetupMerge=false`;
   `hooksPath`/`alias`/`sshCommand`/`credential.helper`-style keys are refused by the guard on the command
-  line (`-c`, `git config`) and when present in the repo's local config (sibling repos' `.git/config` is
-  writable to sandboxed code on Linux).
-- `core.hooksPath` allowlist (`AGENT_HOST_HOOKS_PATHS`): a listed repo and its worktrees may keep its exact
+  line (`-c`, `git config`) and when present in the repo's local config. Explicitly granting a
+  sibling repo for Bash writes on Linux can also expose its local config to writes.
+- `core.hooksPath` allowlist (policy key `hooks_paths`, `AGENT_HOST_HOOKS_PATHS` in `generate.py`): a listed repo and its worktrees may keep its exact
   repo-local value (husky's `.husky/_`), so its hooks (lint-staged from `node_modules`) run unsandboxed on
   commit; `core.hooksPath=/dev/null` (hooks off, e.g. `git-in . -c core.hooksPath=/dev/null commit`) is
   allowed everywhere.
@@ -176,7 +234,7 @@ symlinks, or a repo's `.git/config`.
 - `coderabbit review *` outside the sandbox: the sandbox proxy closes its WebSocket and `~/.coderabbit` is
   read-only there. The guard refuses arguments that resolve into a secret store (`-c <file>` uploads the
   file); `--api-key` is denied in every profile. `--use-credits` is denied too, except for Claude on the
-  agent host through `CODERABBIT_CREDITS_UNTIL` (promo credits); after that date the guard refuses it.
+  agent host through the policy key `coderabbit_credits_until` (now `""`: the promo credits expired 2026-11-01, so the guard refuses it).
 - Worktree cleanup: `git worktree add/remove/move/prune` must be a command of its own (inside the sandbox
   `~/.herdr/worktrees` and `.git/worktrees` are read-only); `--force`/`-f` removal is refused, for git and
   `herdr worktree remove`, since it discards uncommitted work. Pane, tab and workspace close are allowed.
@@ -215,8 +273,8 @@ symlinks, or a repo's `.git/config`.
 - Threat model is accident, not a determined process: anything that runs outside the sandbox (above)
   can read the stores if an agent deliberately writes code to do it.
 
-**What no rule can stop:** a script the agent writes can still delete files inside the write
-boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch protection covers pushed work.
+**What no rule can stop:** a script the agent writes can still delete files inside its writable
+workspace, other granted directories and `/tmp`. GitHub branch protection only covers pushed work.
 
 **Install on the Pi** only with `bash regen-agent-host.sh`, run by you (it uses sudo). It runs
 `git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either fails), then:
@@ -225,6 +283,9 @@ boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch prote
   The shared MCPHub connections are user-scoped and installed by `python3 scripts/agents-sync.py mcp`.
   Regeneration leaves those user-scoped connections alone.
 - opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority).
+- Guard: `/usr/local/lib/agent-guard/agent_guard.py` and `/etc/agent-guard/policy.json` (root-owned; see
+  "The agent guard"), installed before the managed settings that call it; the omp extension goes to
+  `~/.omp/agent/extensions/agent-guard.ts`.
 - omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
   your other settings kept. omp has no managed config, so this file stays user-writable.
 
@@ -268,8 +329,9 @@ command, because aliases exist only in interactive zsh and a pane's environment 
 
 - `agent-env` lives in `~/.local/bin`, which is on PATH in every shell here. It needs Doppler auth on the
   host it runs on, so a command sent to another machine needs it there too.
-- A worktree is a new directory under `~/REPOS`, so it is inside the write boundary: `git worktree add
-  ../<repo>-<branch> -b <branch>`, then start the agent in it as above.
+- Create a worktree with `git worktree add ../<repo>-<branch> -b <branch>` from a terminal with access
+  to the destination. Start Claude in the new worktree to edit it on Linux. Sandboxed Bash in the
+  original session cannot write there by default.
 - Nothing else is needed per session: Claude reads `/etc/claude-code/managed-settings.json`, opencode
   `/etc/opencode/opencode.json` and omp `~/.omp/agent/config.yml` in every directory, so a pane in any repo
   or worktree, and every subagent, gets the same policy.

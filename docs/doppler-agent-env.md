@@ -55,9 +55,20 @@ rules still apply.
 `agent-launch` applies the named harness pack and `pi-agent-host` nono profile to the client. Claude
 uses `--permission-mode auto`; OMP, OpenCode and Codex enable automatic approval. Codex also uses
 `--no-daemon`. The named harness pack and executable must be available on the worker host.
-OpenCode's shared server may execute outside nono with its own environment and Git access.
-The client sandbox's protections for server-side execution are unverified; do not assume scoped
-secrets, filesystem grants, or read-only Git metadata apply to the shared server.
+
+Auth per launch: `-o` (`--own`) uses the harness's own login: only `MCPHUB_DEFAULT_KEY` and
+`--secret` names are passed. `-g` (`--gateway`) adds `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`,
+`OPENAI_API_KEY` and `OPENAI_BASE_URL`. Defaults are in the `auth_default`
+table at the top of the script: `claude` uses its own login, the others the gateway. The worker
+environment is rebuilt from scratch, so `ANTHROPIC_*` variables from the launching shell
+(including `ANTHROPIC_AUTH_TOKEN`) never reach the agent either way. `agent-launch -h` lists the flags.
+
+OpenCode's tools run in the shared background server (`opencode.service`), which runs outside
+nono and the launch's `bwrap` (verified 2026-11-25: an `agent-launch opencode` session wrote into
+`~/.claude`, which the launch mounts read-only). `-s` (`--standalone`) starts a private server
+inside the sandbox instead, so the tools are sandboxed; such sessions are not visible to the
+shared service (`opencode api`, the opencode-workers skill). Without `-s` the launcher prints a
+one-line reminder.
 
 The nono profiles are split in two (`zsh/.config/nono/profiles/`). `agent-base` is portable
 and OS-neutral: it extends `default` (every `deny_*` group nono ships), adds denies for secret
