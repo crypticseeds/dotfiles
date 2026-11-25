@@ -1350,7 +1350,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -x \"$f\" ] || exit 0; exec \"$f\" check",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -r \"$f\" ] || exit 0; python3 \"$f\" check || true",
             "timeout": 20
           }
         ]
@@ -1362,7 +1362,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -x \"$f\" ] || exit 0; exec \"$f\" session-start",
+            "command": "f=\"$HOME/.local/bin/agent-route\"; [ -r \"$f\" ] || exit 0; python3 \"$f\" session-start || true",
             "timeout": 20
           }
         ]

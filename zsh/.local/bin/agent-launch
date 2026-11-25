@@ -89,6 +89,10 @@ if [[ ! -x $binary ]]; then
   printf 'agent-launch: executable unavailable: %s\n' "$binary" >&2
   if [[ -z $dry_run ]]; then exit 1; fi
 fi
+# Every harness's routing hook reads agent-route and agent-mux, stow symlinks into the dotfiles repo.
+if route_target=$(realpath -e -- "$HOME/.local/bin/agent-route" 2>/dev/null); then
+  permissions+=(--read "${route_target%/*}")
+fi
 if [[ $profile == claude && -f /etc/claude-code/managed-settings.json ]]; then
   permissions+=(--read-file /etc/claude-code/managed-settings.json)
 fi

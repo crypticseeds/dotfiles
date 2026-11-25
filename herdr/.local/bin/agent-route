@@ -82,7 +82,7 @@ def here():
 
 def agent_mux():
     for cand in (os.path.join(here(), "agent-mux"), shutil.which("agent-mux")):
-        if cand and os.access(cand, os.X_OK):
+        if cand and os.access(cand, os.R_OK):
             return cand
     return None
 
@@ -92,7 +92,8 @@ def run_mux(*args):
     if not mux:
         return ""
     try:
-        out = subprocess.run([mux, *args], capture_output=True, text=True, timeout=15)
+        # sh, not exec: under nono the stowed script resolves into ~/dotfiles, which has no execute right
+        out = subprocess.run(["sh", mux, *args], capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
         return ""
     return out.stdout if out.returncode == 0 else ""

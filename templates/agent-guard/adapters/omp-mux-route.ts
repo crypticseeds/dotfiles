@@ -22,7 +22,7 @@ function rulesText(): string {
   if (rules && Date.now() - rules.at < RULES_TTL_MS) return rules.text
   let text = ""
   if (existsSync(ROUTE)) {
-    const run = spawnSync(ROUTE, ["rules"], { encoding: "utf8", timeout: 20_000 })
+    const run = spawnSync("python3", [ROUTE, "rules"], { encoding: "utf8", timeout: 20_000 })
     if (!run.error && run.status === 0) text = run.stdout.trim()
   }
   rules = { text, at: Date.now() }
@@ -40,7 +40,7 @@ export default function muxRoute(omp: ExtensionAPI): void {
     const input = event.input as { async?: boolean; cwd?: string }
     if (event.toolName === "bash" && input.async !== true) return undefined
     if (!existsSync(ROUTE)) return undefined
-    const run = spawnSync(ROUTE, ["check", "--neutral"], {
+    const run = spawnSync("python3", [ROUTE, "check", "--neutral"], {
       input: JSON.stringify({ tool: event.toolName, input, cwd: input.cwd ?? ctx.cwd, harness: "omp" }),
       encoding: "utf8",
       timeout: 25_000,

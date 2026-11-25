@@ -451,15 +451,16 @@ PROC_READ_HOOK = {
 # rules at session start, resume, clear and compaction, and denies the harness's own background Bash,
 # Agent/Task and Workflow when agent-mux says herdr-app or herdr. It fails open (never blocks outside Herdr, or
 # when the script is missing), so the same entries go in every bundle; identical hooks from several settings
-# layers run once.
-_ROUTE = 'f="$HOME/.local/bin/agent-route"; [ -x "$f" ] || exit 0; exec "$f" '
+# layers run once. Run through python3, not exec: under nono the stowed script resolves into ~/dotfiles, where
+# Landlock grants no execute right ("Permission denied"); reading it is enough. `|| true` keeps it fail-open.
+_ROUTE = 'f="$HOME/.local/bin/agent-route"; [ -r "$f" ] || exit 0; python3 "$f" %s || true'
 ROUTE_SESSION_HOOK = {
     "matcher": "startup|resume|clear|compact",
-    "hooks": [{"type": "command", "command": _ROUTE + "session-start", "timeout": 20}],
+    "hooks": [{"type": "command", "command": _ROUTE % "session-start", "timeout": 20}],
 }
 ROUTE_PRETOOL_HOOK = {
     "matcher": "Bash|Agent|Task|Workflow",
-    "hooks": [{"type": "command", "command": _ROUTE + "check", "timeout": 20}],
+    "hooks": [{"type": "command", "command": _ROUTE % "check", "timeout": 20}],
 }
 
 # --------------------------------------------------------------------------
