@@ -89,3 +89,7 @@ keybindings = "ctrl-shift-/"
 "ctrl-left" = "alt-b"
 "ctrl-right" = "alt-f"
 "ctrl-backspace" = "ctrl-w"
+
+# Never install or refresh the Sheprd-managed herdr-gpui-browser skill in ~/.agents/skills.
+[agent_skill]
+install = "off"
