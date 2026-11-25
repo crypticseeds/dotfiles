@@ -59,6 +59,19 @@ OpenCode's shared server may execute outside nono with its own environment and G
 The client sandbox's protections for server-side execution are unverified; do not assume scoped
 secrets, filesystem grants, or read-only Git metadata apply to the shared server.
 
+The nono profiles are split in two (`zsh/.config/nono/profiles/`). `agent-base` is portable
+and OS-neutral: it extends `default` (every `deny_*` group nono ships), adds denies for secret
+stores the groups miss (`~/.doppler`, `~/.config/magpie`, `~/.config/gh`, `~/.pypirc`, database
+history files, Mozilla/Thunderbird/Signal/Telegram/Bitwarden data, `/etc/rancher` and the k3s
+server token and TLS), strips `DOPPLER_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` and `SSH_AUTH_SOCK`
+from the environment, and grants writes to the common caches (`~/.cache/uv`, `~/.cache/pnpm`,
+`~/.local/share/pnpm`, `~/.cache/pre-commit`, `~/.coderabbit/reviews`, `~/.coderabbit/logs`,
+`~/.cache/agent-usage`). `pi-agent-host` extends it with the host-specific parts below.
+Harness auth files (`~/.claude/.credentials.json`, `~/.codex/auth.json`,
+`~/.local/share/opencode/auth.json`) are not denied here: each harness pack grants its whole state
+directory read-write, and on Linux nono refuses to start when a deny sits inside a grant.
+`agent-launch` blanks them instead (see below), except the launched harness's own file.
+
 The shared `pi-agent-host` profile allows connections to the default Herdr Core socket,
 so sandboxed agents can use `hc`. Core launches processes with its own permissions;
 those processes do not automatically inherit the agent's nono sandbox.
@@ -84,6 +97,27 @@ Use `agent-launch --subagent` for supported delegated Pi workers. It uses the no
 ```bash
 hc run --bg --cwd "$HOME/REPOS/redress" agent-launch --subagent codex
 ```
+
+Every launch inside a Git checkout, not only `--subagent`, runs under an outer `bwrap` that
+mounts these paths read-only for the sandboxed client: the common Git directory's `hooks` and
+`config` (so the agent cannot plant hooks or change `core.hooksPath`), the workspace's agent
+configuration when it exists (`.claude/settings*.json`, `.claude/{hooks,skills,agents,commands,workflows}`,
+`.claude/scheduled_tasks.json`, `.mcp.json`, `opencode.json`, `.omp`, `.envrc`; the rest of `.claude/`
+stays writable for `.claude/worktrees`), and `/dev/null` over every `.env` and `.env.*` regular file found in the
+workspace (excluding `.git` and `node_modules`), except `.env.example` and `.env.example.bak`.
+Outside Git none of the Git and workspace masks apply. Every launch, in Git or not, also gets
+`/dev/null` over the other harnesses' stored logins (`~/.claude/.credentials.json`,
+`~/.codex/auth.json`, `~/.local/share/opencode/auth.json`); the launched harness keeps its own, so a
+script it runs can still read that one. The other harnesses' config directories (`~/.claude`,
+`~/.codex`) are also mounted read-only: the opencode pack grants both read-write, which would let
+one agent edit another's settings, hooks, or plugin bin directories that Claude puts on `PATH`.
+Every launch now needs working `bwrap` user namespaces.
+The mask list is built once at
+launch, so a `.env` file created after launch is not masked. For `claude`, the launcher also
+grants nono read access to the resolved `~/.claude/statusline-command.sh` and
+`~/.claude/settings.json` targets, which live outside the workspace.
+`AGENT_LAUNCH_DRY_RUN=1 agent-launch ...` prints the final command, one argument per line,
+without running it, validating the nono profile, or requiring the harness binary.
 
 Worker checkout files stay writable. When launched in a Git worktree, the launcher mounts
 the repository and linked-worktree Git metadata read-only for the sandboxed client. Extra
