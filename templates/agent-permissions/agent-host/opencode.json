@@ -196,6 +196,8 @@
       "pre-commit *": "allow",
       "herdr": "allow",
       "herdr *": "allow",
+      "hc": "allow",
+      "hc *": "allow",
       "agent-clean": "allow",
       "agent-clean *": "allow",
       "opencode": "allow",

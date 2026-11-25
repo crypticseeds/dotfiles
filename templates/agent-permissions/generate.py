@@ -523,8 +523,8 @@ ALLOW_LIVE = [
 #    match), so `git -C <dir> push` always runs sandboxed. The wrapper is not `git` and does the cd itself.
 #  - gh: the ~/.local/bin/gh wrapper fetches GH_TOKEN from doppler too.
 #  - pre-commit: `pre-commit install` writes .git/hooks, which the sandbox protects.
-#  - herdr: its socket (~/.config/herdr/sessions/<session>/herdr.sock) is blocked by the sandbox's
-#    seccomp filter, and Linux has no per-path socket allowance (allowUnixSockets is macOS only).
+#  - herdr and hc: their server sockets are blocked by the sandbox's seccomp filter, and Linux has
+#    no per-path socket allowance (allowUnixSockets is macOS only).
 #  - kubectl and helm read ~/.kube and get EKS tokens through the AWS SSO cache, both hidden.
 #  - agent-clean (bin/agent-clean, installed root-owned like git-in): agents remove their finished
 #    worktrees, stale agent tmp/scratch and rebuildable caches (~/.cache, ~/.terraform.d) without
@@ -538,7 +538,7 @@ ALLOW_LIVE = [
 #    herdr: a worker they start is a full agent outside this sandbox, under its own harness's rules.
 # The guard hook (agent_host_guard.py) checks the destructive and secret-reading forms of all of
 # these except herdr; the deny rules still apply.
-AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "kubectl *", "helm *",
+AGENT_HOST_EXCLUDED = ["git *", "gh *", "git-in *", "pre-commit *", "herdr *", "hc *", "kubectl *", "helm *",
                        "agent-clean", "agent-clean *", "coderabbit review", "coderabbit review *",
                        "opencode *", "omp *"]
 # $25 promo credits granted 2026-10-25, expiring after 7 days: Claude on the agent host may pass
@@ -580,7 +580,7 @@ AGENT_HOST_ALLOW_BASH = [
     "gh pr diff", "gh pr checkout", "gh run rerun", "gh run cancel", "gh run watch", "gh issue create",
     "gh issue comment", "gh issue close", "gh issue edit", "gh api", "gh secret list", "gh secret set",
     "gh repo clone", "gh repo create",
-    "pre-commit", "herdr", "agent-clean",
+    "pre-commit", "herdr", "hc", "agent-clean",
     # agents starting, messaging and reading other agents (opencode-workers skill)
     "opencode", "omp",
     # Doppler: list projects, configs and environments (names, never values)
@@ -1207,6 +1207,9 @@ AGENT_HOST_NORMAL = [  # (command, fixture, opencode/omp decision): allowed in C
     ("herdr pane close 2", "clean", "allow"), ("herdr agent get w1:p2", "clean", "allow"),
     ("herdr agent prompt w1:p2 'fix the test\nthen run make > out.log && report'", "clean", "allow"),
     ("herdr agent list 2>&1", "clean", "allow"), ("herdr --help | head", "clean", "allow"),
+    ("hc run --bg --name test -- make test", "clean", "allow"),
+    ("hc wait test", "clean", "allow"), ("hc read test", "clean", "allow"),
+    ("hc kill test", "clean", "allow"), ("hc rm test", "clean", "allow"),
     ("terraform plan -out=tfplan", "clean", "allow"), ("kubectl get pods -A", "clean", "allow"),
     ("npm test", "clean", "ask"), ("ls -la", "clean", "ask"), ("python3 -c 'print(1)'", "clean", "ask"),
     ("rm build.log", "clean", "ask"), ("git add -A && git commit -m 'rm -r mention'", "clean", "allow"),
@@ -1242,6 +1245,7 @@ AGENT_HOST_EXPLAINED = [
     "herdr agent list | jq .", "cd x && herdr pane list", "herdr agent get w1:p2; echo done",
     "herdr agent prompt w1:p2 \"$(cat <<'EOF'\nfix it\nEOF\n)\"", "herdr agent prompt w1:p2 'run `make`'",
     "herdr agent prompt w1:p2 'see $(pwd)'",
+    "hc run --bg --name test -- make test && echo done", "hc read test | head",
     "coderabbit review --agent --uncommitted > .agent/cr.ndjson", "coderabbit review --agent | tee x",
     "git worktree remove /home/ai/.herdr/worktrees/r/feat-x && git branch -d feat/x",
     "git worktree prune; git worktree list", "pre-commit run --all-files && echo ok",
@@ -1349,7 +1353,7 @@ def check():
     expect("[agent-host] no unsandboxed retry", False, host["sandbox"]["allowUnsandboxedCommands"])
     expect("[agent-host] repo settings cannot add rules", True, host["allowManagedPermissionRulesOnly"])
     excluded = host["sandbox"]["excludedCommands"]
-    for tool in ("git *", "gh *", "git-in *", "herdr *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *",
+    for tool in ("git *", "gh *", "git-in *", "herdr *", "hc *", "pre-commit *", "terraform *", "aws *", "doppler *", "kubectl *",
                  "agent-clean", "agent-clean *", "coderabbit review *", "opencode *", "omp *"):
         expect("[agent-host] %s runs outside the sandbox" % tool, True, tool in excluded)
     expect("[agent-host] no mid-pattern exclusions (they never match)", [], [e for e in excluded if "*" in e[:-1]])

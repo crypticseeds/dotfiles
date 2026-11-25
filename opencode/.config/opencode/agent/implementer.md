@@ -63,7 +63,7 @@ Delegate only bounded, read-only work:
 
 Do not delegate implementation. Keep write actions single-threaded in this context so decisions and edits share one trace.
 
-Delegation visibility: when a delegated task is likely to block on approvals or clarifying questions, or runs long (test suites, scanners, repository audits), use the `delegate-visibly` skill to run that agent in a herdr pane the user can see and unblock. Keep quick read-only lookups inline via the task tool.
+Follow the shared Herdr routing rules for named child jobs. Delegate further only when explicitly authorized. In Herdr Core, use the `herdr-app` skill for any authorized worker. In the legacy TUI, use `delegate-visibly` for pane placement.
 
 ## Non-negotiable gates
 

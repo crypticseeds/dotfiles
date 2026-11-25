@@ -41,13 +41,14 @@ make install    # auto-detects OS, stows everything, runs health check
 | `make restow` | Re-stow after adding/removing files in packages |
 | `make delete` | Remove all managed symlinks (safe; only touches links) |
 | `make skills` | Regenerate per-skill links for claude/codex/hermes |
-| `make agents-sync` | Fetch manifest-pinned skills, then link them per harness, then create/update the manifest MCP servers, then install missing Claude plugins |
+| `make agents-sync` | Fetch and link pinned skills, sync the shared MCPHub connections, and install missing Claude plugins |
 | `make doctor` | Health check: links, skills, agents, credential scan, plus a drift report (`WARN drift:` lines, never changes the exit code) |
 | `make niri` | Fedora: install the niri desktop (`packages/niri.txt`, Zed, Strata, Herdr UI) and stow its configs. See [docs/niri.md](docs/niri.md) |
 
 Related files and commands:
 
 - `agents/.agents/manifest.json` - source of truth for pinned skills, Claude plugins and MCP servers.
+- `mcp_hub` in the manifest is the active user MCP list. Sync configures `mcphub-dev` and `mcphub-web` in each supported harness using a runtime reference to `MCPHUB_DEFAULT_KEY`. The `mcp` section still supplies explicit project opt-ins and retains old user entries for reference. Hermes sync uses PyYAML, which is also required by the agent-host installer.
 - `python3 scripts/agents-sync.py --dry-run all` - show what a sync would change, write nothing.
 - `python3 scripts/agents-sync.py check` - read-only drift report (same output as the doctor section). It lists: (a) skills in `~/.agents/skills` that are neither committed nor in the manifest, (b) manifest skills missing on this host or at a different pin, (c) manifest MCPs missing or different in an installed harness, (d) manifest-enabled Claude plugins that are not installed.
 

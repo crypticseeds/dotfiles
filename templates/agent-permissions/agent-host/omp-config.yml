@@ -2716,6 +2716,10 @@ bash:
       approval: allow
     - match: "herdr *"
       approval: allow
+    - match: "hc"
+      approval: allow
+    - match: "hc *"
+      approval: allow
     - match: "agent-clean"
       approval: allow
     - match: "agent-clean *"

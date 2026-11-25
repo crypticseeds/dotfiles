@@ -112,14 +112,14 @@ Everything else runs without a prompt: `git` in the session's repo, and in any r
 `--force-with-lease` to a
 feature branch, `gh pr create|edit|close|reopen|comment|ready|merge`, `gh run rerun|cancel|watch`,
 `gh issue create|comment|close`, `gh api` GET/PATCH/POST, `gh secret set`, `pre-commit install|run`,
-every `herdr` command, `opencode` and `omp` (agents driving each other as workers; see the
+`herdr` and `hc` commands, `opencode` and `omp` (agents driving each other as workers; see the
 `opencode-workers` skill), `terraform plan`, read-only `aws`/`kubectl`/`helm`.
 
 **How (Claude):**
 - Default allow (`Bash(*)`), no ask rules, `WebFetch(domain:*)`: nobody is there to answer a prompt.
   `generate.py` refuses to run while an `ASK_BASH` entry is undecided for the agent host.
 - Sandbox on (bubblewrap), `allowUnsandboxedCommands: false`, `allowManagedPermissionRulesOnly: true`.
-- `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`,
+- `excludedCommands` (run outside the sandbox): `git *`, `gh *`, `git-in *`, `pre-commit *`, `herdr *`, `hc *`,
   `kubectl *`, `helm *`, `coderabbit review *`, `opencode *`, `omp *`, plus the standard `terraform *`, `tofu *`, `aws *`, `doppler *`, `docker *`, `podman *`.
 - Guard hook (`agent_host_guard.py`, embedded inline in the settings file) for what globs cannot
   express: spellings (`rm -Rf`, `git -C x reset --hard`, `gh -R o/r pr merge`), the branch a
@@ -182,6 +182,8 @@ symlinks, or a repo's `.git/config`.
   `herdr worktree remove`, since it discards uncommitted work. Pane, tab and workspace close are allowed.
 - `herdr *` outside the sandbox, unchecked: visible panes work, but `herdr pane run` starts any command
   unsandboxed, so herdr is a full sandbox escape for a determined agent.
+- `hc *` outside the sandbox: Herdr Core can start and clean up child terminals, but `hc run` likewise
+  starts commands outside the sandbox. Run each `hc` command on its own; the guard rejects chains and redirects.
 - `opencode *` and `omp *` outside the sandbox (sandboxed, opencode cannot write its log or reach its
   service on localhost; omp cannot write `~/.omp` or reach its model APIs; verified 2026-10-31): Claude can
   start, message and read workers. Same escape as herdr: a worker is a full agent under its own harness's
@@ -219,9 +221,9 @@ boundary (`~/REPOS`, `/tmp`). Unpushed work is the exposure; GitHub branch prote
 **Install on the Pi** only with `bash regen-agent-host.sh`, run by you (it uses sudo). It runs
 `git pull --rebase --autostash` on the dotfiles, then `--check` (and stops if either fails), then:
 - Claude: `/etc/claude-code/managed-settings.json` (root-owned managed settings, every project),
-  generated with `--os linux --agent-host` and one `--mcpjson-server <name>` per `"project": true`
-  MCP in the agents manifest (so Claude approves those `.mcp.json` servers). A hand-run
-  `generate.py --claude-out` without those flags silently drops the host rules.
+  generated with `--os linux --agent-host` and the existing project MCP approvals from the manifest.
+  The shared MCPHub connections are user-scoped and installed by `python3 scripts/agents-sync.py mcp`.
+  Regeneration leaves those user-scoped connections alone.
 - opencode: `/etc/opencode/opencode.json` (root-owned managed config, highest priority).
 - omp: `~/.omp/agent/config.yml`, merged: `bash`, `secrets` and `tools.approvalMode` are replaced,
   your other settings kept. omp has no managed config, so this file stays user-writable.
@@ -253,7 +255,7 @@ There is no per-launch allow-list, so anything added to `harness/dev_maghub` rea
 keep it to keys every agent may hold.
 
 **GitHub access is no longer `GH_TOKEN`.** Agents use the `github` tools served by mcphub (the
-`mcphub-dev` MCP group, authenticated with `MCPHUB_DEFAULT_KEY`). Wired for omp only so far - see
+`mcphub-dev` MCP group, authenticated with `MCPHUB_DEFAULT_KEY`). The MCP sync configures it alongside `mcphub-web`. See
 `docs/doppler-agent-env.md` for the rollout state. The `gh` CLI wrapper and `git-credential-doppler` still
 fetch `GH_TOKEN` from `harness/dev` on their own, independently of the agent environment.
 
