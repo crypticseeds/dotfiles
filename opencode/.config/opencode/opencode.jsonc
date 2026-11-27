@@ -1,3 +1,785 @@
 {
+  "model": "magpie/codex/gpt-6.1-terra",
+  "providers": {
+    "magpie": {
+      "compatibility": {
+        "supportsPromptCacheKey": true
+      },
+      "models": {
+        "claude/claude-fable-5-2": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.2,
+                "write": 10
+              },
+              "input": 8,
+              "output": 40
+            }
+          ],
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "name": "Claude Fable 5.2 · Claude Code",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "claude/claude-haiku-5-5": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.01,
+                "write": 0.125
+              },
+              "input": 0.1,
+              "output": 0.5
+            }
+          ],
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "name": "Claude Haiku 5.5 · Claude Code",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "claude/claude-sonnet-5-5": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.1,
+                "write": 2.5
+              },
+              "input": 2,
+              "output": 10
+            }
+          ],
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "name": "Claude Sonnet 5.5 · Claude Code",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "claude/claude-opus-5-5": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.2,
+                "write": 5
+              },
+              "input": 4,
+              "output": 20
+            }
+          ],
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "name": "Claude Opus 5.5 · Claude Code",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "codex/gpt-6.2-sol": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.1,
+                "write": 2.5
+              },
+              "input": 2,
+              "output": 10
+            }
+          ],
+          "limit": {
+            "context": 500000,
+            "output": 128000
+          },
+          "name": "GPT-6.2-Sol · Codex",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            },
+            {
+              "id": "ultra",
+              "settings": {
+                "reasoningEffort": "ultra"
+              }
+            },
+            {
+              "id": "low-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "low"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "medium-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "medium"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "high-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "high"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "xhigh-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "xhigh"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "max-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "max"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "ultra-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "ultra"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            }
+          ]
+        },
+        "codex/gpt-6.2-astra": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.4,
+                "write": 10
+              },
+              "input": 8,
+              "output": 40
+            }
+          ],
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "name": "GPT-6.2-Astra · Codex",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            },
+            {
+              "id": "ultra",
+              "settings": {
+                "reasoningEffort": "ultra"
+              }
+            },
+            {
+              "id": "low-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "low"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "medium-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "medium"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "high-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "high"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "xhigh-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "xhigh"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "max-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "max"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "ultra-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "ultra"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            }
+          ]
+        },
+        "codex/gpt-6.1-terra": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.05,
+                "write": 1.25
+              },
+              "input": 1,
+              "output": 5
+            }
+          ],
+          "limit": {
+            "context": 500000,
+            "output": 128000
+          },
+          "name": "GPT-6.1 Terra · Codex",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            },
+            {
+              "id": "ultra",
+              "settings": {
+                "reasoningEffort": "ultra"
+              }
+            },
+            {
+              "id": "low-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "low"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "medium-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "medium"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "high-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "high"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "xhigh-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "xhigh"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "max-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "max"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "ultra-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "ultra"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            }
+          ]
+        },
+        "codex/gpt-6-luna": {
+          "capabilities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ],
+            "tools": true
+          },
+          "cost": [
+            {
+              "cache": {
+                "read": 0.01,
+                "write": 0.125
+              },
+              "input": 0.1,
+              "output": 0.5
+            }
+          ],
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "name": "GPT-6-Luna · Codex",
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "medium",
+              "settings": {
+                "reasoningEffort": "medium"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "xhigh",
+              "settings": {
+                "reasoningEffort": "xhigh"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            },
+            {
+              "id": "low-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "low"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "medium-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "medium"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "high-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "high"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "xhigh-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "xhigh"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            },
+            {
+              "id": "max-fast",
+              "settings": {
+                "extraBody": {
+                  "service_tier": "priority"
+                },
+                "reasoningEffort": "max"
+              },
+              "body": {
+                "service_tier": "priority"
+              }
+            }
+          ]
+        }
+      },
+      "name": "magpie",
+      "package": "aisdk:@ai-sdk/openai-compatible",
+      "settings": {
+        "apiKey": "magpie",
+        "baseURL": "http://127.0.0.1:3425/v1"
+      }
+    }
+  },
   "$schema": "https://opencode.ai/config.json"
 }
