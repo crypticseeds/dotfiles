@@ -96,6 +96,19 @@ fi
 if [[ $profile == claude && -f /etc/claude-code/managed-settings.json ]]; then
   permissions+=(--read-file /etc/claude-code/managed-settings.json)
 fi
+# The guard hook (claude, opencode, omp) fails closed without its root-owned policy.
+if [[ -f /etc/agent-guard/policy.json ]]; then
+  permissions+=(--read-file /etc/agent-guard/policy.json)
+fi
+# opencode's root-owned managed config: unreadable, opencode silently drops its permission layer.
+if [[ $profile == opencode && -f /etc/opencode/opencode.json ]]; then
+  permissions+=(--read-file /etc/opencode/opencode.json)
+fi
+# Global instructions, skills and subagents (~/.agents, CLAUDE.md, ~/.claude/{skills,agents}) are stow
+# symlinks into the dotfiles repo, unreadable from any other workspace without this grant.
+if agents_target=$(realpath -e -- "$HOME/.agents" 2>/dev/null) && [[ $agents_target != "$HOME/.agents" ]]; then
+  permissions+=(--read "$agents_target")
+fi
 if [[ $profile == claude ]]; then
   # Claude's Bash sandbox needs its own write grant, inside nono's grant.
   if [[ ${#write_dirs[@]} -ne 0 ]]; then native=(--add-dir "${write_dirs[@]}" "${native[@]}"); fi
