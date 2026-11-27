@@ -100,6 +100,17 @@ fi
 if [[ -f /etc/agent-guard/policy.json ]]; then
   permissions+=(--read-file /etc/agent-guard/policy.json)
 fi
+# gh's own config dir (pi-agent-host sets GH_CONFIG_DIR; ~/.config/gh holds a login and stays denied).
+(umask 077; mkdir -p -- "$HOME/.local/state/agent-gh")
+# GitHub PAT via nono's credential proxy (routes in pi-agent-host.json). Turned on here, not in the
+# profile: a harness pack's own network.credentials list replaces the inherited one.
+permissions+=(--credential gh_api --credential gh_git)
+if $worker; then
+  # Workers read GitHub, never write it: REST GETs, and git fetch (info/refs GET, upload-pack POST).
+  # Push (git-receive-pack POST), GraphQL and every other write are refused by the proxy.
+  permissions+=(--allow-endpoint 'gh_api:GET:/**' --allow-endpoint 'gh_git:GET:/**'
+    --allow-endpoint 'gh_git:POST:/*/*/git-upload-pack')
+fi
 # opencode's root-owned managed config: unreadable, opencode silently drops its permission layer.
 if [[ $profile == opencode && -f /etc/opencode/opencode.json ]]; then
   permissions+=(--read-file /etc/opencode/opencode.json)
