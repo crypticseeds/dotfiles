@@ -11,6 +11,8 @@ case "$effort" in
   xhigh) effort="xHigh" ;; max) effort="Max" ;;
 esac
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
+duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
 five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 week_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
@@ -46,20 +48,22 @@ fmt_epoch() {
 # Current folder name only (~ at home)
 if [ "$cwd" = "$HOME" ]; then short_cwd="~"; else short_cwd="${cwd##*/}"; fi
 
-# Git branch (skip optional locks to avoid contention)
-git_branch=""
+# Git branch, staged and modified file counts (skip optional locks to avoid contention)
+git_branch=""; git_staged=0; git_modified=0
 if git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git_branch=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null)
+  git_staged=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+  git_modified=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" diff --numstat 2>/dev/null | wc -l | tr -d ' ')
 fi
 
-# Git dirty marker
-git_dirty=""
-if [ -n "$git_branch" ] && [ -n "$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" status --porcelain 2>/dev/null | head -n 1)" ]; then
-  git_dirty="*"
-fi
+# Running under agent-launch (nono): the pi-agent-host profile sets AGENT_SANDBOX=nono; nono's
+# proxy variable is the fallback. Presence checks only, never the value.
+in_nono=false
+if [ "${AGENT_SANDBOX:-}" = nono ] || [ -n "${NONO_PROXY_TOKEN+set}" ]; then in_nono=true; fi
 
 # Colors (status line is shown dimmed)
 bold_yellow=$'\033[1;33m'
+bold_green=$'\033[1;32m'
 cyan=$'\033[36m'
 purple=$'\033[38;2;178;148;187m' # #b294bb lilac, same as the Starship branch
 green=$'\033[32m'
@@ -75,31 +79,55 @@ pct_color() {
   else printf '%s' "$green"; fi
 }
 
-# Build: os dir branch | model | ctx | 5h | 7d
-parts="${bold_yellow}${os_icon}${reset} ${cyan}${short_cwd}${reset}"
+# Line 1: [shield nono] os folder branch +staged ~modified | model (effort)
+line1=""
+$in_nono && line1="${bold_green}🛡️ nono${reset} "
+line1="${line1}${bold_yellow}${os_icon}${reset} 📁 ${cyan}${short_cwd}${reset}"
 
 if [ -n "$git_branch" ]; then
-  parts="$parts ${purple}${branch_icon} ${git_branch}${git_dirty}${reset}"
+  line1="$line1 ${purple}${branch_icon} ${git_branch}${reset}"
+  [ "$git_staged" -gt 0 ] && line1="$line1 ${green}+${git_staged}${reset}"
+  [ "$git_modified" -gt 0 ] && line1="$line1 ${yellow}~${git_modified}${reset}"
 fi
 
 if [ -n "$model" ]; then
-  parts="$parts | $model"
-  [ -n "$effort" ] && parts="$parts ($effort)"
+  line1="$line1 | $model"
+  [ -n "$effort" ] && line1="$line1 ($effort)"
 fi
 
+# Line 2: context bar % | cost | time | 5h | 7d
+line2=""
 if [ -n "$used" ]; then
-  parts="$parts | $(pct_color "$used")ctx: $(printf '%.0f' "$used")%${reset}"
+  pct=$(printf '%.0f' "$used")
+  filled=$((pct / 10)); [ "$filled" -gt 10 ] && filled=10
+  bar=""
+  [ "$filled" -gt 0 ] && printf -v fill "%${filled}s" && bar="${fill// /▓}"
+  [ "$filled" -lt 10 ] && printf -v pad "%$((10 - filled))s" && bar="${bar}${pad// /░}"
+  line2="$(pct_color "$used")${bar} ${pct}%${reset}"
+fi
+
+if [ -n "$cost" ]; then
+  line2="${line2:+$line2 | }${yellow}💰 $(printf '$%.2f' "$cost")${reset}"
+fi
+
+if [ -n "$duration_ms" ]; then
+  secs=$((${duration_ms%.*} / 1000))
+  if [ "$secs" -ge 3600 ]; then elapsed="$((secs / 3600))h $(printf '%02d' $((secs % 3600 / 60)))m"
+  else elapsed="$((secs / 60))m $((secs % 60))s"; fi
+  line2="${line2:+$line2 | }⏱️ ${elapsed}"
 fi
 
 # Subscription usage limits (absent for API-key sessions and before the first response)
 if [ -n "$five_pct" ]; then
-  parts="$parts | $(pct_color "$five_pct")5h: $(printf '%.0f' "$five_pct")%${reset}"
-  [ -n "$five_reset" ] && [ "${five_pct%.*}" -ge 50 ] && parts="$parts ($(fmt_epoch "$five_reset" '%H:%M'))"
+  line2="${line2:+$line2 | }$(pct_color "$five_pct")5h: $(printf '%.0f' "$five_pct")%${reset}"
+  [ -n "$five_reset" ] && [ "${five_pct%.*}" -ge 50 ] && line2="$line2 ($(fmt_epoch "$five_reset" '%H:%M'))"
 fi
 
 if [ -n "$week_pct" ]; then
-  parts="$parts | $(pct_color "$week_pct")7d: $(printf '%.0f' "$week_pct")%${reset}"
-  [ -n "$week_reset" ] && [ "${week_pct%.*}" -ge 50 ] && parts="$parts ($(fmt_epoch "$week_reset" '%a %H:%M'))"
+  line2="${line2:+$line2 | }$(pct_color "$week_pct")7d: $(printf '%.0f' "$week_pct")%${reset}"
+  [ -n "$week_reset" ] && [ "${week_pct%.*}" -ge 50 ] && line2="$line2 ($(fmt_epoch "$week_reset" '%a %H:%M'))"
 fi
 
-printf "%s" "$parts"
+printf '%s\n' "$line1"
+[ -n "$line2" ] && printf '%s\n' "$line2"
+exit 0
