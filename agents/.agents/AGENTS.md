@@ -127,7 +127,7 @@ Pick the lightest format that carries the content.
 - zsh: never variable `status`.
 - zsh multi-item loop: array. Scalar string does not word-split like bash.
 - Secrets: never normal-shell `env`, `set`, `export -p`, `printenv`, broad secret regex dump. Query exact name only; redact value.
-- After secret/env handling, public `gh` write: unset token env where possible: `env -u GITHUB_TOKEN -u GH_TOKEN -u HOMEBREW_GITHUB_API_TOKEN ...`. Exception: inside an `agent-launch` (nono) session `GH_TOKEN` is a placeholder that nono's proxy swaps for the GitHub PAT, so `gh` and `git push` over HTTPS work as normal there; keep it set.
+- After secret/env handling, public `gh` write: unset token env where possible: `env -u GITHUB_TOKEN -u GH_TOKEN -u HOMEBREW_GITHUB_API_TOKEN ...`. Exception: inside an `agent-launch` (nono) session `GH_TOKEN` is a placeholder that nono's proxy swaps for the GitHub PAT, so `gh` and `git push` over HTTPS work as normal there; keep it set. Standalone opencode (`agent-launch -s opencode`) gets no GitHub credentials.
 - Secrets/API keys/live creds: `$doppler`. Never `doppler secrets` (only `doppler secrets --only-names` and `gh secret list`, which print names), `doppler configure`, or `--plain` — use `doppler run --only-secrets NAME -- <cmd>` and reference the variable *name*, never the value (argv is world-readable).
 
 ## Secrets: hard no-go list (read `secret-hygiene` skill for detail)

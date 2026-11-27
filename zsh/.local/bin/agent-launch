@@ -103,9 +103,13 @@ fi
 # gh's own config dir (pi-agent-host sets GH_CONFIG_DIR; ~/.config/gh holds a login and stays denied).
 (umask 077; mkdir -p -- "$HOME/.local/state/agent-gh")
 # GitHub PAT via nono's credential proxy (routes in pi-agent-host.json). Turned on here, not in the
-# profile: a harness pack's own network.credentials list replaces the inherited one.
-permissions+=(--credential gh_api --credential gh_git)
-if $worker; then
+# profile: a harness pack's own network.credentials list replaces the inherited one. Not for opencode: the
+# proxy puts nono in proxy mode, which blocks localhost TCP, and opencode needs it both ways (a client connects
+# to the shared server, whose tools run outside nono anyway; -s starts its own server inside the sandbox).
+use_gh_proxy=true
+if [[ $profile == opencode ]]; then use_gh_proxy=false; fi
+$use_gh_proxy && permissions+=(--credential gh_api --credential gh_git)
+if $use_gh_proxy && $worker; then
   # Workers read GitHub, never write it: REST GETs, and git fetch (info/refs GET, upload-pack POST).
   # Push (git-receive-pack POST), GraphQL and every other write are refused by the proxy.
   permissions+=(--allow-endpoint 'gh_api:GET:/**' --allow-endpoint 'gh_git:GET:/**'
