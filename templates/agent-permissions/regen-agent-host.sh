@@ -5,6 +5,7 @@
 # Run it yourself: it needs sudo, agents cannot.
 #   bash regen-agent-host.sh [DIR]   default: install
 #     Claude   -> /etc/claude-code/managed-settings.json   (root-owned, every project)
+#     Claude under nono -> /etc/claude-code/nono/managed-settings.json (root-owned; agent-launch claude only)
 #     opencode -> /etc/opencode/opencode.json              (root-owned managed config, every project)
 #     omp      -> ~/.omp/agent/config.yml                  (merged: your other omp settings are kept)
 #     git-in   -> /usr/local/bin/git-in                    (root-owned: git in another repo, see bin/git-in)
@@ -42,8 +43,8 @@ for n, e in json.load(open(sys.argv[1]))["mcp"].items():
         print(n)' "$here/../../agents/.agents/manifest.json")"
 mcpjson=()
 for name in $names; do mcpjson+=(--mcpjson-server "$name"); done
-python3 "$here/generate.py" --claude-out "$tmp/claude.json" --os linux --agent-host \
-  "${mcpjson[@]}" >/dev/null
+python3 "$here/generate.py" --claude-out "$tmp/claude.json" --claude-nono-out "$tmp/claude-nono.json" \
+  --os linux --agent-host "${mcpjson[@]}" >/dev/null
 omp_target="${dir:-$HOME/.omp/agent}/config.yml"
 # omp has no managed config: merge the policy keys into the user's file, keeping everything else
 python3 - "$here/agent-host/omp-config.yml" "$HOME/.omp/agent/config.yml" "$tmp/omp.yml" <<'PY'
@@ -62,15 +63,18 @@ if [ -n "$dir" ]; then
   step 4 "writing to $dir"
   mkdir -p "$dir"
   cp "$tmp/claude.json" "$dir/managed-settings.json"
+  cp "$tmp/claude-nono.json" "$dir/managed-settings.nono.json"
   cp "$here/agent-host/opencode.json" "$dir/opencode.json"
   cp "$tmp/omp.yml" "$omp_target"
-  echo "regen-agent-host: done, wrote $dir/{managed-settings.json,opencode.json,config.yml}"
+  echo "regen-agent-host: done, wrote $dir/{managed-settings.json,managed-settings.nono.json,opencode.json,config.yml}"
 else
   step 4 "installing (sudo may ask for your password)"
   # the guard first: the managed settings call it, and a missing guard blocks every Bash call
   sudo install -D -m 0644 -o root -g root "$here/../agent-guard/agent_guard.py" /usr/local/lib/agent-guard/agent_guard.py
   sudo install -D -m 0644 -o root -g root "$here/../agent-guard/policy.json" /etc/agent-guard/policy.json
   sudo install -D -m 0644 -o root -g root "$tmp/claude.json" /etc/claude-code/managed-settings.json
+  # Claude under nono (agent-launch claude binds it over the file above): Claude's own sandbox off
+  sudo install -D -m 0644 -o root -g root "$tmp/claude-nono.json" /etc/claude-code/nono/managed-settings.json
   sudo install -D -m 0644 -o root -g root "$here/agent-host/opencode.json" /etc/opencode/opencode.json
   sudo install -D -m 0755 -o root -g root "$here/bin/git-in" /usr/local/bin/git-in
   sudo install -D -m 0755 -o root -g root "$here/bin/agent-clean" /usr/local/bin/agent-clean

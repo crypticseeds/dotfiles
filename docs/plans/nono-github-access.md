@@ -61,9 +61,28 @@ Not yet validated: a real Claude session doing a non-dry-run push and `gh pr cre
    real `agent-launch claude` session on Haiku): `Sandbox is required but failed to initialize: listen
    EACCES: permission denied 127.0.0.1`. Claude's sandbox binds a loopback proxy and nono forbids the
    listen. Only Claude's sandbox-excluded commands (git, gh, hc) run; `ls`, `python3` and file writes
-   fail. The skills' "use a direct Claude session" note is still correct. Fix options: let nono allow
-   loopback listen for the claude launch, or turn Claude's own sandbox off under nono (nono already
-   sandboxes; the managed settings currently require it).
+   fail. The skills' "use a direct Claude session" note is still correct.
+   Tried 2026-11-27: `--isolate net,loopback` for the claude launch (needs the outer bwrap without
+   `--disable-userns`). Loopback listen then works and egress (pypi, Anthropic API, MCPHub, gh via
+   the proxy, hc socket) is intact, but Claude's own bwrap fails next: `loopback: Failed to create
+   NETLINK_ROUTE socket: Operation not permitted`. nono blocks AF_NETLINK and has no setting for it.
+   Reverted. Nested Claude sandbox inside nono is not workable on nono 0.82.
+   **Fixed (owner decision 2026-11-27, phase 1): nono is Claude's only sandbox under agent-launch.**
+   generate.py writes `claude_nono_settings` (the agent-host managed settings with `sandbox.enabled:
+   false`), installed root-owned at `/etc/claude-code/nono/managed-settings.json`; agent-launch claude
+   binds it over the real file and extends `pi-agent-claude` (generated: nono's `claude-code` network
+   profile plus ALLOWED_DOMAINS and MCPHub). Parity with Claude's sandbox: writes (workspace, /tmp,
+   caches) same; reads: none of the 107 `Read()` deny paths is granted under nono; network: allowlist
+   for the whole session. The guard skips its sandboxed-chain refusals when `AGENT_SANDBOX=nono` (set
+   by pi-agent-host). Verified pre-install with a real Haiku session: ls, git, gh, file write, python3,
+   pypi work; example.com blocked. Plain `claude` is unchanged.
+   Two modes, by design (owner decision 2026-11-27; rebuilding credentialed commands inside nono was
+   dropped as not worth its complexity): plain `claude` keeps Claude's own sandbox and its
+   `excludedCommands`, so aws, doppler, terraform and kubectl work there with credentials;
+   `agent-launch claude` runs under nono (status line shows 🛡️ nono) with GitHub through the proxy and
+   no cloud credentials.
+   Side effect: Claude's built-in WebFetch only reaches allowlisted hosts under nono; MCPHub web tools
+   (firecrawl, tinyfish) fetch remotely and are unaffected.
 7. The codex pack grants `~/dotfiles/agents/.agents` read-write, so a Codex session can edit the
    global AGENTS.md, skills and subagents. The read-only `--read` from agent-launch does not narrow it.
 

@@ -27,7 +27,8 @@
   },
   "environment": {
     "set_vars": {
-      "GH_CONFIG_DIR": "$HOME/.local/state/agent-gh"
+      "GH_CONFIG_DIR": "$HOME/.local/state/agent-gh",
+      "AGENT_SANDBOX": "nono"
     }
   },
   "network": {

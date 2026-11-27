@@ -756,9 +756,10 @@ def check_command(cmd, cwd, explain=None, outside=False):
 
 def decide(cmd, cwd, harness="claude"):
     """The deny reason for cmd, or None. Only the claude harness gets the sandboxed-chain explanations, and
-    only if the policy asks for them: nono and the other harnesses run everything inside one sandbox."""
+    only if the policy asks for them: nono and the other harnesses run everything inside one sandbox.
+    AGENT_SANDBOX=nono (set by the pi-agent-host nono profile) means Claude's own sandbox is off there."""
     try:
-        check_command(cmd, cwd, explain=EXPLAIN and harness == "claude")
+        check_command(cmd, cwd, explain=EXPLAIN and harness == "claude" and os.environ.get("AGENT_SANDBOX") != "nono")
     except Denied as e:
         return str(e)
     return None

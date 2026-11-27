@@ -173,6 +173,15 @@ if $worker && [[ ${#write_dirs[@]} -ne 0 ]]; then
   exit 2
 fi
 outer=(/usr/bin/bwrap --unshare-user --disable-userns --bind / / --dev-bind /dev /dev)
+host_profile=pi-agent-host
+# Claude's own Bash sandbox cannot run inside nono (nono blocks the netlink socket its bwrap needs), so nono
+# is Claude's only sandbox here: bind the root-owned sandbox-off settings over the real ones for this session,
+# and add the website allowlist (pi-agent-claude). Both come from generate.py; installed by regen-agent-host.sh.
+nono_claude_settings=/etc/claude-code/nono/managed-settings.json
+if [[ $profile == claude && -f $nono_claude_settings ]]; then
+  outer+=(--ro-bind "$nono_claude_settings" /etc/claude-code/managed-settings.json)
+  host_profile=pi-agent-claude
+fi
 # Other harnesses' config dirs, read-only: some packs grant them read-write (opencode: ~/.claude and
 # ~/.codex), which would let one agent edit another's settings, hooks or plugin bin dirs on PATH.
 declare -A config_dirs=([claude]="$HOME/.claude" [codex]="$HOME/.codex")
@@ -241,7 +250,7 @@ for mask_file in "${mask_files[@]}"; do outer+=(--ro-bind /dev/null "$mask_file"
 outer+=(--)
 for name in "${extra_names[@]}"; do names+=",$name"; done
 cmd=("$HOME/.local/bin/agent-env" --scope "$project" "$config" "$names" --
-  "${outer[@]}" "$HOME/.local/bin/nono" run --profile "nolabs-ai/$profile" --extends pi-agent-host
+  "${outer[@]}" "$HOME/.local/bin/nono" run --profile "nolabs-ai/$profile" --extends "$host_profile"
   --workdir "$workspace" --allow-cwd "${permissions[@]}" -- "$binary" "${native[@]}" "$@")
 if [[ -n $dry_run ]]; then
   # Print the final argv, one argument per line; skip profile validation and exec.
