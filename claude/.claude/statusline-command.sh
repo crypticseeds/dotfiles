@@ -4,6 +4,8 @@ input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+# Custom (--name, /rename) or auto-generated session title; absent for default names
+session_name=$(echo "$input" | jq -r '.session_name // empty')
 # Reasoning effort; absent when the model does not support it
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 case "$effort" in
@@ -79,55 +81,56 @@ pct_color() {
   else printf '%s' "$green"; fi
 }
 
-# Line 1: [shield nono] os folder branch +staged ~modified | model (effort)
-line1=""
-$in_nono && line1="${bold_green}🛡️ nono${reset} "
-line1="${line1}${bold_yellow}${os_icon}${reset} 📁 ${cyan}${short_cwd}${reset}"
+sep=" · "
 
+# Line 1, where: os [session] folder branch +staged ~modified
+line1="${bold_yellow}${os_icon}${reset}"
+[ -n "$session_name" ] && line1="$line1 🏷️ ${session_name}${sep}"
+[ -z "$session_name" ] && line1="$line1 "
+line1="${line1}📁 ${cyan}${short_cwd}${reset}"
 if [ -n "$git_branch" ]; then
-  line1="$line1 ${purple}${branch_icon} ${git_branch}${reset}"
+  line1="${line1}${sep}${purple}${branch_icon} ${git_branch}${reset}"
   [ "$git_staged" -gt 0 ] && line1="$line1 ${green}+${git_staged}${reset}"
   [ "$git_modified" -gt 0 ] && line1="$line1 ${yellow}~${git_modified}${reset}"
 fi
 
-if [ -n "$model" ]; then
-  line1="$line1 | $model"
-  [ -n "$effort" ] && line1="$line1 ($effort)"
-fi
-
-# Line 2: context bar % | cost | time | 5h | 7d
+# Line 2, what is running: model effort [nono]
 line2=""
+[ -n "$model" ] && line2="🤖 $model"
+[ -n "$effort" ] && line2="${line2:+$line2$sep}$effort"
+$in_nono && line2="${line2:+$line2$sep}${bold_green}🛡️ nono${reset}"
+
+# Line 3, what it costs: context bar, cost, time, rate limits
+line3=""
 if [ -n "$used" ]; then
   pct=$(printf '%.0f' "$used")
   filled=$((pct / 10)); [ "$filled" -gt 10 ] && filled=10
   bar=""
   [ "$filled" -gt 0 ] && printf -v fill "%${filled}s" && bar="${fill// /▓}"
   [ "$filled" -lt 10 ] && printf -v pad "%$((10 - filled))s" && bar="${bar}${pad// /░}"
-  line2="$(pct_color "$used")${bar} ${pct}%${reset}"
+  line3="$(pct_color "$used")${bar} ${pct}%${reset}"
 fi
-
-if [ -n "$cost" ]; then
-  line2="${line2:+$line2 | }${yellow}💰 $(printf '$%.2f' "$cost")${reset}"
-fi
-
+[ -n "$cost" ] && line3="${line3:+$line3$sep}${yellow}💰 $(printf '$%.2f' "$cost")${reset}"
 if [ -n "$duration_ms" ]; then
   secs=$((${duration_ms%.*} / 1000))
   if [ "$secs" -ge 3600 ]; then elapsed="$((secs / 3600))h $(printf '%02d' $((secs % 3600 / 60)))m"
   else elapsed="$((secs / 60))m $((secs % 60))s"; fi
-  line2="${line2:+$line2 | }⏱️ ${elapsed}"
+  line3="${line3:+$line3$sep}⏱️ ${elapsed}"
 fi
 
-# Subscription usage limits (absent for API-key sessions and before the first response)
+# Subscription limits (absent for API-key sessions and before the first response), each with its reset time
+limits=""
 if [ -n "$five_pct" ]; then
-  line2="${line2:+$line2 | }$(pct_color "$five_pct")5h: $(printf '%.0f' "$five_pct")%${reset}"
-  [ -n "$five_reset" ] && [ "${five_pct%.*}" -ge 50 ] && line2="$line2 ($(fmt_epoch "$five_reset" '%H:%M'))"
+  limits="$(pct_color "$five_pct")5h $(printf '%.0f' "$five_pct")%${reset}"
+  [ -n "$five_reset" ] && limits="$limits ↻ $(fmt_epoch "$five_reset" '%H:%M')"
 fi
-
 if [ -n "$week_pct" ]; then
-  line2="${line2:+$line2 | }$(pct_color "$week_pct")7d: $(printf '%.0f' "$week_pct")%${reset}"
-  [ -n "$week_reset" ] && [ "${week_pct%.*}" -ge 50 ] && line2="$line2 ($(fmt_epoch "$week_reset" '%a %H:%M'))"
+  limits="${limits:+$limits$sep}$(pct_color "$week_pct")7d $(printf '%.0f' "$week_pct")%${reset}"
+  [ -n "$week_reset" ] && limits="$limits ↻ $(fmt_epoch "$week_reset" '%a %H:%M')"
 fi
+[ -n "$limits" ] && line3="${line3:+$line3$sep}⌛ $limits"
 
 printf '%s\n' "$line1"
 [ -n "$line2" ] && printf '%s\n' "$line2"
+[ -n "$line3" ] && printf '%s\n' "$line3"
 exit 0
