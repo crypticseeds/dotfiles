@@ -15,7 +15,8 @@
       "~/.local/state/agent-gh"
     ],
     "read": [
-      "$XDG_STATE_HOME/herdr-core/default/files"
+      "$XDG_STATE_HOME/herdr-core/default/files",
+      "~/.local/share/gh/extensions"
     ],
     "unix_socket": [
       "$XDG_RUNTIME_DIR/herdr-core/default.sock",
