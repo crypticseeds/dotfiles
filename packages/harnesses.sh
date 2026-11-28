@@ -33,4 +33,8 @@ have herdr || curl -fsSL https://herdr.dev/install.sh | sh
 # Through npm, not bun.sh/install, which appends to the stowed .zshrc.
 if ! have bun && have npm; then npm_config_prefix="$HOME/.local" npm install -g bun; fi
 
+# gh-stack: GitHub's native stacked PRs (AGENTS.md uses it; the gh-stack skill comes from the manifest).
+# Needs a logged-in gh; agents cannot install gh extensions (guard), so this runs from your shell.
+if have gh && ! gh extension list 2>/dev/null | grep -q 'github/gh-stack'; then gh extension install github/gh-stack; fi
+
 exit 0

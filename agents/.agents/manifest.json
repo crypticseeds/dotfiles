@@ -19,6 +19,12 @@
       "ref": "928c3b61f71b578b1bcfbacc289f1446244dd9dd"
     },
     {
+      "name": "gh-stack",
+      "repo": "github/gh-stack",
+      "path": "skills/gh-stack",
+      "ref": "80b6d6e910cc1b7eaa26b961d7721ade21084fed"
+    },
+    {
       "name": "herdr",
       "repo": "herdrdev/herdr",
       "path": "skills/herdr",
