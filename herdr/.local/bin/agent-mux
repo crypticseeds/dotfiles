@@ -51,6 +51,7 @@ Herdr Core (herdr-app) hosts this session. Delegated agents and long or backgrou
 - Delegated agent (subagent, scout, reviewer, implementer): hc run --bg --name <slug> --cwd <dir> <template-or-agent> "<task>". Check hc templates first. Explicit model, interactive launch.
 - Test suite, build, server, watcher, local CI: hc run --bg --name <job> --cwd <dir> -- <command>. Then hc wait <job> and hc read --lines 80 <job>.
 - Never use run_in_background, a shell &, or the Agent/Task/Workflow tool for these. Quick commands (ls, cat, git status) stay normal tool calls.
+- Parallel work: each task gets its own worktree (git worktree add .worktrees/<slug> -b agent/<slug>, then agent-worktree-setup .worktrees/<slug>) and its own visible worker: hc run --bg --name <slug> --cwd .worktrees/<slug> agent-launch --subagent <harness> -- <native args>. Never cd into or edit files in another worktree yourself (refused); inspect and verify with git -C <worktree>, and commit verified work there.
 - Details: load the herdr-app skill and run hc --skill.
 EOF
 }

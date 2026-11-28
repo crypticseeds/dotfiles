@@ -19,3 +19,5 @@ agents/.agents/skills/amazon-bedrock/
 agents/.agents/skills/launch-with-aws/
 agents/.agents/skills/setting-up-cloudwatch-observability/
 agents/.agents/skills/signing-in-to-aws/
+# Python bytecode cache, written whenever a script here is imported (tests, agents)
+__pycache__/

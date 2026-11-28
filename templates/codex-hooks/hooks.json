@@ -12,7 +12,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "^spawn_agent$",
+        "matcher": "^(spawn_agent|Bash|apply_patch|.*create_pull_request)$",
         "hooks": [
           {
             "command": "/home/ai/.local/bin/agent-route check",

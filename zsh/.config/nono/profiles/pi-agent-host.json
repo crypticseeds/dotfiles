@@ -1,12 +1,82 @@
 {
-  "meta": {"name": "pi-agent-host", "version": "0.2.0"},
-  "extends": "agent-base",
-  "workdir": {"access": "readwrite"},
-  "linux": {"af_unix_mediation": "pathname"},
-  "filesystem": {
-    "read": ["$XDG_STATE_HOME/herdr-core/default/files"],
-    "unix_socket": ["$XDG_RUNTIME_DIR/herdr-core/default.sock", "/run/docker.sock"],
-    "unix_socket_subtree": ["$XDG_CONFIG_HOME/herdr/sessions"]
+  "meta": {
+    "name": "pi-agent-host",
+    "version": "0.3.0"
   },
-  "security": {"capability_elevation": false}
+  "extends": "agent-base",
+  "workdir": {
+    "access": "readwrite"
+  },
+  "linux": {
+    "af_unix_mediation": "pathname"
+  },
+  "filesystem": {
+    "allow": [
+      "~/.local/state/agent-gh"
+    ],
+    "read": [
+      "$XDG_STATE_HOME/herdr-core/default/files",
+      "~/.local/share/gh/extensions"
+    ],
+    "unix_socket": [
+      "$XDG_RUNTIME_DIR/herdr-core/default.sock",
+      "/run/docker.sock"
+    ],
+    "unix_socket_subtree": [
+      "$XDG_CONFIG_HOME/herdr/sessions"
+    ]
+  },
+  "environment": {
+    "set_vars": {
+      "GH_CONFIG_DIR": "$HOME/.local/state/agent-gh",
+      "AGENT_SANDBOX": "nono"
+    }
+  },
+  "network": {
+    "custom_credentials": {
+      "gh_api": {
+        "upstream": "https://api.github.com",
+        "credential_key": "cmd://gh_api",
+        "env_var": "GH_TOKEN",
+        "credential_format": "token {}",
+        "phantom_format": "ghp_{}"
+      },
+      "gh_git": {
+        "upstream": "https://github.com",
+        "credential_key": "cmd://gh_git",
+        "inject_mode": "basic_auth",
+        "env_var": "GH_TOKEN",
+        "phantom_format": "ghp_{}"
+      }
+    }
+  },
+  "credential_capture": {
+    "gh_api": {
+      "command": [
+        "/usr/bin/doppler",
+        "secrets",
+        "get",
+        "GH_TOKEN",
+        "--plain",
+        "--project",
+        "harness",
+        "--config",
+        "dev"
+      ],
+      "timeout_secs": 15,
+      "cache_ttl_secs": 900
+    },
+    "gh_git": {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "t=$(/usr/bin/doppler secrets get GH_TOKEN --plain --project harness --config dev) && [ -n \"$t\" ] && printf 'x-access-token:%s' \"$t\""
+      ],
+      "timeout_secs": 15,
+      "cache_ttl_secs": 900
+    }
+  },
+  "security": {
+    "capability_elevation": false
+  }
 }

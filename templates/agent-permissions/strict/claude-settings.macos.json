@@ -1176,7 +1176,7 @@
         ]
       },
       {
-        "matcher": "Bash|Agent|Task|Workflow",
+        "matcher": "Bash|Agent|Task|Workflow|Edit|Write|MultiEdit|NotebookEdit|mcp__.*create_pull_request",
         "hooks": [
           {
             "type": "command",
