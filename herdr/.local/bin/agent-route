@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""agent-route: keep delegated agents and long or background jobs on the multiplexer that hosts the session.
+"""agent-route: keep delegated agents and long or background jobs on the multiplexer that hosts the session,
+pull requests stacked, and work in another worktree with that worktree's own worker.
 
 One script for every harness hook, plugin and extension (Claude, Codex, opencode, omp). The host comes from
 `agent-mux` (herdr-app, herdr or none); the rule text from `agent-mux --rules`; the redirect messages from
 the HOSTS table below. Adding a host (rex) is one agent-mux branch, one rules function there and one HOSTS entry.
+Every host also gets STACK_RULE: a plain `gh pr create` (or the GitHub MCP create_pull_request tool) is refused
+in favour of `gh stack`. Under Herdr Core, `cd` into or editing files in another worktree is refused: that
+worktree's work belongs to a visible hc worker; `git -C <worktree>` stays allowed for inspecting and committing.
 
   agent-route session-start     SessionStart hook (Claude, Codex): print the rules as additionalContext JSON
   agent-route rules             print the rules for this host (nothing for none), for plugins that inject text
@@ -35,8 +39,25 @@ NEGATIVE_TTL = 300
 DELEGATION_TOOLS = {"agent", "task", "workflow", "spawn_agent"}
 # Background flags of the shell tool: Claude run_in_background, opencode background, omp async.
 BACKGROUND_KEYS = ("run_in_background", "background", "async")
-BASH_TOOLS = {"bash"}
+BASH_TOOLS = {"bash", "shell"}
+# File-editing tools: Claude Edit/Write/MultiEdit/NotebookEdit, opencode edit/write/patch, omp edit/write,
+# Codex apply_patch.
+EDIT_TOOLS = {"edit", "write", "multiedit", "notebookedit", "patch", "apply_patch"}
 ENV_ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# Commands that run another command after their own arguments (`hc run ... -- gh pr create`).
+WRAPPERS = {"hc", "herdr", "env", "command", "time", "nohup", "sudo", "doppler"}
+SEGMENT = re.compile(r"&&|\|\||[;&|\n()`]|\$\(")
+# Worktree roots: <repo>/.worktrees/<name>, <repo>/.claude/worktrees/<name>, ~/.herdr/worktrees/<repo>/<name>
+WORKTREE = re.compile(r"^(.*?/(?:\.worktrees|\.claude/worktrees)/[^/]+|.*?/\.herdr/worktrees/[^/]+/[^/]+)(?:/|$)")
+PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.M)
+
+STACK_RULE = (
+    "Pull requests are always stacked with GitHub's native stacks (`gh stack`, see the gh-stack skill), even a "
+    "single PR: `gh stack init <branch>` (adopts an existing branch), `gh stack add <next-branch>` for each further "
+    "layer, `gh stack submit --auto --open` to push and open the PRs, `gh stack sync` to stay current. A plain "
+    "`gh pr create` and the GitHub MCP create_pull_request tool are refused. Independent tasks get their own stack; "
+    "dependent steps are layers of one stack. Merge (`gh stack merge`) only when the user asks. If gh stack exits 9 "
+    "(stacks not enabled on the repository), stop and tell the user.")
 
 
 def _hc_job(cwd, command):
@@ -133,7 +154,8 @@ def host():
 
 def rules():
     name = host()
-    return run_mux("--rules", name).strip() if name != "none" else ""
+    text = run_mux("--rules", name).strip() if name != "none" else ""
+    return (text + "\n\n" + STACK_RULE).strip()
 
 
 def goes_through_multiplexer(command):
@@ -169,6 +191,99 @@ def route(tool, tool_input, cwd, name):
             "commands stay normal. %s" % (entry["label"][0].upper() + entry["label"][1:], what, how, entry["see"]))
 
 
+def segments(command):
+    """The command's simple commands as word lists (split on ; && || | & newlines and subshells)."""
+    for seg in SEGMENT.split(command or ""):
+        try:
+            words = shlex.split(seg)
+        except ValueError:
+            words = seg.split()
+        while words and ENV_ASSIGN.match(words[0]):
+            words = words[1:]
+        if words:
+            yield words
+
+
+def runs_pr_create(command):
+    """True when a simple command runs `gh ... pr create`, directly or after a wrapper (`hc run ... -- gh ...`)."""
+    for words in segments(command):
+        starts = [0]
+        if os.path.basename(words[0]) in WRAPPERS:
+            starts = [i + 1 for i, w in enumerate(words) if w == "--"] or [i for i, w in enumerate(words) if w == "gh"]
+        for i in starts:
+            if i >= len(words) or os.path.basename(words[i]) != "gh":
+                continue
+            rest, skip = [], False
+            for w in words[i + 1:]:
+                if skip:
+                    skip = False
+                elif w in ("-R", "--repo", "--hostname"):  # gh flags that take a separate value
+                    skip = True
+                elif not w.startswith("-"):
+                    rest.append(w)
+            if rest[:2] == ["pr", "create"]:
+                return True
+    return False
+
+
+def stack_reason(tool, tool_input):
+    """The redirect message for a plain PR creation, on every host, or None."""
+    if "create_pull_request" in tool:
+        what = "the %s tool" % tool
+    elif tool in BASH_TOOLS and runs_pr_create(str(tool_input.get("command") or "")):
+        what = "`gh pr create`"
+    else:
+        return None
+    return ("Pull requests are always stacked here, so %s is refused. Use GitHub's native stacks (gh-stack skill), "
+            "even for a single PR: `gh stack init <current-branch>` (adopts the branch with its commits), then "
+            "`gh stack submit --auto --open`; edit the generated title or body afterwards with `gh pr edit`. Add more "
+            "layers with `gh stack add <next-branch>`. If gh stack exits 9, stacks are not enabled on this repository: "
+            "stop and tell the user." % what)
+
+
+def worktree_root(path, cwd):
+    """The worktree root that path lies in (resolved against cwd, ~ expanded), or None for no worktree."""
+    if not path:
+        return None
+    full = os.path.normpath(os.path.join(cwd or os.getcwd(), os.path.expanduser(path)))
+    m = WORKTREE.match(full)
+    return m.group(1) if m else None
+
+
+def edit_targets(tool, tool_input):
+    """The paths a file-editing call writes to."""
+    paths = [tool_input.get(k) for k in ("file_path", "filePath", "path", "notebook_path")]
+    if tool in ("apply_patch", "patch"):
+        text = " ".join(str(tool_input.get(k) or "") for k in ("command", "patch", "input", "patchText"))
+        paths += PATCH_FILE.findall(text)
+    return [p for p in paths if isinstance(p, str) and p]
+
+
+def cd_targets(command):
+    """The directories a shell command changes into (cd / pushd)."""
+    return [words[1] for words in segments(command) if words[0] in ("cd", "pushd") and len(words) > 1]
+
+
+def worktree_reason(tool, tool_input, cwd):
+    """Under Herdr Core: the redirect message for working in another worktree, or None."""
+    if tool in EDIT_TOOLS:
+        targets, what = edit_targets(tool, tool_input), "editing files"
+    elif tool in BASH_TOOLS:
+        targets, what = cd_targets(str(tool_input.get("command") or "")), "changing into it"
+    else:
+        return None
+    mine = worktree_root(cwd, cwd)
+    for target in targets:
+        root = worktree_root(target, cwd)
+        if root and root != mine:
+            return ("%s is another worktree, so %s here is refused: its work belongs to a visible worker. Start one "
+                    "with hc run --bg --name <slug> --cwd %s agent-launch --subagent <harness> -- <native args> "
+                    "(explicit model; run agent-worktree-setup %s first for a new worktree). You may still inspect and "
+                    "verify with git -C %s (status, diff, log) and commit verified work there."
+                    % (root, what, shlex.quote(root), shlex.quote(root), shlex.quote(root)))
+    return None
+
+
 def read_payload():
     data = json.load(sys.stdin)
     if not isinstance(data, dict):
@@ -184,11 +299,13 @@ def cmd_check(neutral):
         if not isinstance(tool_input, dict) or not isinstance(tool, str):
             return 0
         t = tool.lower()
-        if t not in DELEGATION_TOOLS and t not in BASH_TOOLS:
-            return 0  # cheapest exit: no host detection for tools we never route
-        if t in BASH_TOOLS and not any(tool_input.get(k) is True for k in BACKGROUND_KEYS):
-            return 0
-        reason = route(tool, tool_input, cwd, host())
+        reason = stack_reason(t, tool_input)  # every host, no host detection needed
+        if not reason and t in DELEGATION_TOOLS | BASH_TOOLS | EDIT_TOOLS:
+            name = host()
+            if t in BASH_TOOLS and any(tool_input.get(k) is True for k in BACKGROUND_KEYS) or t in DELEGATION_TOOLS:
+                reason = route(tool, tool_input, cwd, name)
+            if not reason and name == "herdr-app":
+                reason = worktree_reason(t, tool_input, cwd)
     except Exception:
         return 0
     if not reason:

@@ -1,9 +1,10 @@
 // omp extension: multiplexer routing (docs/plans/mux-routing-enforcement.md). Inside Herdr Core or the Herdr
 // TUI, delegated agents and long or background jobs run as visible multiplexer children, not as omp's own.
 //  - before_agent_start appends the host's rules (agent-route rules) to the system prompt of every prompt, so
-//    they survive resume and compaction. Nothing is added outside Herdr.
-//  - tool_call blocks the `task` (subagent) tool and bash with `async: true`; the reason is the redirect
-//    message with the exact hc / herdr command, returned to the model as the tool error.
+//    they survive resume and compaction. Outside Herdr that is only the stacked-PR rule.
+//  - tool_call blocks the `task` (subagent) tool and bash with `async: true`, a plain `gh pr create` or MCP
+//    create_pull_request, and (Herdr Core) changing into or editing another worktree; the reason is the redirect
+//    message with the exact hc / herdr / gh stack command, returned to the model as the tool error.
 // Install: regen-agent-host.sh copies this file to ~/.omp/agent/extensions/mux-route.ts (omp loads every .ts
 // file in that directory; restart omp); elsewhere copy it by hand. Not a security boundary, so it fails open:
 // agent-route (herdr/.local/bin, stowed to ~/.local/bin) not installed, a spawn error, a timeout or any exit
@@ -36,9 +37,11 @@ export default function muxRoute(omp: ExtensionAPI): void {
     return { systemPrompt: [...event.systemPrompt, text] }
   })
   omp.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== "task" && event.toolName !== "bash") return undefined
+    // bash always (background routing, `gh pr create`, cd into another worktree), task, edit/write (another
+    // worktree) and any MCP create_pull_request tool.
+    const name = event.toolName
+    if (!["task", "bash", "edit", "write"].includes(name) && !name.includes("create_pull_request")) return undefined
     const input = event.input as { async?: boolean; cwd?: string }
-    if (event.toolName === "bash" && input.async !== true) return undefined
     if (!existsSync(ROUTE)) return undefined
     const run = spawnSync("python3", [ROUTE, "check", "--neutral"], {
       input: JSON.stringify({ tool: event.toolName, input, cwd: input.cwd ?? ctx.cwd, harness: "omp" }),

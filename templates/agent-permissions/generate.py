@@ -458,8 +458,10 @@ ROUTE_SESSION_HOOK = {
     "matcher": "startup|resume|clear|compact",
     "hooks": [{"type": "command", "command": _ROUTE % "session-start", "timeout": 20}],
 }
+# Bash, Agent, Task, Workflow: multiplexer routing and `gh pr create`; Edit, Write, MultiEdit, NotebookEdit: editing
+# another worktree under Herdr Core; mcp__*create_pull_request: a PR opened past `gh stack`.
 ROUTE_PRETOOL_HOOK = {
-    "matcher": "Bash|Agent|Task|Workflow",
+    "matcher": "Bash|Agent|Task|Workflow|Edit|Write|MultiEdit|NotebookEdit|mcp__.*create_pull_request",
     "hooks": [{"type": "command", "command": _ROUTE % "check", "timeout": 20}],
 }
 
@@ -1787,10 +1789,13 @@ def check():
     for where in hosts_env:
         out = route_run(ROUTE_SESSION_HOOK, {"hook_event_name": "SessionStart", "source": "resume"}, where)
         got = json.loads(out)["hookSpecificOutput"] if out else None
-        expect("[route session hook] %s" % where, None if where == "none" else "SessionStart",
-               got and got["hookEventName"])
+        expect("[route session hook] %s" % where, "SessionStart", got and got["hookEventName"])
+        expect("[route session hook] %s injects the stack rule" % where, True,
+               bool(got) and "gh stack submit --auto --open" in got["additionalContext"])
         expect("[route session hook] %s rules mention the host command" % where,
-               None if where == "none" else True, got and ("hc run --bg" if where == "herdr-app" else "herdr agent start") in got["additionalContext"])
+               where != "none", bool(got) and ("hc run --bg" if where == "herdr-app" else "herdr agent start") in got["additionalContext"])
+        expect("[route session hook] %s worktree rule only under Herdr Core" % where,
+               where == "herdr-app", bool(got) and "Never cd into or edit files in another worktree" in got["additionalContext"])
     bg = {"command": "npm test", "run_in_background": True}
     for where, tool, tool_input, denied, cmd in (
             ("herdr-app", "Bash", bg, True, "hc run --bg --name <slug> --cwd"),
@@ -1800,7 +1805,19 @@ def check():
             ("none", "Bash", bg, False, ""), ("none", "Agent", {}, False, ""),
             ("herdr-app", "Bash", {"command": "ls"}, False, ""),
             ("herdr-app", "Bash", {"command": "hc run --bg --name x -- npm test", "run_in_background": True}, False, ""),
-            ("herdr", "Bash", {"command": "herdr agent wait w", "run_in_background": True}, False, "")):
+            ("herdr", "Bash", {"command": "herdr agent wait w", "run_in_background": True}, False, ""),
+            # stacked PRs, on every host
+            ("none", "Bash", {"command": "gh pr create --fill"}, True, "gh stack init <current-branch>"),
+            ("herdr-app", "Bash", {"command": "git push && gh -R o/r pr create"}, True, "gh stack submit --auto --open"),
+            ("none", "mcp__mcphub-dev__github-create_pull_request", {}, True, "gh stack init"),
+            ("none", "Bash", {"command": "gh stack submit --auto --open"}, False, ""),
+            ("none", "Bash", {"command": "git commit -m 'use gh pr create'"}, False, ""),
+            # another worktree, under Herdr Core only
+            ("herdr-app", "Bash", {"command": "cd .worktrees/feat-a && npm test"}, True, "agent-launch --subagent"),
+            ("herdr-app", "Edit", {"file_path": str(root / ".worktrees" / "feat-a" / "x.py")}, True, "git -C"),
+            ("herdr-app", "Bash", {"command": "git -C .worktrees/feat-a diff"}, False, ""),
+            ("herdr-app", "Edit", {"file_path": str(root / "x.py")}, False, ""),
+            ("none", "Bash", {"command": "cd .worktrees/feat-a"}, False, "")):
         out = route_run(ROUTE_PRETOOL_HOOK, {"tool_name": tool, "tool_input": tool_input, "cwd": str(root)}, where)
         reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"] if out else ""
         expect("[route hook] %s %s %s" % (where, tool, tool_input.get("command", "")), denied, bool(out) and cmd in reason)
