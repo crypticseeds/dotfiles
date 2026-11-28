@@ -1420,7 +1420,9 @@
         "index.docker.io",
         "production.cloudflare.docker.com",
         "quay.io",
-        "registry.fedoraproject.org"
+        "registry.fedoraproject.org",
+        "*.modal.com",
+        "*.modal.run"
       ]
     },
     "excludedCommands": [
@@ -1430,7 +1432,6 @@
       "tofu *",
       "aws *",
       "doppler *",
-      "modal *",
       "gh pr view",
       "gh pr view *",
       "gh pr list",

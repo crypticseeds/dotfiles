@@ -75,7 +75,7 @@ SECRET_PATHS_HOME = [  # both OSes
     "~/.docker/config.json", "~/.npmrc", "~/.pypirc", "~/.netrc",
     "~/.git-credentials", "~/.config/gh/hosts.yml", "~/.doppler/**",
     "~/.config/magpie/**", "~/.config/agentgateway/secrets/**",
-    "~/.modal.toml",  # Modal token secret; `modal` reads it itself (SANDBOX_EXCLUDED)
+    "~/.modal.toml",  # the owner's Modal token; agents use their own token from env (see SANDBOX_EXCLUDED)
     "~/.claude/.credentials.json", "~/.codex/auth*",
     "~/.local/share/opencode/auth.json",
     "~/.zsh_history", "~/.bash_history",
@@ -236,6 +236,8 @@ ALLOWED_DOMAINS = [
     "pypi.org", "files.pythonhosted.org",
     "registry-1.docker.io", "auth.docker.io", "index.docker.io",
     "production.cloudflare.docker.com", "quay.io", "registry.fedoraproject.org",
+    # Modal: API (gRPC), and web endpoints served by `modal serve` / `modal deploy`
+    "*.modal.com", "*.modal.run",
 ]
 # Run outside the sandbox. They still go through the permission rules above, which is where the
 # secret guardrails live. Two reasons:
@@ -254,9 +256,11 @@ GH_READ = [
 # The pre-edit sync every agent runs (AGENTS.md): exact form only, no other `git pull`. Outside the
 # sandbox for the same reason as gh: the credentials (doppler helper, SSH keys) are hidden in it.
 GIT_SYNC = "git pull --rebase --autostash"
-# modal: its token lives in ~/.modal.toml, which the sandbox hides (SECRET_PATHS_HOME); outside the sandbox
-# `modal run/serve/deploy` reads it itself, while the deny rules keep its secret-printing forms refused.
-SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *", "modal *"] + \
+# modal stays INSIDE the sandbox: `modal run` executes the app's local Python on this host, so outside the
+# sandbox agent-written code could read ~/.modal.toml (the owner's token, SECRET_PATHS_HOME) or ~/.ssh.
+# Agents get their own revocable Modal service-user token instead, as MODAL_TOKEN_ID/MODAL_TOKEN_SECRET
+# from Doppler (agent-env, agent-launch); modal's proxy support needs python-socks (packages/harnesses.sh).
+SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"] + \
     [p for c in GH_READ for p in (c, c + " *")] + [GIT_SYNC]
 
 # --------------------------------------------------------------------------

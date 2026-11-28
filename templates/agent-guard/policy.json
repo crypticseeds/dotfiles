@@ -118,7 +118,6 @@
     "tofu *",
     "aws *",
     "doppler *",
-    "modal *",
     "git *",
     "gh *",
     "git-in *",
