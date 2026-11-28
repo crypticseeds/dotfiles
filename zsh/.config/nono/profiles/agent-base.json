@@ -9,7 +9,9 @@
       "~/.cache/pre-commit",
       "~/.coderabbit/reviews",
       "~/.coderabbit/logs",
-      "~/.cache/agent-usage"
+      "~/.cache/agent-usage",
+      "~/go/pkg",
+      "~/.cache/go-build"
     ],
     "deny": [
       "~/.doppler",

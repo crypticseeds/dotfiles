@@ -1778,6 +1778,8 @@
       "~/.cache/pnpm/*": "allow",
       "~/.coderabbit/reviews/*": "allow",
       "~/.coderabbit/logs/*": "allow",
+      "~/go/pkg/*": "allow",
+      "~/.cache/go-build/*": "allow",
       "~/REPOS/*/.claude/settings.json": "deny",
       "~/REPOS/*/.claude/settings.json/*": "deny",
       "~/REPOS/*/.claude/settings.local.json": "deny",

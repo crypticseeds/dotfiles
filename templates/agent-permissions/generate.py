@@ -606,7 +606,10 @@ AGENT_HOST_HOOKS_PATHS = {"~/REPOS/tfl-journey-expense-calculator": ".husky/_"}
 # ~/.coderabbit: auth.json stays read-only.
 AGENT_HOST_REPO_ROOTS = ["~/REPOS", "~/.herdr/worktrees"]
 AGENT_HOST_WRITE = AGENT_HOST_REPO_ROOTS + ["~/.cache/pre-commit", "~/.cache/uv", "~/.local/share/pnpm",
-                                          "~/.cache/pnpm", "~/.coderabbit/reviews", "~/.coderabbit/logs"]
+                                          "~/.cache/pnpm", "~/.coderabbit/reviews", "~/.coderabbit/logs",
+                                          # Go: module + checksum-db caches (~/go/pkg) and the build cache; ~/go/bin
+                                          # stays read-only, so `go install` cannot plant a program
+                                          "~/go/pkg", "~/.cache/go-build"]
 # Mid-path write globs are unsupported by the Linux Bash sandbox. Keep them for file tools
 # and the macOS sandbox, where a wildcard can cover repos created after launch.
 # Claude protects the config of the project it runs in, not of sibling repos. Writable, these

@@ -16,7 +16,8 @@
     ],
     "read": [
       "$XDG_STATE_HOME/herdr-core/default/files",
-      "~/.local/share/gh/extensions"
+      "~/.local/share/gh/extensions",
+      "~/.local/go"
     ],
     "unix_socket": [
       "$XDG_RUNTIME_DIR/herdr-core/default.sock",
