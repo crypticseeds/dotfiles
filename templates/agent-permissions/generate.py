@@ -75,6 +75,7 @@ SECRET_PATHS_HOME = [  # both OSes
     "~/.docker/config.json", "~/.npmrc", "~/.pypirc", "~/.netrc",
     "~/.git-credentials", "~/.config/gh/hosts.yml", "~/.doppler/**",
     "~/.config/magpie/**", "~/.config/agentgateway/secrets/**",
+    "~/.modal.toml",  # Modal token secret; `modal` reads it itself (SANDBOX_EXCLUDED)
     "~/.claude/.credentials.json", "~/.codex/auth*",
     "~/.local/share/opencode/auth.json",
     "~/.zsh_history", "~/.bash_history",
@@ -179,7 +180,7 @@ PATH_MENTIONS = [
     "*.aws/credentials*", "*.aws/sso*", "*.aws/cli/cache*", "*.ssh/id_*",
     "*.gnupg*", "*.kube/*", "* kubeconfig*", "*/kubeconfig*", "*.kubeconfig*", "*.netrc*",
     "*.git-credentials*", "*.config/gh/*", "*.config/gcloud*", "*.azure/*",
-    "*.docker/config.json*", "*.npmrc*", "*.pypirc*", "*.doppler*", "*.vault_pass*",
+    "*.docker/config.json*", "*.npmrc*", "*.pypirc*", "*.doppler*", "*.modal.toml*", "*.vault_pass*",
     "*vault-pass*", "*Library/Keychains*", "*Library/Messages*", "*Library/Mail*",
     "*Library/Passes*", "*Library/Cookies*", "*Library/Safari*",
     "*chat.db*", "*Login Data*", "*key4.db*", "*logins.json*",
@@ -253,7 +254,9 @@ GH_READ = [
 # The pre-edit sync every agent runs (AGENTS.md): exact form only, no other `git pull`. Outside the
 # sandbox for the same reason as gh: the credentials (doppler helper, SSH keys) are hidden in it.
 GIT_SYNC = "git pull --rebase --autostash"
-SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"] + \
+# modal: its token lives in ~/.modal.toml, which the sandbox hides (SECRET_PATHS_HOME); outside the sandbox
+# `modal run/serve/deploy` reads it itself, while the deny rules keep its secret-printing forms refused.
+SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *", "modal *"] + \
     [p for c in GH_READ for p in (c, c + " *")] + [GIT_SYNC]
 
 # --------------------------------------------------------------------------
@@ -268,6 +271,11 @@ DENY_BASH = [
     "doppler secrets", "doppler configure", "doppler *--plain*",
     "doppler run *-- env", "doppler run *-- env *", "doppler run *-- printenv*",
     "doppler run *-- export*",
+    # Modal: config show redacts the token secret unless --no-redact; token info prints the token's identity
+    # (owner decision 2026-11-28); token set/new, setup and the hidden config set write credentials, which stays
+    # with the owner. run/serve/deploy/... are fine.
+    "modal config show *--no-redact*", "modal token info", "modal config set", "modal token set", "modal token new",
+    "modal setup",
     "docker inspect", "docker exec * env*", "systemctl show", "systemctl cat",
     "security", "secret-tool", "op", "bw", "lpass", "pass show", "keepassxc-cli",
     "pbpaste", "xclip -o", "xsel -o", "wl-paste", "defaults read", "log show",
@@ -341,7 +349,7 @@ SECRET_PRINT_BASH = [
     "=env", "printenv", "=export -p", "=set", "declare -p", "declare -x", "typeset -x", "cat /proc/*/environ*",
     "gh auth token", "gh auth status *-t*", "gh auth status *--show-token*",
     "doppler configure", "doppler *--plain*", "doppler run *-- env", "doppler run *-- env *",
-    "doppler run *-- printenv*", "doppler run *-- export*",
+    "doppler run *-- printenv*", "doppler run *-- export*", "modal config show *--no-redact*", "modal token info",
     "systemctl show", "secret-tool", "pbpaste", "xclip -o", "xsel -o", "wl-paste",
     "aws configure get", "aws configure export-credentials", "aws sts get-session-token", "aws sts assume-role*",
     "aws sts get-federation-token", "aws sso get-role-credentials",

@@ -78,6 +78,28 @@ bash:
       approval: deny
     - match: "doppler run *-- export*"
       approval: deny
+    - match: "modal config show *--no-redact*"
+      approval: deny
+    - match: "modal token info"
+      approval: deny
+    - match: "modal token info *"
+      approval: deny
+    - match: "modal config set"
+      approval: deny
+    - match: "modal config set *"
+      approval: deny
+    - match: "modal token set"
+      approval: deny
+    - match: "modal token set *"
+      approval: deny
+    - match: "modal token new"
+      approval: deny
+    - match: "modal token new *"
+      approval: deny
+    - match: "modal setup"
+      approval: deny
+    - match: "modal setup *"
+      approval: deny
     - match: "docker inspect"
       approval: deny
     - match: "docker inspect *"
@@ -1013,6 +1035,8 @@ bash:
     - match: "*.pypirc*"
       approval: deny
     - match: "*.doppler*"
+      approval: deny
+    - match: "*.modal.toml*"
       approval: deny
     - match: "*.vault_pass*"
       approval: deny
