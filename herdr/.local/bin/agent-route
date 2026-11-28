@@ -56,7 +56,8 @@ STACK_RULE = (
     "single PR: `gh stack init <branch>` (adopts an existing branch), `gh stack add <next-branch>` for each further "
     "layer, `gh stack submit --auto --open` to push and open the PRs, `gh stack sync` to stay current. A plain "
     "`gh pr create` and the GitHub MCP create_pull_request tool are refused. Independent tasks get their own stack; "
-    "dependent steps are layers of one stack. Merge (`gh stack merge`) only when the user asks. If gh stack exits 9 "
+    "dependent steps are layers of one stack. Merge only when the user asks: `gh stack merge <pr> --yes` for a stack "
+    "of two or more PRs; a one-layer stack is a plain PR on GitHub, so `gh pr merge <pr>`. If gh stack exits 9 "
     "(stacks not enabled on the repository), stop and tell the user.")
 
 
