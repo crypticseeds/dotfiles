@@ -29,6 +29,8 @@
       "production.cloudflare.docker.com",
       "quay.io",
       "registry.fedoraproject.org",
+      "*.modal.com",
+      "*.modal.run",
       "mcphub.internal.devopsfoundry.com"
     ]
   }

@@ -70,6 +70,11 @@ if selected:
                "HC_TERMINAL_ID", "MCPHUB_STATE_ID")
     environment = {name: os.environ[name] for name in runtime if name in os.environ}
     for name in selected.split(","):
+        # NAME? = optional: skipped when the config does not have it (e.g. the agent Modal token)
+        optional = name.endswith("?")
+        name = name.rstrip("?")
+        if optional and name not in secrets:
+            continue
         if not name.isascii() or not name.isidentifier() or name != name.upper() or name in runtime or name.startswith(("DOPPLER_", "LD_", "DYLD_", "NONO_", "PYTHON", "NODE_", "BASH_", "GIT_", "XDG_")) or name in ("ENV", "BASH_ENV", "IFS", "SSH_AUTH_SOCK", "GH_TOKEN", "GITHUB_TOKEN"):
             sys.exit(f"agent-env: disallowed worker environment name: {name}")
         if name not in secrets:
@@ -85,7 +90,9 @@ own = os.path.basename(command[0]) == "claude"
 if own:
     for name in gateway + ("ANTHROPIC_AUTH_TOKEN",):
         os.environ.pop(name, None)
-for name in (() if own else gateway) + ("MCPHUB_DEFAULT_KEY",):
+# MODAL_TOKEN_*: the agents own revocable Modal service-user token, so sandboxed `modal` never needs the
+# owners ~/.modal.toml (which the sandbox hides). Injected only when the config has it.
+for name in (() if own else gateway) + ("MCPHUB_DEFAULT_KEY", "MODAL_TOKEN_ID", "MODAL_TOKEN_SECRET"):
     if name in secrets:
         os.environ[name] = secrets[name]
 os.execvp(command[0], command)

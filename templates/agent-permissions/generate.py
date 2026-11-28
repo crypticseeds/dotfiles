@@ -75,6 +75,7 @@ SECRET_PATHS_HOME = [  # both OSes
     "~/.docker/config.json", "~/.npmrc", "~/.pypirc", "~/.netrc",
     "~/.git-credentials", "~/.config/gh/hosts.yml", "~/.doppler/**",
     "~/.config/magpie/**", "~/.config/agentgateway/secrets/**",
+    "~/.modal.toml",  # the owner's Modal token; agents use their own token from env (see SANDBOX_EXCLUDED)
     "~/.claude/.credentials.json", "~/.codex/auth*",
     "~/.local/share/opencode/auth.json",
     "~/.zsh_history", "~/.bash_history",
@@ -179,7 +180,7 @@ PATH_MENTIONS = [
     "*.aws/credentials*", "*.aws/sso*", "*.aws/cli/cache*", "*.ssh/id_*",
     "*.gnupg*", "*.kube/*", "* kubeconfig*", "*/kubeconfig*", "*.kubeconfig*", "*.netrc*",
     "*.git-credentials*", "*.config/gh/*", "*.config/gcloud*", "*.azure/*",
-    "*.docker/config.json*", "*.npmrc*", "*.pypirc*", "*.doppler*", "*.vault_pass*",
+    "*.docker/config.json*", "*.npmrc*", "*.pypirc*", "*.doppler*", "*.modal.toml*", "*.vault_pass*",
     "*vault-pass*", "*Library/Keychains*", "*Library/Messages*", "*Library/Mail*",
     "*Library/Passes*", "*Library/Cookies*", "*Library/Safari*",
     "*chat.db*", "*Login Data*", "*key4.db*", "*logins.json*",
@@ -235,6 +236,8 @@ ALLOWED_DOMAINS = [
     "pypi.org", "files.pythonhosted.org",
     "registry-1.docker.io", "auth.docker.io", "index.docker.io",
     "production.cloudflare.docker.com", "quay.io", "registry.fedoraproject.org",
+    # Modal: API (gRPC), and web endpoints served by `modal serve` / `modal deploy`
+    "*.modal.com", "*.modal.run",
 ]
 # Run outside the sandbox. They still go through the permission rules above, which is where the
 # secret guardrails live. Two reasons:
@@ -253,6 +256,10 @@ GH_READ = [
 # The pre-edit sync every agent runs (AGENTS.md): exact form only, no other `git pull`. Outside the
 # sandbox for the same reason as gh: the credentials (doppler helper, SSH keys) are hidden in it.
 GIT_SYNC = "git pull --rebase --autostash"
+# modal stays INSIDE the sandbox: `modal run` executes the app's local Python on this host, so outside the
+# sandbox agent-written code could read ~/.modal.toml (the owner's token, SECRET_PATHS_HOME) or ~/.ssh.
+# Agents get their own revocable Modal service-user token instead, as MODAL_TOKEN_ID/MODAL_TOKEN_SECRET
+# from Doppler (agent-env, agent-launch); modal's proxy support needs python-socks (packages/harnesses.sh).
 SANDBOX_EXCLUDED = ["docker *", "podman *", "terraform *", "tofu *", "aws *", "doppler *"] + \
     [p for c in GH_READ for p in (c, c + " *")] + [GIT_SYNC]
 
@@ -268,6 +275,11 @@ DENY_BASH = [
     "doppler secrets", "doppler configure", "doppler *--plain*",
     "doppler run *-- env", "doppler run *-- env *", "doppler run *-- printenv*",
     "doppler run *-- export*",
+    # Modal: config show redacts the token secret unless --no-redact; token info prints the token's identity
+    # (owner decision 2026-11-28); token set/new, setup and the hidden config set write credentials, which stays
+    # with the owner. run/serve/deploy/... are fine.
+    "modal config show *--no-redact*", "modal token info", "modal config set", "modal token set", "modal token new",
+    "modal setup",
     "docker inspect", "docker exec * env*", "systemctl show", "systemctl cat",
     "security", "secret-tool", "op", "bw", "lpass", "pass show", "keepassxc-cli",
     "pbpaste", "xclip -o", "xsel -o", "wl-paste", "defaults read", "log show",
@@ -341,7 +353,7 @@ SECRET_PRINT_BASH = [
     "=env", "printenv", "=export -p", "=set", "declare -p", "declare -x", "typeset -x", "cat /proc/*/environ*",
     "gh auth token", "gh auth status *-t*", "gh auth status *--show-token*",
     "doppler configure", "doppler *--plain*", "doppler run *-- env", "doppler run *-- env *",
-    "doppler run *-- printenv*", "doppler run *-- export*",
+    "doppler run *-- printenv*", "doppler run *-- export*", "modal config show *--no-redact*", "modal token info",
     "systemctl show", "secret-tool", "pbpaste", "xclip -o", "xsel -o", "wl-paste",
     "aws configure get", "aws configure export-credentials", "aws sts get-session-token", "aws sts assume-role*",
     "aws sts get-federation-token", "aws sso get-role-credentials",

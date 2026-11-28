@@ -37,4 +37,12 @@ if ! have bun && have npm; then npm_config_prefix="$HOME/.local" npm install -g 
 # Needs a logged-in gh; agents cannot install gh extensions (guard), so this runs from your shell.
 if have gh && ! gh extension list 2>/dev/null | grep -q 'github/gh-stack'; then gh extension install github/gh-stack; fi
 
+# modal (uv tool) with python-socks: modal's gRPC client only honours the sandboxes' HTTPS_PROXY with it;
+# without it, modal inside Claude's sandbox or nono reports "Could not connect". Also repairs an install
+# that lacks the extra.
+modal_py="$HOME/.local/share/uv/tools/modal/bin/python"
+if have uv && ! "$modal_py" -c 'import python_socks' 2>/dev/null; then
+  uv tool install --force modal --with 'python-socks[asyncio]'
+fi
+
 exit 0

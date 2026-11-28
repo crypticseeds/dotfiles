@@ -7,7 +7,8 @@ config=dev_maghub
 # `gateway` = the Doppler LLM gateway. -o / -g override it for one launch.
 declare -A auth_default=([claude]=own [omp]=gateway [opencode]=gateway [codex]=gateway [antigravity]=gateway)
 gateway_names=ANTHROPIC_API_KEY,ANTHROPIC_BASE_URL,OPENAI_API_KEY,OPENAI_BASE_URL
-common_names=MCPHUB_DEFAULT_KEY
+# NAME? = optional (agent-env skips it when the Doppler config lacks it): the agents own Modal token.
+common_names='MCPHUB_DEFAULT_KEY,MODAL_TOKEN_ID?,MODAL_TOKEN_SECRET?'
 auth=
 standalone=false
 extra_names=()
@@ -93,12 +94,16 @@ fi
 if route_target=$(realpath -e -- "$HOME/.local/bin/agent-route" 2>/dev/null); then
   permissions+=(--read "${route_target%/*}")
 fi
-if [[ $profile == claude && -f /etc/claude-code/managed-settings.json ]]; then
-  permissions+=(--read-file /etc/claude-code/managed-settings.json)
+# Grant folders, never single files, for anything replaced while sessions run: Landlock ties a file grant
+# to that file's inode, and `install` (regen-agent-host.sh) and `git pull` replace files with new inodes, so
+# a running session loses the new file ("Permission denied"; verified 2026-11-28). A folder grant covers
+# whatever file is in it now.
+if [[ $profile == claude && -d /etc/claude-code ]]; then
+  permissions+=(--read /etc/claude-code)
 fi
 # The guard hook (claude, opencode, omp) fails closed without its root-owned policy.
-if [[ -f /etc/agent-guard/policy.json ]]; then
-  permissions+=(--read-file /etc/agent-guard/policy.json)
+if [[ -d /etc/agent-guard ]]; then
+  permissions+=(--read /etc/agent-guard)
 fi
 # gh's own config dir (pi-agent-host sets GH_CONFIG_DIR; ~/.config/gh holds a login and stays denied).
 (umask 077; mkdir -p -- "$HOME/.local/state/agent-gh")
@@ -116,8 +121,8 @@ if $use_gh_proxy && $worker; then
     --allow-endpoint 'gh_git:POST:/*/*/git-upload-pack')
 fi
 # opencode's root-owned managed config: unreadable, opencode silently drops its permission layer.
-if [[ $profile == opencode && -f /etc/opencode/opencode.json ]]; then
-  permissions+=(--read-file /etc/opencode/opencode.json)
+if [[ $profile == opencode && -d /etc/opencode ]]; then
+  permissions+=(--read /etc/opencode)
 fi
 # Global instructions, skills and subagents (~/.agents, CLAUDE.md, ~/.claude/{skills,agents}) are stow
 # symlinks into the dotfiles repo, unreadable from any other workspace without this grant.
@@ -130,10 +135,11 @@ if [[ $profile == claude ]]; then
   claude_socket_dir="$HOME/.claude/tmp/claude-$(id -u)"
   (umask 077; mkdir -p -- "$claude_socket_dir")
   permissions+=(--allow-unix-socket-dir-bind "$claude_socket_dir")
-  # The status line script and settings are stow symlinks that resolve outside the workspace.
+  # The status line script and settings are stow symlinks that resolve outside the workspace; their folder,
+  # not the files, since git pull replaces them (see the /etc grants above).
   for claude_file in statusline-command.sh settings.json; do
     if claude_target=$(realpath -e -- "$HOME/.claude/$claude_file" 2>/dev/null); then
-      permissions+=(--read-file "$claude_target")
+      permissions+=(--read "${claude_target%/*}")
     fi
   done
 fi
